@@ -410,13 +410,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """FastAPI lifespan event handler for startup and shutdown"""
-    # === Startup ===
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
     try:
+        # Connect to database
         await db_manager.connect()
-
+        
+        # Set MQTT callbacks
         mqtt_manager.set_callbacks(
             status_cb=handle_status_update,
             location_cb=handle_location_update,
@@ -424,28 +426,31 @@ async def lifespan(app: FastAPI):
             call_cb=handle_call_received,
             notification_cb=handle_notification
         )
-
+        
+        # Connect to MQTT broker
         success = await mqtt_manager.connect()
         if success:
             logger.info("MQTT connection established on startup")
         else:
             logger.warning("Failed to establish MQTT connection on startup")
-
+            
         logger.info("GPS Tracker API started successfully")
-
+        
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
 
-    yield  # App is running
-
-    # === Shutdown ===
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
     try:
+        # Disconnect MQTT
         mqtt_manager.disconnect()
+        
+        # Disconnect database
         await db_manager.disconnect()
+        
         logger.info("GPS Tracker API shutdown completed")
-
+        
     except Exception as e:
         logger.error(f"Error during shutdown: {str(e)}")
-
-# Create app using the lifespan handler
-app = FastAPI(lifespan=lifespan)
