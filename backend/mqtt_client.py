@@ -29,12 +29,12 @@ class MQTTManager:
         
         # Topic mappings
         self.subscribe_topics = [
-            "Tracker/status/",
-            "Tracker/location/", 
-            "Tracker/ringing/",
-            "Tracker/sms/received/",
-            "Tracker/espnow/received/",
-            "Tracker/contacts/"
+            "Tracker/status",
+            "Tracker/location", 
+            "Tracker/ringing",
+            "Tracker/sms/received",
+            "Tracker/espnow/received",
+            "Tracker/contacts"
         ]
 
     def setup_client(self):
@@ -127,17 +127,17 @@ class MQTTManager:
             logger.info(f"Received message on topic {topic}: {payload}")
             
             # Route messages based on topic
-            if topic == "Tracker/status/":
+            if topic == "Tracker/status":
                 self._handle_status_message(payload)
-            elif topic == "Tracker/location/":
+            elif topic == "Tracker/location":
                 self._handle_location_message(payload)
-            elif topic == "Tracker/ringing/":
+            elif topic == "Tracker/ringing":
                 self._handle_call_message(payload)
-            elif topic == "Tracker/sms/received/":
+            elif topic == "Tracker/sms/received":
                 self._handle_sms_message(payload)
-            elif topic == "Tracker/espnow/received/":
+            elif topic == "Tracker/espnow/received":
                 self._handle_espnow_message(payload)
-            elif topic == "Tracker/contacts/":
+            elif topic == "Tracker/contacts":
                 self._handle_contacts_message(payload)
                 
         except Exception as e:
@@ -294,7 +294,7 @@ class MQTTManager:
     # Device control methods
     async def set_device_mode(self, mode: int) -> bool:
         """Set device mode (0-7)"""
-        return await self.publish_command("Tracker/mode/", str(mode))
+        return await self.publish_command("Tracker/mode", str(mode))
 
     async def get_device_status(self) -> bool:
         """Request device status"""
@@ -306,27 +306,27 @@ class MQTTManager:
 
     async def set_led_config(self, config: dict) -> bool:
         """Set LED configuration"""
-        return await self.publish_command("Tracker/set_led/", config)
+        return await self.publish_command("Tracker/set_led", config)
 
     async def set_device_config(self, config: dict) -> bool:
         """Set device configuration"""
-        return await self.publish_command("Tracker/set_config/", config)
+        return await self.publish_command("Tracker/set_config", config)
 
     async def make_call(self, number: str) -> bool:
         """Make device call a number"""
-        return await self.publish_command("Tracker/call/", number)
+        return await self.publish_command("Tracker/call", number)
 
     async def send_sms(self, sms_data: dict) -> bool:
         """Send SMS via device"""
-        return await self.publish_command("Tracker/sms/send/", sms_data)
+        return await self.publish_command("Tracker/sms/send", sms_data)
 
     async def control_buzzer(self, enabled: bool) -> bool:
         """Control device buzzer"""
-        return await self.publish_command("Tracker/scream/", enabled)
+        return await self.publish_command("Tracker/scream", enabled)
 
     async def control_vibrator(self, enabled: bool) -> bool:
         """Control device vibrator"""
-        return await self.publish_command("Tracker/vibrate/", enabled)
+        return await self.publish_command("Tracker/vibrate", enabled)
 
     def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, 
                      call_cb=None, notification_cb=None):

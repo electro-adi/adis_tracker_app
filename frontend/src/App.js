@@ -9,8 +9,7 @@ import SettingsTab from "./components/SettingsTab";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const WS_URL = BACKEND_URL.replace('http', 'ws');
+const WS_URL  = process.env.REACT_APP_BACKEND_URL;
 
 function App() {
   const [activeTab, setActiveTab] = useState('location');
