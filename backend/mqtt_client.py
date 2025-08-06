@@ -7,15 +7,6 @@ import paho.mqtt.client as mqtt
 from pydantic import ValidationError
 from models import DeviceStatus, GpsLocation, SmsMessage, Notification
 
-def run_async_task(coro):
-    """Safely run coroutine from any thread by forwarding it to the main loop."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # We're not in the main thread, get main thread loop
-        loop = asyncio.get_event_loop()
-    loop.call_soon_threadsafe(asyncio.create_task, coro)
-
 logger = logging.getLogger(__name__)
 
 class MQTTManager:
@@ -35,6 +26,7 @@ class MQTTManager:
         self.sms_callback: Optional[Callable] = None
         self.call_callback: Optional[Callable] = None
         self.notification_callback: Optional[Callable] = None
+        self.main_loop: Optional[asyncio.AbstractEventLoop] = None
         
         # Topic mappings
         self.subscribe_topics = [
@@ -45,6 +37,9 @@ class MQTTManager:
             "Tracker/espnow/received",
             "Tracker/contacts"
         ]
+
+    def set_event_loop(self, loop):
+        self.main_loop = loop
 
     def setup_client(self):
         """Setup MQTT client with callbacks"""
@@ -63,6 +58,7 @@ class MQTTManager:
 
     async def connect(self) -> bool:
         """Connect to MQTT broker"""
+        self.main_loop = asyncio.get_running_loop()
         if not self.client:
             self.setup_client()
             
@@ -77,7 +73,10 @@ class MQTTManager:
                 self.client.loop_start()
                 
                 # Wait for connection callback
-                await asyncio.sleep(2)
+                for _ in range(20):  # Try for 2 seconds (20 * 0.1)
+                    if self.connected:
+                        break
+                    await asyncio.sleep(0.1)
                 
                 if self.connected:
                     self.last_connected = datetime.utcnow()
@@ -157,10 +156,10 @@ class MQTTManager:
         try:
             data = json.loads(payload)
             status = DeviceStatus(**data)
-            
-            if self.status_callback:
-                run_async_task(self.status_callback(status))
-                
+
+            if self.main_loop and self.status_callback:
+                asyncio.run_coroutine_threadsafe(self.status_callback(status), self.main_loop)
+
             # Create notification
             notification = Notification(
                 title="Device Status Updated",
@@ -168,10 +167,10 @@ class MQTTManager:
                 type="status",
                 data=data
             )
-            
-            if self.notification_callback:
-                run_async_task(self.notification_callback(notification))
                 
+            if self.main_loop and self.notification_callback:
+                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
+                    
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing status message: {str(e)}")
 
@@ -181,8 +180,8 @@ class MQTTManager:
             data = json.loads(payload)
             location = GpsLocation(**data)
             
-            if self.location_callback:
-                run_async_task(self.location_callback(location))
+            if self.main_loop and self.location_callback:
+                asyncio.run_coroutine_threadsafe(self.location_callback(location), self.main_loop)
                 
             # Create notification
             notification = Notification(
@@ -191,9 +190,10 @@ class MQTTManager:
                 type="location",
                 data=data
             )
-            
-            if self.notification_callback:
-                run_async_task(self.notification_callback(notification))
+
+            if self.main_loop and self.notification_callback:
+                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
+                
                 
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing location message: {str(e)}")
@@ -203,8 +203,8 @@ class MQTTManager:
         try:
             caller_number = payload.strip()
             
-            if self.call_callback:
-                run_async_task(self.call_callback(caller_number))
+            if self.main_loop and self.call_callback:
+                asyncio.run_coroutine_threadsafe(self.call_callback(caller_number), self.main_loop)
                 
             # Create notification
             notification = Notification(
@@ -214,8 +214,8 @@ class MQTTManager:
                 data={"caller": caller_number}
             )
             
-            if self.notification_callback:
-                run_async_task(self.notification_callback(notification))
+            if self.main_loop and self.notification_callback:
+                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
                 
         except Exception as e:
             logger.error(f"Error processing call message: {str(e)}")
@@ -229,9 +229,9 @@ class MQTTManager:
                 message=data.get("sms", ""),
                 type="received"
             )
-            
-            if self.sms_callback:
-                run_async_task(self.sms_callback(sms))
+
+            if self.main_loop and self.sms_callback:
+                asyncio.run_coroutine_threadsafe(self.sms_callback(sms), self.main_loop)
                 
             # Create notification
             notification = Notification(
@@ -241,8 +241,8 @@ class MQTTManager:
                 data=data
             )
             
-            if self.notification_callback:
-                run_async_task(self.notification_callback(notification))
+            if self.main_loop and self.notification_callback:
+                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
                 
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing SMS message: {str(e)}")
@@ -257,8 +257,8 @@ class MQTTManager:
                 data={"espnow_message": payload}
             )
             
-            if self.notification_callback:
-                run_async_task(self.notification_callback(notification))
+            if self.main_loop and self.notification_callback:
+                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
                 
         except Exception as e:
             logger.error(f"Error processing ESP-NOW message: {str(e)}")

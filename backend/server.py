@@ -426,6 +426,8 @@ async def startup_event():
             call_cb=handle_call_received,
             notification_cb=handle_notification
         )
+
+        mqtt_manager.set_event_loop(asyncio.get_running_loop())
         
         # Connect to MQTT broker
         success = await mqtt_manager.connect()
