@@ -52,6 +52,7 @@ model_config = {
 # GPS Location Models
 class GpsLocation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    message: str
     gps_lat: float
     gps_lon: float
     lbs_lat: float

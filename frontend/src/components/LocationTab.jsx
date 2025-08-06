@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon } from 'lucide-react';
@@ -7,19 +7,44 @@ import { useToast } from '../hooks/use-toast';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Fix for default markers in react-leaflet
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+// Colored marker icons
+const redIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
 });
+
+const blueIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const FitBoundsToMarkers = ({ gps, lbs }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!gps || !lbs) return;
+
+    const bounds = L.latLngBounds([gps, lbs]);
+    map.fitBounds(bounds, { padding: [30, 30] });
+  }, [gps, lbs, map]);
+
+  return null;
+};
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const LocationTab = () => {
   const [locationData, setLocationData] = useState({
+    message: "Offline",
     gps_lat: 49.9180204,
     gps_lon: 19.937429,
     lbs_lat: 49.9208907,
@@ -63,28 +88,9 @@ const LocationTab = () => {
   };
 
   const openInGoogleMaps = () => {
-    const url = `https://www.google.com/maps?q=${locationData.lat},${locationData.lon}`;
+    const url = `https://www.google.com/maps?q=${locationData.gps_lat},${locationData.gps_lon}`;
     window.open(url, '_blank');
   };
-
-  /*// Load initial location data
-  useEffect(() => {
-    const loadInitialLocation = async () => {
-      try {
-        const response = await fetch(`${API}/device/location`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.lat && data.lon) {
-            setLocationData(data);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load initial location:', error);
-      }
-    };
-
-    loadInitialLocation();
-  }, []);*/
 
   return (
     <div className="p-6 space-y-6">
@@ -114,7 +120,7 @@ const LocationTab = () => {
         <CardContent className="p-0">
           <div className="h-96 bg-gray-700 rounded-lg relative overflow-hidden">
             <MapContainer
-              center={[locationData.lat, locationData.lon]}
+              center={[locationData.gps_lat, locationData.gps_lon]}
               zoom={15}
               style={{ height: '100%', width: '100%' }}
               className="rounded-lg"
@@ -123,21 +129,38 @@ const LocationTab = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
-              <Marker position={[locationData.gps_lat, locationData.gps_lon]}>
+
+              {/* Auto fit to both markers */}
+              <FitBoundsToMarkers
+                gps={[locationData.gps_lat, locationData.gps_lon]}
+                lbs={[locationData.lbs_lat, locationData.lbs_lon]}
+              />
+
+              {/* GPS Marker - Red */}
+              <Marker
+                position={[locationData.gps_lat, locationData.gps_lon]}
+                icon={redIcon}
+              >
                 <Popup>
                   <div className="text-center">
-                    <strong>GPS Tracker Location</strong><br />
+                    <strong>GPS Location</strong><br />
                     Lat: {locationData.gps_lat}<br />
                     Lon: {locationData.gps_lon}<br />
                     Satellites: {locationData.sats}<br />
                     Speed: {locationData.speed} km/h
+                    Age: {locationData.gps_age}<br />
                   </div>
                 </Popup>
               </Marker>
-              <Marker position={[locationData.lbs_lat, locationData.lbs_lon]}>
+
+              {/* LBS Marker - Blue */}
+              <Marker
+                position={[locationData.lbs_lat, locationData.lbs_lon]}
+                icon={blueIcon}
+              >
                 <Popup>
                   <div className="text-center">
-                    <strong>GPS Tracker Location</strong><br />
+                    <strong>LBS Location</strong><br />
                     Lat: {locationData.lbs_lat}<br />
                     Lon: {locationData.lbs_lon}<br />
                     Age: {locationData.lbs_age}<br />
@@ -145,7 +168,7 @@ const LocationTab = () => {
                 </Popup>
               </Marker>
             </MapContainer>
-            
+
             {/* Overlay Controls */}
             <div className="absolute top-4 right-4 z-5">
               <Button
@@ -161,6 +184,7 @@ const LocationTab = () => {
         </CardContent>
       </Card>
 
+
       {/* Location Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gray-800 border-gray-700">
@@ -173,11 +197,11 @@ const LocationTab = () => {
           <CardContent className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-400">Latitude:</span>
-              <span className="text-white font-mono">{locationData.lat}°</span>
+              <span className="text-white font-mono">{locationData.gps_lat}°</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Longitude:</span>
-              <span className="text-white font-mono">{locationData.lon}°</span>
+              <span className="text-white font-mono">{locationData.gps_lon}°</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Satellites:</span>
