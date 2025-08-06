@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
+import json
 import logging
 import asyncio
 from pathlib import Path
@@ -48,9 +49,11 @@ async def handle_status_update(status: DeviceStatus):
     try:
         # Save to database
         await db_manager.save_device_status(status)
+
+        data = json.loads(status.json())
         
         # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_status_update(status.dict())
+        await websocket_manager.broadcast_status_update(data)
         
         logger.info("Device status updated and broadcasted")
     except Exception as e:
@@ -61,9 +64,11 @@ async def handle_location_update(location: GpsLocation):
     try:
         # Save to database
         await db_manager.save_gps_location(location)
+
+        data = json.loads(location.json())
         
         # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_location_update(location.dict())
+        await websocket_manager.broadcast_location_update(data)
         
         logger.info("GPS location updated and broadcasted")
     except Exception as e:
@@ -74,9 +79,11 @@ async def handle_sms_received(sms: SmsMessage):
     try:
         # Save to database
         await db_manager.save_sms_message(sms)
+
+        data = json.loads(sms.json())
         
         # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_sms_update(sms.dict())
+        await websocket_manager.broadcast_sms_update(data)
         
         logger.info("SMS message received and broadcasted")
     except Exception as e:
