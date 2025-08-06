@@ -20,14 +20,14 @@ const API = `${BACKEND_URL}/api`;
 
 const LocationTab = () => {
   const [locationData, setLocationData] = useState({
-    lat: 19.123456,
-    lon: 72.123456,
-    lbs_lat: 19.123456,
-    lbs_lon: 72.123456,
-    sats: 7,
-    lbs_age: "39m",
-    gps_age: "39m",
-    alt: 10.5,
+    gps_lat: 49.9180204,
+    gps_lon: 19.937429,
+    lbs_lat: 49.9208907,
+    lbs_lon: 19.9448864,
+    sats: 0,
+    lbs_age: "0 seconds",
+    gps_age: "0 seconds",
+    alt: 0.0,
     speed: 0.0,
     course: 0.0
   });
@@ -67,7 +67,7 @@ const LocationTab = () => {
     window.open(url, '_blank');
   };
 
-  // Load initial location data
+  /*// Load initial location data
   useEffect(() => {
     const loadInitialLocation = async () => {
       try {
@@ -84,12 +84,12 @@ const LocationTab = () => {
     };
 
     loadInitialLocation();
-  }, []);
+  }, []);*/
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Device Location</h1>
+        <h1 className="text-2xl font-bold text-white">Tracker Location</h1>
         <Button 
           onClick={requestLocation} 
           disabled={loading}
@@ -123,21 +123,31 @@ const LocationTab = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
-              <Marker position={[locationData.lat, locationData.lon]}>
+              <Marker position={[locationData.gps_lat, locationData.gps_lon]}>
                 <Popup>
                   <div className="text-center">
                     <strong>GPS Tracker Location</strong><br />
-                    Lat: {locationData.lat}<br />
-                    Lon: {locationData.lon}<br />
+                    Lat: {locationData.gps_lat}<br />
+                    Lon: {locationData.gps_lon}<br />
                     Satellites: {locationData.sats}<br />
                     Speed: {locationData.speed} km/h
+                  </div>
+                </Popup>
+              </Marker>
+              <Marker position={[locationData.lbs_lat, locationData.lbs_lon]}>
+                <Popup>
+                  <div className="text-center">
+                    <strong>GPS Tracker Location</strong><br />
+                    Lat: {locationData.lbs_lat}<br />
+                    Lon: {locationData.lbs_lon}<br />
+                    Age: {locationData.lbs_age}<br />
                   </div>
                 </Popup>
               </Marker>
             </MapContainer>
             
             {/* Overlay Controls */}
-            <div className="absolute top-4 right-4 z-[1000]">
+            <div className="absolute top-4 right-4 z-5">
               <Button
                 onClick={openInGoogleMaps}
                 size="sm"

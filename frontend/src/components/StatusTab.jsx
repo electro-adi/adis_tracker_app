@@ -204,7 +204,10 @@ const StatusTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">ESP-NOW:</span>
-              <span className="text-white">{status.espnow_state ? 'Enabled' : 'Disabled'}</span>
+              <div className="flex items-center">
+                <Wifi className={`w-4 h-4 mr-1 ${status.espnow_state ? 'text-green-400' : 'text-gray-500'}`} />
+                <span className="text-white">{status.espnow_state ? 'Enabled' : 'Disabled'}</span>
+              </div>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">WiFi:</span>

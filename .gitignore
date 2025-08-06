@@ -3,6 +3,7 @@
 # IDE and editors
 .idea/
 .vscode/
+Tracker_App-main.code-workspace
 
 # Dependencies
 node_modules/

@@ -8,6 +8,7 @@ import LedTab from "./components/LedTab";
 import SettingsTab from "./components/SettingsTab";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const WS_URL  = process.env.REACT_APP_BACKEND_URL;
 
@@ -16,6 +17,13 @@ function App() {
   const [websocket, setWebsocket] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const { toast } = useToast();
+
+  useEffect(() => {
+    const hideStatusBar = async () => {
+      await StatusBar.hide();
+    };
+    hideStatusBar();
+  }, []);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -161,7 +169,7 @@ function App() {
       <div className="sticky top-0 z-10">
         <div className="bg-gray-900 px-4 py-3 border-b border-gray-700">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
+            <h1 className="text-xl font-bold text-white">Adi's Tracker Companion</h1>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
                 connectionStatus === 'connected' ? 'bg-green-400' : 

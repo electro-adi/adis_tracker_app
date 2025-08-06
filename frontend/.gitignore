@@ -12,7 +12,6 @@
 # production
 /build
 /android
-capacitor.config.json
 
 # misc
 .DS_Store
