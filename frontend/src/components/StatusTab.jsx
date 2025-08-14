@@ -25,7 +25,7 @@ const StatusTab = () => {
     last_activity: 0,
     bat_voltage: 0,
     bat_percent: 0,
-    "4g_rssi": 0,
+    gsm_rssi: 0,
     wifi_enabled: false,
     wifi_rssi: 0,
     wifi: "",
@@ -191,16 +191,14 @@ const StatusTab = () => {
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="pb-3">
             <CardTitle className="text-white flex items-center">
-              <Signal className={`w-5 h-5 mr-2 ${getSignalColor(status['4g_rssi'])}`} />
+              <Signal className={`w-5 h-5 mr-2 ${getSignalColor(status.gsm_rssi)}`} />
               Connectivity
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">4G Signal:</span>
-              <span className={getSignalColor(status['4g_rssi'])}>
-                {status['4g_rssi']} dBm
-              </span>
+              <span className={getSignalColor(status.gsm_rssi)}>{status.gsm_rssi} dBm</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">ESP-NOW:</span>

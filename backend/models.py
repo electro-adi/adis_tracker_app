@@ -11,7 +11,7 @@ class DeviceStatus(BaseModel):
     last_activity: int
     bat_voltage: float
     bat_percent: int
-    four_g_rssi: int = Field(alias='4g_rssi')
+    gsm_rssi: int
     wifi_enabled: bool
     wifi_rssi: int
     wifi: str
