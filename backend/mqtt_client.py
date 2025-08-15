@@ -355,6 +355,6 @@ class MQTTManager:
             "broker": self.broker,
             "port": self.port,
             "last_connected": self.last_connected,
-            "last_msg": self.msg,
+            "last_msg": self.last_msg,
             "connection_attempts": self.connection_attempts
         }
