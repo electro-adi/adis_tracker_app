@@ -9,6 +9,8 @@ import logging
 import asyncio
 from pathlib import Path
 from typing import List, Optional
+import humanize
+from datetime import datetime
 
 # Import our custom modules
 from models import (
@@ -144,6 +146,11 @@ async def connect_mqtt():
 async def get_mqtt_status():
     """Get MQTT connection status"""
     status_data = mqtt_manager.get_status()
+    last_msg = status_data.get("last_msg")
+    if last_msg:
+        status_data["last_msg_human"] = humanize.naturaltime(datetime.utcnow() - last_msg)
+    else:
+        status_data["last_msg_human"] = None
     return MqttStatus(**status_data)
 
 @api_router.post("/mqtt/disconnect")

@@ -133,4 +133,5 @@ class MqttStatus(BaseModel):
     port: int
     last_connected: Optional[datetime] = None
     last_msg: Optional[datetime] = None
+    last_msg_human: Optional[str] = None
     connection_attempts: int = 0
