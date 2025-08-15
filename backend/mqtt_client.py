@@ -19,6 +19,7 @@ class MQTTManager:
         self.connected = False
         self.connection_attempts = 0
         self.last_connected: Optional[datetime] = None
+        self.last_msg: Optional[datetime] = None
         
         # Callback handlers
         self.status_callback: Optional[Callable] = None
@@ -132,6 +133,7 @@ class MQTTManager:
         try:
             topic = msg.topic
             payload = msg.payload.decode('utf-8')
+            self.last_msg = datetime.utcnow()
             logger.info(f"Received message on topic {topic}: {payload}")
             
             # Route messages based on topic
@@ -353,5 +355,6 @@ class MQTTManager:
             "broker": self.broker,
             "port": self.port,
             "last_connected": self.last_connected,
+            "last_msg": self.msg,
             "connection_attempts": self.connection_attempts
         }

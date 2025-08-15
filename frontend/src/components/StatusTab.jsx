@@ -44,7 +44,7 @@ const StatusTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
+  /*useEffect(() => {
     loadDeviceStatus();
   }, []);
 
@@ -60,7 +60,7 @@ const StatusTab = () => {
     } catch (error) {
       console.error('Failed to load device status:', error);
     }
-  };
+  };*/
 
   const refreshStatus = async () => {
     setLoading(true);
