@@ -8,7 +8,7 @@ import LedTab from "./components/LedTab";
 import SettingsTab from "./components/SettingsTab";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
-import { StatusBar, Style } from '@capacitor/status-bar';
+//import { StatusBar, Style } from '@capacitor/status-bar';
 
 const WS_URL  = process.env.REACT_APP_BACKEND_URL;
 
@@ -18,12 +18,37 @@ function App() {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const { toast } = useToast();
 
+  const [mqtt_status, setMqttStatus] = useState({
+    connected: false,
+    broker: "",
+    port: 0,
+    last_connected: 0,
+    last_msg: 0,
+    connection_attempts: 0
+  });
+
   useEffect(() => {
+    get_mqtt_status();
+  }, []);
+
+  const get_mqtt_status = async () => {
+    try {
+      const response = await fetch(`${API}/mqtt/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setMqttStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to get mqtt status', error);
+    }
+  };
+
+/*useEffect(() => {
     const hideStatusBar = async () => {
       await StatusBar.hide();
     };
     hideStatusBar();
-  }, []);
+  }, []);*/
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -165,11 +190,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-950 pt-12">
       <div className="sticky top-0 z-10">
         <div className="bg-gray-900 px-4 py-3 border-b border-gray-700">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold text-white">Adi's Tracker Companion</h1>
+            <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
                 connectionStatus === 'connected' ? 'bg-green-400' : 

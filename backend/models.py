@@ -132,4 +132,5 @@ class MqttStatus(BaseModel):
     broker: str
     port: int
     last_connected: Optional[datetime] = None
+    last_msg: Optional[datetime] = None
     connection_attempts: int = 0
