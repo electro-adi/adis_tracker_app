@@ -45,6 +45,7 @@ mqtt_manager = MQTTManager(
     password="MQTT6282"
 )
 
+#---------------------------------------------------------------------------  
 # MQTT callback handlers
 async def handle_status_update(status: DeviceStatus):
     """Handle device status updates from MQTT"""
@@ -61,6 +62,7 @@ async def handle_status_update(status: DeviceStatus):
     except Exception as e:
         logger.error(f"Error handling status update: {str(e)}")
 
+#---------------------------------------------------------------------------  
 async def handle_location_update(location: GpsLocation):
     """Handle GPS location updates from MQTT"""
     try:
@@ -76,6 +78,7 @@ async def handle_location_update(location: GpsLocation):
     except Exception as e:
         logger.error(f"Error handling location update: {str(e)}")
 
+#---------------------------------------------------------------------------  
 async def handle_sms_received(sms: SmsMessage):
     """Handle received SMS messages from MQTT"""
     try:
@@ -91,6 +94,7 @@ async def handle_sms_received(sms: SmsMessage):
     except Exception as e:
         logger.error(f"Error handling SMS update: {str(e)}")
 
+#---------------------------------------------------------------------------  
 async def handle_call_received(caller_number: str):
     """Handle incoming call notifications from MQTT"""
     try:
@@ -101,6 +105,7 @@ async def handle_call_received(caller_number: str):
     except Exception as e:
         logger.error(f"Error handling call update: {str(e)}")
 
+#---------------------------------------------------------------------------  
 async def handle_notification(notification: Notification):
     """Handle system notifications from MQTT"""
     try:
@@ -114,11 +119,12 @@ async def handle_notification(notification: Notification):
     except Exception as e:
         logger.error(f"Error handling notification: {str(e)}")
 
-# Basic API routes
+#---------------------------------------------------------------------------  
 @api_router.get("/")
 async def root():
     return {"message": "GPS Tracker Control API", "version": "1.0.0"}
 
+#---------------------------------------------------------------------------  
 @api_router.get("/health")
 async def health_check():
     return {
@@ -128,7 +134,7 @@ async def health_check():
         "database_connected": db_manager.client is not None
     }
 
-# MQTT Connection routes
+#---------------------------------------------------------------------------  
 @api_router.post("/mqtt/connect")
 async def connect_mqtt():
     """Connect to MQTT broker"""
@@ -142,6 +148,7 @@ async def connect_mqtt():
         logger.error(f"MQTT connection error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.get("/mqtt/status", response_model=MqttStatus)
 async def get_mqtt_status():
     """Get MQTT connection status"""
@@ -153,6 +160,7 @@ async def get_mqtt_status():
         status_data["last_msg_human"] = None
     return MqttStatus(**status_data)
 
+#---------------------------------------------------------------------------  
 @api_router.post("/mqtt/disconnect")
 async def disconnect_mqtt():
     """Disconnect from MQTT broker"""
@@ -163,7 +171,7 @@ async def disconnect_mqtt():
         logger.error(f"MQTT disconnection error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Device control routes
+#---------------------------------------------------------------------------  
 @api_router.post("/device/mode/{mode}")
 async def set_device_mode(mode: int):
     """Set device mode (0-7)"""
@@ -180,6 +188,7 @@ async def set_device_mode(mode: int):
         logger.error(f"Error setting device mode: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.get("/device/status")
 async def get_device_status():
     """Get current device status"""
@@ -197,6 +206,22 @@ async def get_device_status():
         logger.error(f"Error getting device status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------    
+@api_router.get("/device/status_nomqtt")
+async def get_device_status_nomqtt():
+    """Get current device status without sending the mqtt message"""
+    try:
+        # Return latest status from database
+        status = await db_manager.get_latest_device_status()
+        if status:
+            return status
+        else:
+            return {"message": "No status data available"}
+    except Exception as e:
+        logger.error(f"Error getting device status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#---------------------------------------------------------------------------  
 @api_router.get("/device/location")
 async def get_device_location():
     """Get current device location"""
@@ -213,7 +238,23 @@ async def get_device_location():
     except Exception as e:
         logger.error(f"Error getting device location: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+#---------------------------------------------------------------------------  
+@api_router.get("/device/location_nomqtt")
+async def get_device_location_nomqtt():
+    """Get current device location without sending the mqtt message"""
+    try:
+        # Return latest location from database
+        location = await db_manager.get_latest_gps_location()
+        if location:
+            return location
+        else:
+            return {"message": "No location data available"}
+    except Exception as e:
+        logger.error(f"Error getting device location: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/device/led")
 async def set_led_config(config: LedConfig):
     """Set LED configuration"""
@@ -227,6 +268,7 @@ async def set_led_config(config: LedConfig):
         logger.error(f"Error setting LED config: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/device/settings")
 async def update_device_settings(settings: DeviceSettings):
     """Update device settings"""
@@ -240,6 +282,7 @@ async def update_device_settings(settings: DeviceSettings):
         logger.error(f"Error updating device settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/device/call/{number}")
 async def make_call(number: str):
     """Make device call a number"""
@@ -253,6 +296,7 @@ async def make_call(number: str):
         logger.error(f"Error making call: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/device/sms")
 async def send_sms(sms_data: SmsCreate):
     """Send SMS via device"""
@@ -275,6 +319,7 @@ async def send_sms(sms_data: SmsCreate):
         logger.error(f"Error sending SMS: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/device/buzzer")
 async def control_buzzer(enabled: bool):
     """Control device buzzer"""
@@ -288,6 +333,7 @@ async def control_buzzer(enabled: bool):
         logger.error(f"Error controlling buzzer: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/device/vibrate")
 async def control_vibrator(enabled: bool):
     """Control device vibrator"""
@@ -301,6 +347,7 @@ async def control_vibrator(enabled: bool):
         logger.error(f"Error controlling vibrator: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 # Contact management routes
 @api_router.get("/contacts", response_model=List[Contact])
 async def get_contacts():
@@ -312,6 +359,7 @@ async def get_contacts():
         logger.error(f"Error getting contacts: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/contacts", response_model=Contact)
 async def create_contact(contact_data: ContactCreate):
     """Create new contact"""
@@ -323,6 +371,7 @@ async def create_contact(contact_data: ContactCreate):
         logger.error(f"Error creating contact: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.put("/contacts/{contact_id}", response_model=Contact)
 async def update_contact(contact_id: str, contact_data: ContactUpdate):
     """Update contact"""
@@ -340,6 +389,7 @@ async def update_contact(contact_id: str, contact_data: ContactUpdate):
         logger.error(f"Error updating contact: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.delete("/contacts/{contact_id}")
 async def delete_contact(contact_id: str):
     """Delete contact"""
@@ -353,6 +403,7 @@ async def delete_contact(contact_id: str):
         logger.error(f"Error deleting contact: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 # SMS history routes
 @api_router.get("/sms/history", response_model=List[SmsMessage])
 async def get_sms_history(limit: int = 50):
@@ -364,6 +415,7 @@ async def get_sms_history(limit: int = 50):
         logger.error(f"Error getting SMS history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 # Notification routes
 @api_router.get("/notifications", response_model=List[Notification])
 async def get_notifications(limit: int = 50, unread_only: bool = False):
@@ -375,6 +427,7 @@ async def get_notifications(limit: int = 50, unread_only: bool = False):
         logger.error(f"Error getting notifications: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.post("/notifications/{notification_id}/read")
 async def mark_notification_read(notification_id: str):
     """Mark notification as read"""
@@ -388,6 +441,7 @@ async def mark_notification_read(notification_id: str):
         logger.error(f"Error marking notification as read: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 @api_router.get("/notifications/unread-count")
 async def get_unread_notification_count():
     """Get count of unread notifications"""
@@ -398,6 +452,7 @@ async def get_unread_notification_count():
         logger.error(f"Error getting unread notification count: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------  
 # WebSocket endpoint for real-time updates
 @app.websocket("/ws/notifications")
 async def websocket_endpoint(websocket: WebSocket):

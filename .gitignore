@@ -31,8 +31,6 @@ next-env.d.ts
 dist/
 dist
 /android
-capacitor.config.json
-
 
 # Environment files (comprehensive coverage)
 

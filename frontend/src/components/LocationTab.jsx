@@ -59,6 +59,24 @@ const LocationTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    loadlocation();
+  }, []);
+  
+  const loadlocation = async () => {
+    try {
+      const response = await fetch(`${API}/device/location_nomqtt`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.lat && data.lon) {
+          setLocationData(data);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load location:', error);
+    }
+  };
+
   const requestLocation = async () => {
     setLoading(true);
     try {
@@ -96,22 +114,44 @@ const LocationTab = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Tracker Location</h1>
-        <Button 
-          onClick={requestLocation} 
+        <Button
+          onClick={requestLocation}
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className={`
+            relative group // For pseudo-elements if needed, and for grouping states
+            bg-gradient-to-br from-sky-500 to-blue-600 // Softer gradient
+            text-white font-semibold
+            px-5 py-2.5 // Slightly more padding for a beefier feel
+            rounded-lg
+            overflow-hidden // Important for ::before/::after pseudo-elements if used for shimmer
+            transition-all duration-300 ease-out // Smooth transitions for hover/active
+            shadow-md hover:shadow-lg // Subtle shadow, more pronounced on hover
+            focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-gray-950
+            active:scale-95 active:shadow-inner // Scale down and inner shadow when pressed
+            disabled:opacity-60 disabled:cursor-not-allowed
+          `}
         >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Updating...
-            </>
-          ) : (
-            <>
-              <MapPin className="w-4 h-4 mr-2" />
-              Request Location
-            </>
-          )}
+          {/* Optional: subtle shimmer effect on hover (can be a bit much, enable if you like it) */}
+          {/* <span className="absolute top-0 left-[-100%] w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-all duration-700 ease-out group-hover:left-[100%]"></span> */}
+          
+          <span className="relative z-10 flex items-center justify-center"> {/* Ensure content is above pseudo-elements */}
+            {loading ? (
+              <>
+                {/* Using a different spinner style - three bouncing dots */}
+                <div className="flex items-center justify-center space-x-1 mr-2.5">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
+                </div>
+                Updating Location...
+              </>
+            ) : (
+              <>
+                <MapPin className="w-4 h-4 mr-2 group-hover:animate-pulse" /> {/* Pulse icon on hover */}
+                Request Location
+              </>
+            )}
+          </span>
         </Button>
       </div>
 

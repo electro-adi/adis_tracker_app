@@ -44,13 +44,13 @@ const StatusTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  /*useEffect(() => {
+  useEffect(() => {
     loadDeviceStatus();
   }, []);
 
   const loadDeviceStatus = async () => {
     try {
-      const response = await fetch(`${API}/device/status`);
+      const response = await fetch(`${API}/device/status_nomqtt`);
       if (response.ok) {
         const data = await response.json();
         if (data.message) {
@@ -60,7 +60,7 @@ const StatusTab = () => {
     } catch (error) {
       console.error('Failed to load device status:', error);
     }
-  };*/
+  };
 
   const refreshStatus = async () => {
     setLoading(true);
@@ -115,8 +115,19 @@ const StatusTab = () => {
           onClick={refreshStatus} 
           disabled={loading}
           variant="outline"
-          className="border-gray-600 text-gray-300 hover:bg-gray-700"
-        >
+          className={`
+            border-gray-600 text-gray-300          // Your desired base colors for this instance
+            hover:bg-gray-700 hover:text-gray-200  // Your desired hover for this instance
+            active:bg-gray-800                     // Darker when pressed (example)
+            focus:bg-transparent                   // CRUCIAL: Ensure background is transparent on focus
+            focus:text-gray-300                    // Ensure text color is correct on focus
+            focus:border-gray-600                  // Ensure border color is correct on focus
+            focus-visible:ring-1 
+            focus-visible:ring-blue-500            // More explicit ring color, or use your theme's 'ring' color
+            focus-visible:ring-offset-2
+            focus-visible:ring-offset-gray-950     // Offset based on your page bg
+            disabled:opacity-50
+          `}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>

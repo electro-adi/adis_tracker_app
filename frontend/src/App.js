@@ -8,9 +8,11 @@ import LedTab from "./components/LedTab";
 import SettingsTab from "./components/SettingsTab";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
-//import { StatusBar, Style } from '@capacitor/status-bar';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const WS_URL  = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 function App() {
   const [activeTab, setActiveTab] = useState('location');
@@ -24,31 +26,47 @@ function App() {
     port: 0,
     last_connected: 0,
     last_msg: 0,
+    last_msg_human: "",
     connection_attempts: 0
   });
 
+  // Effect for Capacitor StatusBar
   useEffect(() => {
-    get_mqtt_status();
+    const configureStatusBar = async () => {
+      if (window.Capacitor?.isNativePlatform()) {
+        try {
+          // Style.DARK for light icons if your header (bg-gray-900) is dark
+          await StatusBar.setStyle({ style: Style.Dark }); 
+          // This should align with your capacitor.config.json
+          // await StatusBar.setOverlaysWebView({ overlay: true }); 
+          console.log("StatusBar configured for overlay and style.");
+        } catch (e) {
+          console.error("Failed to configure StatusBar", e);
+        }
+      }
+    };
+    configureStatusBar();
   }, []);
 
-  const get_mqtt_status = async () => {
-    try {
-      const response = await fetch(`${API}/mqtt/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setMqttStatus(data);
+  useEffect(() => {
+    const get_mqtt_status = async () => {
+      try {
+        const response = await fetch(`${API}/mqtt/status`);
+        if (response.ok) {
+          const data = await response.json();
+          setMqttStatus(data);
+        }
+      } catch (error) {
+        console.error('Failed to get mqtt status', error);
       }
-    } catch (error) {
-      console.error('Failed to get mqtt status', error);
-    }
-  };
-
-/*useEffect(() => {
-    const hideStatusBar = async () => {
-      await StatusBar.hide();
     };
-    hideStatusBar();
-  }, []);*/
+
+    get_mqtt_status();
+    
+    const interval = setInterval(get_mqtt_status, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -190,31 +208,114 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 pt-12">
-      <div className="sticky top-0 z-10">
-        <div className="bg-gray-900 px-4 py-3 border-b border-gray-700">
+    // This is the main app container that will fill the screen
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
+      {/* Fixed Header Area */}
+      <header
+        className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }} // Apply status bar padding
+      >
+        <div className="px-4 py-3 border-b border-gray-700">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-400' : 
-                connectionStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
-              }`}></div>
-              <span className="text-xs text-gray-400">
-                {connectionStatus === 'connected' ? 'Live' : 
-                 connectionStatus === 'error' ? 'Error' : 'Connecting...'}
+            
+            {/* --- MODIFIED STATUS INDICATOR SECTION --- */}
+            <div className="flex flex-col items-end text-right"> {/* Aligns content to the right, stacks vertically */}
+              <div className="flex items-center gap-1.5"> {/* Dot and "Backend Status" text */}
+                <div 
+                  className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ // Slightly larger dot, added transition
+                    connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : // Green with glow
+                    connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]' : // Red with glow
+                                                  'bg-yellow-400 animate-pulse' // Yellow, pulsing for connecting
+                  }`}
+                ></div>
+                <span className={`text-sm font-medium ${ // Increased text size, normal font-weight
+                  connectionStatus === 'connected' ? 'text-green-400' :
+                  connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-300'
+                }`}>
+                  {connectionStatus === 'connected' ? 'Server Online' :
+                   connectionStatus === 'error' ? 'Server Error' : 'Connecting...'}
+                </span>
+              </div>
+              <span className="text-xs text-gray-400 mt-0.5 opacity-90"> {/* Slightly larger, better opacity, small top margin */}
+                {/* Using a placeholder for last message time, assuming mqtt_status.last_msg_human is already like "12s ago" */}
+                {/* You might want to use a date formatting library for more complex "time ago" logic if needed */}
+                Last update: {mqtt_status?.last_msg_human ?? "N/A"}
               </span>
             </div>
+            {/* --- END OF MODIFIED STATUS INDICATOR SECTION --- */}
+
           </div>
         </div>
         <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
-      </div>
-      <main className="pb-6">
-        {renderActiveTab()}
+      </header>
+
+      {/* Scrollable Content Area */}
+      <main 
+        className="flex-grow overflow-y-auto"
+        style={{ 
+          paddingTop: `calc(env(safe-area-inset-top) + 98px)`, // YOU MUST ADJUST 98px to your header's actual height
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
+        <div className="pb-6">
+            {renderActiveTab()}
+        </div>
       </main>
       <Toaster />
     </div>
   );
 }
-
 export default App;
+
+/*  return (
+    // This is the main app container that will fill the screen
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
+      <header 
+        className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }} // Apply status bar padding
+      >
+        <div className="px-4 py-3 border-b border-gray-700">
+          <div className="flex justify-between items-center">
+            <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected' ? 'bg-green-400' :
+                connectionStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
+              }`}></div>
+              <span className="text-xs text-gray-400">
+                {connectionStatus === 'connected' ? 'Live' :
+                  connectionStatus === 'error' ? 'Error' : 'Connecting...'}
+              </span>
+              <span className="text-[10px] text-gray-500 italic">
+                {mqtt_status?.last_msg_human ?? "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      </header>
+
+      <main 
+        className="flex-grow overflow-y-auto"
+        // Style for top padding: status bar inset + header height
+        // You'll need to determine your actual header height.
+        // Let's assume header is 50px (title) + 40px (nav tabs) = 90px (approx)
+        style={{ 
+          paddingTop: `calc(env(safe-area-inset-top) + 98px)`, // Adjust 98px to your header's actual height
+          paddingBottom: 'env(safe-area-inset-bottom)', // For navigation bar on iOS if needed
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
+        <div className="pb-6">
+            {renderActiveTab()}
+        </div>
+      </main>
+      <Toaster />
+    </div>
+  );
+}
+export default App;*/

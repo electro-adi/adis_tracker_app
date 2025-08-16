@@ -151,31 +151,57 @@ const SettingsTab = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Device Settings</h1>
         <div className="flex gap-2">
-          <Button 
+          <Button
             onClick={resetToDefaults}
-            variant="outline"
+            variant="outline" // This CVA variant provides base outline styles
             size="sm"
-            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+            className={`
+              group // For icon animation
+              border-amber-500/70 text-amber-400 // Warning/caution color scheme
+              hover:border-amber-500 hover:bg-amber-500/10 hover:text-amber-300 // Subtle hover
+              active:bg-amber-500/20 active:scale-[0.98] // Active state
+              focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-950
+              transition-all duration-200 ease-out
+              disabled:opacity-50
+            `}
           >
-            <RotateCcw className="w-4 h-4 mr-2" />
+            <RotateCcw className="w-4 h-4 mr-2 transition-transform duration-300 group-hover:rotate-[-90deg]" /> {/* Icon rotates on hover */}
             Reset
           </Button>
-          <Button 
+          <Button
             onClick={saveSettings}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className={`
+              relative group // For icon animation
+              bg-gradient-to-r from-emerald-500 to-green-600 // Green gradient for "success"/"save"
+              text-white font-semibold
+              px-5 py-2.5 // Consistent padding with the "Request Location" button if desired
+              rounded-lg
+              shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-green-700 // Darken gradient slightly on hover
+              focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-gray-950
+              active:scale-95 active:shadow-inner active:from-emerald-600 active:to-green-700 // Pressed state
+              transition-all duration-300 ease-out
+              disabled:opacity-60 disabled:cursor-not-allowed
+            `}
           >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Save Settings
-              </>
-            )}
+            <span className="relative z-10 flex items-center justify-center">
+              {loading ? (
+                <>
+                  {/* Bouncing dots spinner */}
+                  <div className="flex items-center justify-center space-x-1 mr-2.5">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
+                  </div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2 transform transition-transform duration-200 group-hover:scale-110" /> {/* Icon scales up on hover */}
+                  Save Settings
+                </>
+              )}
+            </span>
           </Button>
         </div>
       </div>
