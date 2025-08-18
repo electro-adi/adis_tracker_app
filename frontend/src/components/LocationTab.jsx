@@ -8,15 +8,6 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Colored marker icons
-const redIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
 const blueIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
@@ -26,18 +17,34 @@ const blueIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+const greenIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+
+
 const FitBoundsToMarkers = ({ gps, lbs }) => {
   const map = useMap();
+  const hasFit = React.useRef(false);
 
   useEffect(() => {
     if (!gps || !lbs) return;
 
-    const bounds = L.latLngBounds([gps, lbs]);
-    map.fitBounds(bounds, { padding: [30, 30] });
+    if (!hasFit.current) {
+      const bounds = L.latLngBounds([gps, lbs]);
+      map.fitBounds(bounds, { padding: [30, 30] });
+      hasFit.current = true;
+    }
   }, [gps, lbs, map]);
 
   return null;
 };
+
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -68,7 +75,9 @@ const LocationTab = () => {
       const response = await fetch(`${API}/device/location_nomqtt`);
       if (response.ok) {
         const data = await response.json();
-        if (data.lat && data.lon) {
+        if ((data.gps_lat != null && data.gps_lon != null) ||
+            (data.lbs_lat != null && data.lbs_lon != null)) {
+          hasFit.current = false;
           setLocationData(data);
         }
       }
@@ -83,7 +92,9 @@ const LocationTab = () => {
       const response = await fetch(`${API}/device/location`);
       if (response.ok) {
         const data = await response.json();
-        if (data.lat && data.lon) {
+        if ((data.gps_lat != null && data.gps_lon != null) ||
+            (data.lbs_lat != null && data.lbs_lon != null)) {''
+          hasFit.current = false;
           setLocationData(data);
           toast({
             title: "Location Updated",
@@ -176,10 +187,10 @@ const LocationTab = () => {
                 lbs={[locationData.lbs_lat, locationData.lbs_lon]}
               />
 
-              {/* GPS Marker - Red */}
+              {/* GPS Marker - Blue */}
               <Marker
                 position={[locationData.gps_lat, locationData.gps_lon]}
-                icon={redIcon}
+                icon={blueIcon}
               >
                 <Popup>
                   <div className="text-center">
@@ -193,10 +204,10 @@ const LocationTab = () => {
                 </Popup>
               </Marker>
 
-              {/* LBS Marker - Blue */}
+              {/* LBS Marker - Green */}
               <Marker
                 position={[locationData.lbs_lat, locationData.lbs_lon]}
-                icon={blueIcon}
+                icon={greenIcon}
               >
                 <Popup>
                   <div className="text-center">

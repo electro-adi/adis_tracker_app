@@ -232,6 +232,10 @@ async def get_device_location():
         # Return latest location from database
         location = await db_manager.get_latest_gps_location()
         if location:
+            gps_age = location.get("gps_age")
+            lbs_age = location.get("lbs_age")
+            location["gps_age"] = humanize.naturaltime(datetime.utcnow() - gps_age)
+            location["lbs_age"] = humanize.naturaltime(datetime.utcnow() - lbs_age)
             return location
         else:
             return {"message": "No location data available"}
@@ -247,6 +251,10 @@ async def get_device_location_nomqtt():
         # Return latest location from database
         location = await db_manager.get_latest_gps_location()
         if location:
+            gps_age = location.get("gps_age")
+            lbs_age = location.get("lbs_age")
+            location["gps_age"] = humanize.naturaltime(datetime.utcnow() - gps_age)
+            location["lbs_age"] = humanize.naturaltime(datetime.utcnow() - lbs_age)
             return location
         else:
             return {"message": "No location data available"}

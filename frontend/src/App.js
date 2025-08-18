@@ -35,10 +35,7 @@ function App() {
     const configureStatusBar = async () => {
       if (window.Capacitor?.isNativePlatform()) {
         try {
-          // Style.DARK for light icons if your header (bg-gray-900) is dark
           await StatusBar.setStyle({ style: Style.Dark }); 
-          // This should align with your capacitor.config.json
-          // await StatusBar.setOverlaysWebView({ overlay: true }); 
           console.log("StatusBar configured for overlay and style.");
         } catch (e) {
           console.error("Failed to configure StatusBar", e);
