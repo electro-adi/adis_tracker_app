@@ -128,6 +128,7 @@ class Notification(BaseModel):
 
 # MQTT Connection Status
 class MqttStatus(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     connected: bool
     broker: str
     port: int
@@ -135,3 +136,4 @@ class MqttStatus(BaseModel):
     last_msg: Optional[datetime] = None
     last_msg_human: Optional[str] = None
     connection_attempts: int = 0
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

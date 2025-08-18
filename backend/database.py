@@ -58,6 +58,20 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting device status: {str(e)}")
             return None
+        
+    # last msg operations
+    async def save_mqtt_last_msg(self, timestamp: datetime):
+        """Persist most recent MQTT message timestamp"""
+        await self.db.mqtt_status.update_one(
+            {"_id": "tracker"},
+            {"$set": {"last_msg": timestamp}},
+            upsert=True
+        )
+
+    async def get_mqtt_last_msg(self) -> Optional[datetime]:
+        """Load persisted last_msg from database"""
+        data = await self.db.mqtt_status.find_one({"_id": "tracker"})
+        return data.get("last_msg") if data else None
 
     # GPS Location operations
     async def save_gps_location(self, location: GpsLocation) -> str:

@@ -6,6 +6,7 @@ from typing import Optional, Callable, Dict, Any
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
 from models import DeviceStatus, GpsLocation, SmsMessage, Notification
+from database import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,9 @@ class MQTTManager:
             payload = msg.payload.decode('utf-8')
             self.last_msg = datetime.utcnow()
             logger.info(f"Received message on topic {topic}: {payload}")
+
+            if self.main_loop and self._on_message:
+                asyncio.run_coroutine_threadsafe(db_manager.save_mqtt_last_msg(self.last_msg), self.main_loop)
             
             # Route messages based on topic
             if topic == "Tracker/status":
