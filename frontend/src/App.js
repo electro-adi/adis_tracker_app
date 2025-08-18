@@ -208,58 +208,33 @@ function App() {
   };
 
   return (
-    // This is the main app container that will fill the screen
     <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
-      {/* Fixed Header Area */}
-      <header
-        className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }} // Apply status bar padding
-      >
+      <header className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md" style={{ paddingTop: '33px' }}>
         <div className="px-4 py-3 border-b border-gray-700">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
-            
-            {/* --- MODIFIED STATUS INDICATOR SECTION --- */}
-            <div className="flex flex-col items-end text-right"> {/* Aligns content to the right, stacks vertically */}
-              <div className="flex items-center gap-1.5"> {/* Dot and "Backend Status" text */}
-                <div 
-                  className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ // Slightly larger dot, added transition
-                    connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : // Green with glow
-                    connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]' : // Red with glow
-                                                  'bg-yellow-400 animate-pulse' // Yellow, pulsing for connecting
-                  }`}
-                ></div>
-                <span className={`text-sm font-medium ${ // Increased text size, normal font-weight
-                  connectionStatus === 'connected' ? 'text-green-400' :
-                  connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-300'
-                }`}>
-                  {connectionStatus === 'connected' ? 'Server Online' :
-                   connectionStatus === 'error' ? 'Server Error' : 'Connecting...'}
+            <div className="flex flex-col items-end text-right"> 
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]' : 'bg-yellow-400 animate-pulse'}`}> </div>
+                <span className={`text-sm font-medium ${ connectionStatus === 'connected' ? 'text-green-400' : connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-300'}`}>
+                  {connectionStatus === 'connected' ? 'Server Online' : connectionStatus === 'error' ? 'Server Error' : 'Connecting...'}
                 </span>
               </div>
-              <span className="text-xs text-gray-400 mt-0.5 opacity-90"> {/* Slightly larger, better opacity, small top margin */}
-                {/* Using a placeholder for last message time, assuming mqtt_status.last_msg_human is already like "12s ago" */}
-                {/* You might want to use a date formatting library for more complex "time ago" logic if needed */}
+              <span className="text-xs text-gray-400 mt-0.5 opacity-90">
                 Last update: {mqtt_status?.last_msg_human ?? "N/A"}
               </span>
             </div>
-            {/* --- END OF MODIFIED STATUS INDICATOR SECTION --- */}
-
           </div>
         </div>
         <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       </header>
-
-      {/* Scrollable Content Area */}
-      <main 
-        className="flex-grow overflow-y-auto"
+      <main className="flex-grow overflow-y-auto"
         style={{ 
-          paddingTop: `calc(env(safe-area-inset-top) + 98px)`, // YOU MUST ADJUST 98px to your header's actual height
+          paddingTop: `calc(env(safe-area-inset-top) + 140px)`,
           paddingBottom: 'env(safe-area-inset-bottom)',
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
-        }}
-      >
+        }}>
         <div className="pb-6">
             {renderActiveTab()}
         </div>
@@ -269,53 +244,3 @@ function App() {
   );
 }
 export default App;
-
-/*  return (
-    // This is the main app container that will fill the screen
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
-      <header 
-        className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }} // Apply status bar padding
-      >
-        <div className="px-4 py-3 border-b border-gray-700">
-          <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-400' :
-                connectionStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
-              }`}></div>
-              <span className="text-xs text-gray-400">
-                {connectionStatus === 'connected' ? 'Live' :
-                  connectionStatus === 'error' ? 'Error' : 'Connecting...'}
-              </span>
-              <span className="text-[10px] text-gray-500 italic">
-                {mqtt_status?.last_msg_human ?? "—"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
-      </header>
-
-      <main 
-        className="flex-grow overflow-y-auto"
-        // Style for top padding: status bar inset + header height
-        // You'll need to determine your actual header height.
-        // Let's assume header is 50px (title) + 40px (nav tabs) = 90px (approx)
-        style={{ 
-          paddingTop: `calc(env(safe-area-inset-top) + 98px)`, // Adjust 98px to your header's actual height
-          paddingBottom: 'env(safe-area-inset-bottom)', // For navigation bar on iOS if needed
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-        }}
-      >
-        <div className="pb-6">
-            {renderActiveTab()}
-        </div>
-      </main>
-      <Toaster />
-    </div>
-  );
-}
-export default App;*/

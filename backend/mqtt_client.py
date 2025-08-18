@@ -192,7 +192,7 @@ class MQTTManager:
             # Create notification
             notification = Notification(
                 title="Location Updated",
-                message=f"New GPS coordinates: {location.lat:.6f}, {location.lon:.6f}",
+                message=f"New GPS coordinates: {location.gps_lat:.6f}, {location.gps_lon:.6f}",
                 type="location",
                 data=data
             )
