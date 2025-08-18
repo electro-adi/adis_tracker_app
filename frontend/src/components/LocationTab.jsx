@@ -75,8 +75,7 @@ const LocationTab = () => {
       const response = await fetch(`${API}/device/location_nomqtt`);
       if (response.ok) {
         const data = await response.json();
-        if ((data.gps_lat != null && data.gps_lon != null) ||
-            (data.lbs_lat != null && data.lbs_lon != null)) {
+        if (data) {
           hasFit.current = false;
           setLocationData(data);
         }
@@ -92,8 +91,7 @@ const LocationTab = () => {
       const response = await fetch(`${API}/device/location`);
       if (response.ok) {
         const data = await response.json();
-        if ((data.gps_lat != null && data.gps_lon != null) ||
-            (data.lbs_lat != null && data.lbs_lon != null)) {''
+        if (data) {
           hasFit.current = false;
           setLocationData(data);
           toast({
@@ -141,19 +139,11 @@ const LocationTab = () => {
             active:scale-95 active:shadow-inner // Scale down and inner shadow when pressed
             disabled:opacity-60 disabled:cursor-not-allowed
           `}
-        >
-          {/* Optional: subtle shimmer effect on hover (can be a bit much, enable if you like it) */}
-          {/* <span className="absolute top-0 left-[-100%] w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-all duration-700 ease-out group-hover:left-[100%]"></span> */}
-          
-          <span className="relative z-10 flex items-center justify-center"> {/* Ensure content is above pseudo-elements */}
+        >   
+          <span className="relative z-10 flex items-center justify-center">
             {loading ? (
               <>
-                {/* Using a different spinner style - three bouncing dots */}
-                <div className="flex items-center justify-center space-x-1 mr-2.5">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
-                </div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 Updating Location...
               </>
             ) : (
@@ -197,9 +187,9 @@ const LocationTab = () => {
                     <strong>GPS Location</strong><br />
                     Lat: {locationData.gps_lat}<br />
                     Lon: {locationData.gps_lon}<br />
-                    Satellites: {locationData.sats}<br />
-                    Speed: {locationData.speed} km/h
-                    Age: {locationData.gps_age}<br />
+                    Satellites: {locationData.sats ?? "--"}<br />
+                    Speed: {locationData.speed ?? "--"} km/h
+                    Age: {locationData.gps_age ?? "--"}<br />
                   </div>
                 </Popup>
               </Marker>
@@ -214,7 +204,7 @@ const LocationTab = () => {
                     <strong>LBS Location</strong><br />
                     Lat: {locationData.lbs_lat}<br />
                     Lon: {locationData.lbs_lon}<br />
-                    Age: {locationData.lbs_age}<br />
+                    Age: {locationData.lbs_age ?? "--"}<br />
                   </div>
                 </Popup>
               </Marker>
@@ -256,23 +246,23 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Satellites:</span>
-              <span className="text-white">{locationData.sats}</span>
+              <span className="text-white">{locationData.sats ?? "--"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Altitude:</span>
-              <span className="text-white">{locationData.alt}m</span>
+              <span className="text-white">{locationData.alt ?? "--"}m</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Speed:</span>
-              <span className="text-white">{locationData.speed} km/h</span>
+              <span className="text-white">{locationData.speed ?? "--"} km/h</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Course:</span>
-              <span className="text-white">{locationData.course}°</span>
+              <span className="text-white">{locationData.course ?? "--"}°</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className="text-white">{locationData.gps_age}</span>
+              <span className="text-white">{locationData.gps_age ?? "--"}</span>
             </div>
           </CardContent>
         </Card>
@@ -295,7 +285,7 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className="text-white">{locationData.lbs_age}</span>
+              <span className="text-white">{locationData.lbs_age ?? "--"}</span>
             </div>
           </CardContent>
         </Card>

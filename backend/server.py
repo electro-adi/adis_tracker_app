@@ -234,8 +234,17 @@ async def get_device_location():
         if location:
             gps_age = location.get("gps_age")
             lbs_age = location.get("lbs_age")
-            location["gps_age"] = humanize.naturaltime(datetime.utcnow() - gps_age)
-            location["lbs_age"] = humanize.naturaltime(datetime.utcnow() - lbs_age)
+        
+            if gps_age:
+                location["gps_age_human"] = humanize.naturaltime(datetime.utcnow() - gps_age)
+            else:
+                location["gps_age_human"] = None
+
+            if lbs_age:
+                location["lbs_age_human"] = humanize.naturaltime(datetime.utcnow() - lbs_age)
+            else:
+                location["lbs_age_human"] = None
+
             return location
         else:
             return {"message": "No location data available"}

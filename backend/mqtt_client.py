@@ -185,6 +185,12 @@ class MQTTManager:
         try:
             data = json.loads(payload)
             location = GpsLocation(**data)
+
+            if data.get("gps_lat") and data.get("gps_lon"):
+                data["gps_age"] = datetime.utcnow()
+
+            if data.get("lbs_lat") and data.get("lbs_lon"):
+                data["lbs_age"] = datetime.utcnow()
             
             if self.main_loop and self.location_callback:
                 asyncio.run_coroutine_threadsafe(self.location_callback(location), self.main_loop)

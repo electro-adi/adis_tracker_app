@@ -58,11 +58,13 @@ class GpsLocation(BaseModel):
     lbs_lat: float
     lbs_lon: float
     sats: int
-    lbs_age: str
-    gps_age: str
     alt: float
     speed: float
     course: float
+    lbs_age: Optional[datetime] = None
+    gps_age: Optional[datetime] = None
+    lbs_age_human: Optional[str] = None
+    gps_age_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 # Contact Models

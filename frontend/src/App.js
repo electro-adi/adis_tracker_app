@@ -218,7 +218,7 @@ function App() {
                 </span>
               </div>
               <span className="text-xs text-gray-400 mt-0.5 opacity-90">
-                Last update: {mqtt_status?.last_msg_human ?? "N/A"}
+                Last update: {mqtt_status?.last_msg_human ?? "--"}
               </span>
             </div>
           </div>
