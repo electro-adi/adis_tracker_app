@@ -153,11 +153,15 @@ async def connect_mqtt():
 async def get_mqtt_status():
     """Get MQTT connection status"""
     status_data = mqtt_manager.get_status()
-    last_msg = status_data.get("last_msg")
+
+    #convert to datetime format from string
+    last_msg = datetime.fromisoformat(status_data.get("last_msg"))
+
     if last_msg:
         status_data["last_msg_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_msg)
     else:
         status_data["last_msg_human"] = "--"
+
     return MqttStatus(**status_data)
 
 #---------------------------------------------------------------------------  
@@ -232,8 +236,11 @@ async def get_device_location():
         # Return latest location from database
         location = await db_manager.get_latest_gps_location()
         if location:
-            gps_age = location.get("gps_age")
-            lbs_age = location.get("lbs_age")
+
+            # convert to datetime format from string
+            gps_age = datetime.fromisoformat(location.get("gps_age"))
+            lbs_age = datetime.fromisoformat(location.get("lbs_age"))
+
 
             if gps_age:
                 location["gps_age"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
