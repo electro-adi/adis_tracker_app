@@ -1,12 +1,14 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Callable, Dict, Any
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
 from models import DeviceStatus, GpsLocation, SmsMessage, Notification
 from database import db_manager
+
+datetime.now(timezone.utc)
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +83,7 @@ class MQTTManager:
                     await asyncio.sleep(0.1)
                 
                 if self.connected:
-                    self.last_connected = datetime.utcnow()
+                    self.last_connected = datetime.now(timezone.utc).isoformat()
                     logger.info("MQTT connection established successfully")
                     return True
                     
@@ -134,7 +136,7 @@ class MQTTManager:
         try:
             topic = msg.topic
             payload = msg.payload.decode('utf-8')
-            self.last_msg = datetime.utcnow()
+            self.last_msg = datetime.now(timezone.utc).isoformat()
             logger.info(f"Received message on topic {topic}: {payload}")
 
             if self.main_loop and self._on_message:
@@ -187,10 +189,10 @@ class MQTTManager:
             location = GpsLocation(**data)
 
             if data.get("gps_lat") and data.get("gps_lon"):
-                data["gps_age"] = datetime.utcnow()
+                data["gps_age"] = datetime.now(timezone.utc).isoformat()
 
             if data.get("lbs_lat") and data.get("lbs_lon"):
-                data["lbs_age"] = datetime.utcnow()
+                data["lbs_age"] = datetime.now(timezone.utc).isoformat()
             
             if self.main_loop and self.location_callback:
                 asyncio.run_coroutine_threadsafe(self.location_callback(location), self.main_loop)

@@ -26,8 +26,6 @@ const greenIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-
-
 const FitBoundsToMarkers = ({ gps, lbs }) => {
   const map = useMap();
   const hasFit = React.useRef(false);
