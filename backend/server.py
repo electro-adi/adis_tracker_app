@@ -9,8 +9,8 @@ import logging
 import asyncio
 from pathlib import Path
 from typing import List, Optional
+from datetime import datetime, timezone
 import humanize
-from datetime import datetime
 
 # Import our custom modules
 from models import (
@@ -155,9 +155,9 @@ async def get_mqtt_status():
     status_data = mqtt_manager.get_status()
     last_msg = status_data.get("last_msg")
     if last_msg:
-        status_data["last_msg_human"] = humanize.naturaltime(datetime.utcnow() - last_msg)
+        status_data["last_msg_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_msg)
     else:
-        status_data["last_msg_human"] = None
+        status_data["last_msg_human"] = "--"
     return MqttStatus(**status_data)
 
 #---------------------------------------------------------------------------  
@@ -234,16 +234,16 @@ async def get_device_location():
         if location:
             gps_age = location.get("gps_age")
             lbs_age = location.get("lbs_age")
-        
+
             if gps_age:
-                location["gps_age_human"] = humanize.naturaltime(datetime.utcnow() - gps_age)
+                location["gps_age"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
             else:
-                location["gps_age_human"] = None
+                location["gps_age"] = "--"
 
             if lbs_age:
-                location["lbs_age_human"] = humanize.naturaltime(datetime.utcnow() - lbs_age)
+                location["lbs_age"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
             else:
-                location["lbs_age_human"] = None
+                location["lbs_age"] = "--"
 
             return location
         else:
@@ -262,8 +262,17 @@ async def get_device_location_nomqtt():
         if location:
             gps_age = location.get("gps_age")
             lbs_age = location.get("lbs_age")
-            location["gps_age"] = humanize.naturaltime(datetime.utcnow() - gps_age)
-            location["lbs_age"] = humanize.naturaltime(datetime.utcnow() - lbs_age)
+
+            if gps_age:
+                location["gps_age"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
+            else:
+                location["gps_age"] = "--"
+
+            if lbs_age:
+                location["lbs_age"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
+            else:
+                location["lbs_age"] = "--"
+
             return location
         else:
             return {"message": "No location data available"}
