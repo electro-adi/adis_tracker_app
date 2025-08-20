@@ -238,8 +238,8 @@ async def get_device_location():
         if location:
 
             # convert to datetime format from string
-            gps_age = datetime.fromisoformat(location.get("gps_age"))
-            lbs_age = datetime.fromisoformat(location.get("lbs_age"))
+            gps_age = location.get("gps_age")
+            lbs_age = location.get("lbs_age")
 
 
             if gps_age:

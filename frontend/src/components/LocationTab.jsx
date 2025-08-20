@@ -55,8 +55,8 @@ const LocationTab = () => {
     lbs_lat: 49.9208907,
     lbs_lon: 19.9448864,
     sats: 0,
-    lbs_age: "0 seconds",
-    gps_age: "0 seconds",
+    lbs_age: "--",
+    gps_age: "--",
     alt: 0.0,
     speed: 0.0,
     course: 0.0

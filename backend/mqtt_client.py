@@ -191,10 +191,10 @@ class MQTTManager:
             location.gps_lat
 
             if location.gps_lat and location.gps_lon:
-                location.gps_age = datetime.now(timezone.utc).isoformat()
+                location.gps_age = datetime.now(timezone.utc)
 
             if location.lbs_lat and location.lbs_lon:
-                location.lbs_age = datetime.now(timezone.utc).isoformat()
+                location.lbs_age = datetime.now(timezone.utc)
             
             if self.main_loop and self.location_callback:
                 asyncio.run_coroutine_threadsafe(self.location_callback(location), self.main_loop)

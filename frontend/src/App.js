@@ -26,7 +26,7 @@ function App() {
     port: 0,
     last_connected: 0,
     last_msg: 0,
-    last_msg_human: "",
+    last_msg_human: "--",
     connection_attempts: 0
   });
 
