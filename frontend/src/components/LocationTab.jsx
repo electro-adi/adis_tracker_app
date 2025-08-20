@@ -73,10 +73,8 @@ const LocationTab = () => {
       const response = await fetch(`${API}/device/location_nomqtt`);
       if (response.ok) {
         const data = await response.json();
-        if (data) {
-          hasFit.current = false;
-          setLocationData(data);
-        }
+        hasFit.current = false;
+        setLocationData(data);
       }
     } catch (error) {
       console.error('Failed to load location:', error);
@@ -89,14 +87,12 @@ const LocationTab = () => {
       const response = await fetch(`${API}/device/location`);
       if (response.ok) {
         const data = await response.json();
-        if (data) {
-          hasFit.current = false;
-          setLocationData(data);
-          toast({
-            title: "Location Updated",
-            description: "GPS coordinates have been refreshed successfully.",
-          });
-        }
+        hasFit.current = false;
+        setLocationData(data);
+        toast({
+          title: "Location Updated",
+          description: "GPS coordinates have been refreshed successfully.",
+        });
       } else {
         throw new Error('Failed to get location');
       }
