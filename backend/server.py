@@ -241,6 +241,12 @@ async def get_device_location():
             gps_age = location.get("gps_age")
             lbs_age = location.get("lbs_age")
 
+            if gps_age and gps_age.tzinfo is None:
+                gps_age = gps_age.replace(tzinfo=timezone.utc)
+
+            if lbs_age and lbs_age.tzinfo is None:
+                lbs_age = lbs_age.replace(tzinfo=timezone.utc)
+
 
             if gps_age:
                 location["gps_age"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
