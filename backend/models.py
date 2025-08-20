@@ -82,6 +82,10 @@ class ContactUpdate(BaseModel):
     name: Optional[str] = None
     number: Optional[str] = None
 
+class CallStatus(BaseModel):
+    status: int = Field(ge=0, le=3)
+    number: Optional[str] = None
+
 # SMS Models
 class SmsMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

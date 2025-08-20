@@ -241,12 +241,17 @@ async def get_device_location():
             gps_age = location.get("gps_age")
             lbs_age = location.get("lbs_age")
 
+            if isinstance(gps_age, str):
+                gps_age = datetime.fromisoformat(gps_age)
+
+            if isinstance(lbs_age, str):
+                lbs_age = datetime.fromisoformat(lbs_age)
+
             if gps_age and gps_age.tzinfo is None:
                 gps_age = gps_age.replace(tzinfo=timezone.utc)
 
             if lbs_age and lbs_age.tzinfo is None:
                 lbs_age = lbs_age.replace(tzinfo=timezone.utc)
-
 
             if gps_age:
                 location["gps_age"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
@@ -319,6 +324,20 @@ async def update_device_settings(settings: DeviceSettings):
             raise HTTPException(status_code=500, detail="Failed to update device settings")
     except Exception as e:
         logger.error(f"Error updating device settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#---------------------------------------------------------------------------  
+@api_router.post("/device/get_callstatus")
+async def get_device_callstatus():
+    """Get device call status"""
+    try:
+        status = await mqtt_manager.get_device_callstatus()
+        if status:
+            return {"success": True, "call_status": status}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to get device call status")
+    except Exception as e:
+        logger.error(f"Error getting device call status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  

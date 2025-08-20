@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, Callable, Dict, Any
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
-from models import DeviceStatus, GpsLocation, SmsMessage, Notification
+from models import DeviceStatus, GpsLocation, CallStatus, SmsMessage, Notification
 from database import db_manager
 
 datetime.now(timezone.utc)
@@ -36,10 +36,10 @@ class MQTTManager:
         self.subscribe_topics = [
             "Tracker/status",
             "Tracker/location", 
-            "Tracker/ringing",
             "Tracker/sms/received",
             "Tracker/espnow/received",
-            "Tracker/contacts"
+            "Tracker/contacts",
+            "Tracker/call_status"
         ]
 
     def set_event_loop(self, loop):
@@ -147,14 +147,14 @@ class MQTTManager:
                 self._handle_status_message(payload)
             elif topic == "Tracker/location":
                 self._handle_location_message(payload)
-            elif topic == "Tracker/ringing":
-                self._handle_call_message(payload)
             elif topic == "Tracker/sms/received":
                 self._handle_sms_message(payload)
             elif topic == "Tracker/espnow/received":
                 self._handle_espnow_message(payload)
             elif topic == "Tracker/contacts":
                 self._handle_contacts_message(payload)
+            elif topic == "Tracker/call_status":
+                self._handle_call_message(payload)
                 
         except Exception as e:
             logger.error(f"Error processing MQTT message: {str(e)}")
@@ -217,22 +217,33 @@ class MQTTManager:
     def _handle_call_message(self, payload: str):
         """Handle incoming call notifications"""
         try:
-            caller_number = payload.strip()
-            
-            if self.main_loop and self.call_callback:
-                asyncio.run_coroutine_threadsafe(self.call_callback(caller_number), self.main_loop)
+            data = json.loads(payload)
+            callstatus = CallStatus(**data)
+            caller_number = callstatus.number or "Unknown"
+
+            if callstatus.status == 0:
+                logger.info(f"Call disconnected")
+
+            elif callstatus.status == 2:
+                logger.info(f"Incoming call: {caller_number}")
+
+                if self.main_loop and self.call_callback:
+                    asyncio.run_coroutine_threadsafe(self.call_callback(caller_number), self.main_loop)
                 
-            # Create notification
-            notification = Notification(
-                title="Incoming Call",
-                message=f"Device receiving call from: {caller_number}",
-                type="call",
-                data={"caller": caller_number}
-            )
-            
-            if self.main_loop and self.notification_callback:
-                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
-                
+                # Create notification
+                notification = Notification(
+                    title="Incoming Call",
+                    message=f"Device receiving call from: {caller_number}",
+                    type="call",
+                    data={"caller": caller_number}
+                )
+
+                if self.main_loop and self.notification_callback:
+                    asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
+
+            elif callstatus.status == 3:
+                logger.info(f"Call Connected: {caller_number}")
+
         except Exception as e:
             logger.error(f"Error processing call message: {str(e)}")
 
@@ -328,6 +339,10 @@ class MQTTManager:
     async def get_device_location(self) -> bool:
         """Request device location"""
         return await self.publish_command("Tracker/get_location", "")
+    
+    async def get_device_callstatus(self) -> bool:
+        """Request device callstatus"""
+        return await self.publish_command("Tracker/get_callstatus", "")
 
     async def set_led_config(self, config: dict) -> bool:
         """Set LED configuration"""
