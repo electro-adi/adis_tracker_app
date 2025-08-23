@@ -16,7 +16,7 @@ export const mockDeviceStatus = {
   "light_level": 241,
   "stored_lat": 10.0214584,
   "stored_lon": 76.2938079,
-  "uptime": "14:39:44 30/7/25",
+  "uptime": "",
   "espnow_state": 0,
   "callmode": 2,
   "gpsmode": 0,
@@ -40,16 +40,19 @@ export const mockDeviceStatus = {
 };
 
 export const mockGpsData = {
-  "lat": 19.123456,
-  "lon": 72.123456,
+  "message": "Online",
+  "gps_lat": 19.123456,
+  "gps_lon": 72.123456,
   "lbs_lat": 19.123456,
   "lbs_lon": 72.123456,
   "sats": 7,
-  "lbs_age": "39m",
-  "gps_age": "39m",
   "alt": 10.5,
   "speed": 0.0,
-  "course": 0.0
+  "course": 0.0,
+  "lbs_age": "",
+  "gps_age": "",
+  "lbs_age_human": "",
+  "gps_age_human": ""
 };
 
 export const mockContacts = [

@@ -34,12 +34,11 @@ class MQTTManager:
         
         # Topic mappings
         self.subscribe_topics = [
-            "Tracker/status",
-            "Tracker/location", 
-            "Tracker/sms/received",
-            "Tracker/espnow/received",
-            "Tracker/contacts",
-            "Tracker/call_status"
+            "Tracker/from/status",
+            "Tracker/from/location",
+            "Tracker/from/call_status"
+            "Tracker/from/sms/received",
+            "Tracker/from/espnow/received",
         ]
 
     def set_event_loop(self, loop):
@@ -143,19 +142,21 @@ class MQTTManager:
                 asyncio.run_coroutine_threadsafe(db_manager.save_mqtt_last_msg(self.last_msg), self.main_loop)
             
             # Route messages based on topic
-            if topic == "Tracker/status":
+            if topic == "Tracker/from/status":
                 self._handle_status_message(payload)
-            elif topic == "Tracker/location":
+
+            elif topic == "Tracker/from/location":
                 self._handle_location_message(payload)
-            elif topic == "Tracker/sms/received":
-                self._handle_sms_message(payload)
-            elif topic == "Tracker/espnow/received":
-                self._handle_espnow_message(payload)
-            elif topic == "Tracker/contacts":
-                self._handle_contacts_message(payload)
-            elif topic == "Tracker/call_status":
+
+            elif topic == "Tracker/from/call_status":
                 self._handle_call_message(payload)
-                
+
+            elif topic == "Tracker/from/sms/received":
+                self._handle_sms_message(payload)
+
+            elif topic == "Tracker/from/espnow/received":
+                self._handle_espnow_message(payload)
+
         except Exception as e:
             logger.error(f"Error processing MQTT message: {str(e)}")
 
@@ -290,18 +291,6 @@ class MQTTManager:
         except Exception as e:
             logger.error(f"Error processing ESP-NOW message: {str(e)}")
 
-    def _handle_contacts_message(self, payload: str):
-        """Handle contacts data from device"""
-        try:
-            data = json.loads(payload)
-            logger.info(f"Received contacts data: {data}")
-            
-            # This could be used to sync contacts with device
-            # Implementation depends on the exact format from device
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing contacts message: {str(e)}")
-
     async def publish_command(self, topic: str, payload: Any) -> bool:
         """Publish command to device"""
         if not self.connected or not self.client:
@@ -330,43 +319,43 @@ class MQTTManager:
     # Device control methods
     async def set_device_mode(self, mode: int) -> bool:
         """Set device mode (0-7)"""
-        return await self.publish_command("Tracker/mode", str(mode))
+        return await self.publish_command("Tracker/to/mode", str(mode))
 
     async def get_device_status(self) -> bool:
         """Request device status"""
-        return await self.publish_command("Tracker/get_status", "")
+        return await self.publish_command("Tracker/to/request/", "0")
 
     async def get_device_location(self) -> bool:
         """Request device location"""
-        return await self.publish_command("Tracker/get_location", "")
+        return await self.publish_command("Tracker/to/request/", "1")
     
     async def get_device_callstatus(self) -> bool:
         """Request device callstatus"""
-        return await self.publish_command("Tracker/get_callstatus", "")
+        return await self.publish_command("Tracker/to/request/", "2")
 
     async def set_led_config(self, config: dict) -> bool:
         """Set LED configuration"""
-        return await self.publish_command("Tracker/set_led", config)
+        return await self.publish_command("Tracker/to/set_led", config)
 
     async def set_device_config(self, config: dict) -> bool:
         """Set device configuration"""
-        return await self.publish_command("Tracker/set_config", config)
+        return await self.publish_command("Tracker/to/set_config", config)
 
     async def make_call(self, number: str) -> bool:
         """Make device call a number"""
-        return await self.publish_command("Tracker/call", number)
+        return await self.publish_command("Tracker/to/call", number)
 
     async def send_sms(self, sms_data: dict) -> bool:
         """Send SMS via device"""
-        return await self.publish_command("Tracker/sms/send", sms_data)
+        return await self.publish_command("Tracker/to/sms/send", sms_data)
 
     async def control_buzzer(self, enabled: bool) -> bool:
         """Control device buzzer"""
-        return await self.publish_command("Tracker/scream", enabled)
+        return await self.publish_command("Tracker/to/scream", enabled)
 
     async def control_vibrator(self, enabled: bool) -> bool:
         """Control device vibrator"""
-        return await self.publish_command("Tracker/vibrate", enabled)
+        return await self.publish_command("Tracker/to/vibrate", enabled)
 
     def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, 
                      call_cb=None, notification_cb=None):

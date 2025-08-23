@@ -26,9 +26,8 @@ const greenIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-const FitBoundsToMarkers = ({ gps, lbs }) => {
+const FitBoundsToMarkers = ({ gps, lbs, hasFit }) => {
   const map = useMap();
-  const hasFit = React.useRef(false);
 
   useEffect(() => {
     if (!gps || !lbs) return;
@@ -38,7 +37,7 @@ const FitBoundsToMarkers = ({ gps, lbs }) => {
       map.fitBounds(bounds, { padding: [30, 30] });
       hasFit.current = true;
     }
-  }, [gps, lbs, map]);
+  }, [gps, lbs, map, hasFit]);
 
   return null;
 };
@@ -48,6 +47,9 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const LocationTab = () => {
+
+  const hasFit = React.useRef(false); 
+
   const [locationData, setLocationData] = useState({
     message: "Offline",
     gps_lat: 49.9180204,
@@ -55,11 +57,13 @@ const LocationTab = () => {
     lbs_lat: 49.9208907,
     lbs_lon: 19.9448864,
     sats: 0,
-    lbs_age: "--",
-    gps_age: "--",
     alt: 0.0,
     speed: 0.0,
-    course: 0.0
+    course: 0.0,
+    lbs_age: "--",
+    gps_age: "--",
+    lbs_age_human: "",
+    gps_age_human: ""
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -169,6 +173,7 @@ const LocationTab = () => {
               <FitBoundsToMarkers
                 gps={[locationData.gps_lat, locationData.gps_lon]}
                 lbs={[locationData.lbs_lat, locationData.lbs_lon]}
+                hasFit={hasFit} 
               />
 
               {/* GPS Marker - Blue */}
@@ -183,7 +188,7 @@ const LocationTab = () => {
                     Lon: {locationData.gps_lon}<br />
                     Satellites: {locationData.sats ?? "--"}<br />
                     Speed: {locationData.speed ?? "--"} km/h
-                    Age: {locationData.gps_age ?? "--"}<br />
+                    Age: {locationData.gps_age_human ?? "--"}<br />
                   </div>
                 </Popup>
               </Marker>
@@ -198,7 +203,7 @@ const LocationTab = () => {
                     <strong>LBS Location</strong><br />
                     Lat: {locationData.lbs_lat}<br />
                     Lon: {locationData.lbs_lon}<br />
-                    Age: {locationData.lbs_age ?? "--"}<br />
+                    Age: {locationData.lbs_age_human ?? "--"}<br />
                   </div>
                 </Popup>
               </Marker>
@@ -256,7 +261,7 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className="text-white">{locationData.gps_age ?? "--"}</span>
+              <span className="text-white">{locationData.gps_age_human ?? "--"}</span>
             </div>
           </CardContent>
         </Card>
@@ -279,7 +284,7 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className="text-white">{locationData.lbs_age ?? "--"}</span>
+              <span className="text-white">{locationData.lbs_age_human ?? "--"}</span>
             </div>
           </CardContent>
         </Card>

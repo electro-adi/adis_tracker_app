@@ -296,14 +296,14 @@ async def get_device_location_nomqtt():
                 lbs_age = lbs_age.replace(tzinfo=timezone.utc)
 
             if gps_age:
-                location["gps_age"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
+                location["gps_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
             else:
-                location["gps_age"] = "--"
+                location["gps_age_human"] = "--"
 
             if lbs_age:
-                location["lbs_age"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
+                location["lbs_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
             else:
-                location["lbs_age"] = "--"
+                location["lbs_age_human"] = "--"
 
             return location
         else:
