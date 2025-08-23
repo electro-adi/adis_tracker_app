@@ -46,10 +46,24 @@ const SettingsTab = () => {
     setLoading(true);
     try {
       await mockApi.updateSettings(settings);
-      toast({
-        title: "Settings Saved",
-        description: "Device settings have been updated successfully.",
+      const response = await fetch(`${API}/device/settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...settings
+        })
       });
+
+      if (response.ok) {
+        toast({
+          title: "Settings Saved",
+          description: "Device settings have been updated successfully.",
+        });
+      } else {
+        throw new Error('Failed to save settings.');
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -368,7 +382,7 @@ const SettingsTab = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Power className="w-4 h-4 text-gray-400" />
-                <span className="text-white">Periodic Wakeup</span>
+                <span className="text-white">Periodic Location Updates</span>
               </div>
               <Switch
                 checked={settings.prd_wakeup}

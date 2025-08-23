@@ -125,13 +125,14 @@ const LedTab = () => {
     setLedSettings(prev => ({ ...prev, enabled: newEnabled }));
     
     try {
-      const response = await fetch(`${API}/device/settings`, {
+      const response = await fetch(`${API}/device/led`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          enableled: newEnabled
+          ...ledSettings,
+          ...animationSettings
         })
       });
 

@@ -62,8 +62,8 @@ const LocationTab = () => {
     course: 0.0,
     lbs_age: "--",
     gps_age: "--",
-    lbs_age_human: "",
-    gps_age_human: ""
+    lbs_age_human: "--",
+    gps_age_human: "--"
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();

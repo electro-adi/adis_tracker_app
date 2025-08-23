@@ -8,7 +8,7 @@ class DeviceStatus(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message: str
     screen_on: bool
-    last_activity: int
+    last_activity: str
     bat_voltage: float
     bat_percent: int
     gsm_rssi: int
@@ -43,6 +43,7 @@ class DeviceStatus(BaseModel):
     red: int
     green: int
     blue: int
+    last_activity_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 model_config = {
@@ -103,6 +104,7 @@ class LedConfig(BaseModel):
     red: int = Field(ge=0, le=255)
     green: int = Field(ge=0, le=255)
     blue: int = Field(ge=0, le=255)
+    enableled: bool
     led_boot_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_call_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_noti_ani: Optional[int] = Field(default=None, ge=0, le=10)

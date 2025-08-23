@@ -203,6 +203,19 @@ async def get_device_status():
         # Return latest status from database
         status = await db_manager.get_latest_device_status()
         if status:
+
+            last_activity = status.get("last_activity")
+
+            if isinstance(last_activity, str):
+                last_activity = datetime.fromisoformat(last_activity)
+
+            if last_activity and last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+
+            if last_activity:
+                status["last_activity_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_activity)
+            else:
+                status["last_activity_human"] = "--"
             return status
         else:
             return {"message": "No status data available"}
@@ -218,6 +231,19 @@ async def get_device_status_nomqtt():
         # Return latest status from database
         status = await db_manager.get_latest_device_status()
         if status:
+
+            last_activity = status.get("last_activity")
+
+            if isinstance(last_activity, str):
+                last_activity = datetime.fromisoformat(last_activity)
+
+            if last_activity and last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+
+            if last_activity:
+                status["last_activity_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_activity)
+            else:
+                status["last_activity_human"] = "--"
             return status
         else:
             return {"message": "No status data available"}
