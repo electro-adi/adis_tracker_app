@@ -400,12 +400,14 @@ class MQTTManager:
         return await self.publish_command("Tracker/to/vibrate", enabled)
 
     def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, 
-                     call_cb=None, notification_cb=None):
+                     call_cb=None, led_config_cb=None, config_cb=None, notification_cb=None):
         """Set callback functions for handling device messages"""
         self.status_callback = status_cb
         self.location_callback = location_cb
         self.sms_callback = sms_cb
         self.call_callback = call_cb
+        self.led_config_callback = led_config_cb
+        self.config_callback = config_cb
         self.notification_callback = notification_cb
 
     def get_status(self) -> dict:

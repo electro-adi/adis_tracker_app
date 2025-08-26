@@ -136,7 +136,7 @@ class DatabaseManager:
             return None
         
     # Config operations
-    async def save_config(self, config: DeviceSettings) -> str:
+    async def save_device_config(self, config: DeviceSettings) -> str:
         """Save device config to database"""
         try:
             result = await self.db.config.insert_one(config.dict())

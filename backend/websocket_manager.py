@@ -128,6 +128,35 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error broadcasting call update: {str(e)}")
 
+    async def broadcast_led_config_update(self, led_config_data: dict):
+        """Broadcast led config update"""
+        try:
+            message = {
+                "type": "led_config_update",
+                "data": led_config_data
+            }
+            
+            await self.broadcast(json.dumps(message))
+            logger.info("Broadcasted LED configuration update")
+
+        except Exception as e:
+            logger.error(f"Error broadcasting LED configuration update: {str(e)}")
+
+    async def broadcast_config_update(self, config_data: dict):
+        """Broadcast device configuration update"""
+        try:
+            message = {
+                "type": "config_update",
+                "data": config_data
+            }
+            
+            await self.broadcast(json.dumps(message))
+            logger.info("Broadcasted device configuration update")
+
+        except Exception as e:
+            logger.error(f"Error broadcasting device configuration update: {str(e)}")
+
+
     def get_connection_count(self) -> int:
         """Get number of active WebSocket connections"""
         return len(self.active_connections)

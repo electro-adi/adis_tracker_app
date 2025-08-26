@@ -105,6 +105,38 @@ async def handle_call_received(caller_number: str):
     except Exception as e:
         logger.error(f"Error handling call update: {str(e)}")
 
+#---------------------------------------------------------------------------
+async def handle_led_config(led_config: LedConfig):
+    """Handle device LED configuration updates from MQTT"""
+    try:
+        # Save to database
+        await db_manager.save_led_config(led_config)
+
+        data = json.loads(led_config.json())
+        
+        # Broadcast to WebSocket clients
+        await websocket_manager.broadcast_led_config_update(data)
+
+        logger.info("Device LED configuration updated and broadcasted")
+    except Exception as e:
+        logger.error(f"Error handling LED configuration update: {str(e)}")
+
+#---------------------------------------------------------------------------
+async def handle_config(config: DeviceSettings):
+    """Handle device configuration updates from MQTT"""
+    try:
+        # Save to database
+        await db_manager.save_device_config(config)
+
+        data = json.loads(config.json())
+        
+        # Broadcast to WebSocket clients
+        await websocket_manager.broadcast_config_update(data)
+
+        logger.info("Device configuration updated and broadcasted")
+    except Exception as e:
+        logger.error(f"Error handling configuration update: {str(e)}")
+
 #---------------------------------------------------------------------------  
 async def handle_notification(notification: Notification):
     """Handle system notifications from MQTT"""
@@ -624,6 +656,8 @@ async def startup_event():
             location_cb=handle_location_update,
             sms_cb=handle_sms_received,
             call_cb=handle_call_received,
+            led_config_cb=handle_led_config,
+            config_cb=handle_config,
             notification_cb=handle_notification
         )
 
