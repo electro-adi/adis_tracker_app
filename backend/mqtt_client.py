@@ -38,11 +38,11 @@ class MQTTManager:
         self.subscribe_topics = [
             "Tracker/from/status",
             "Tracker/from/location",
-            "Tracker/from/call_status"
-            "Tracker/from/led_config"
-            "Tracker/from/config"
+            "Tracker/from/call_status",
+            "Tracker/from/led_config",
+            "Tracker/from/config",
             "Tracker/from/sms/received",
-            "Tracker/from/espnow/received",
+            "Tracker/from/espnow/received"
         ]
 
     def set_event_loop(self, loop):
