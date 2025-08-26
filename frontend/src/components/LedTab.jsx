@@ -14,7 +14,7 @@ const LedTab = () => {
     red: 0,
     green: 0,
     blue: 0,
-    enabled: true
+    enableled: true
   });
   const [animationSettings, setAnimationSettings] = useState({
     led_boot_ani: 4,
@@ -39,7 +39,7 @@ const LedTab = () => {
             red: data.red || 0,
             green: data.green || 0,
             blue: data.blue || 0,
-            enabled: data.enableled || true
+            enableled: data.enableled || true
           });
           setAnimationSettings({
             led_boot_ani: data.led_boot_ani || 4,
@@ -121,7 +121,7 @@ const LedTab = () => {
   };
 
   const toggleLed = async () => {
-    const newEnabled = !ledSettings.enabled;
+    const newEnabled = !ledSettings.enableled;
     setLedSettings(prev => ({ ...prev, enabled: newEnabled }));
     
     try {
@@ -184,10 +184,10 @@ const LedTab = () => {
         <h1 className="text-2xl font-bold text-white">LED Control</h1>
         <div className="flex items-center gap-2">
           <Badge 
-            variant={ledSettings.enabled ? 'default' : 'secondary'}
-            className={ledSettings.enabled ? 'bg-green-600' : 'bg-gray-600'}
+            variant={ledSettings.enableled ? 'default' : 'secondary'}
+            className={ledSettings.enableled ? 'bg-green-600' : 'bg-gray-600'}
           >
-            {ledSettings.enabled ? 'Enabled' : 'Disabled'}
+            {ledSettings.enableled ? 'Enabled' : 'Disabled'}
           </Badge>
           <Button 
             onClick={toggleLed}
@@ -195,7 +195,7 @@ const LedTab = () => {
             size="sm"
             className="border-gray-600 text-gray-300 hover:bg-gray-700"
           >
-            {ledSettings.enabled ? 'Disable' : 'Enable'}
+            {ledSettings.enableled ? 'Disable' : 'Enable'}
           </Button>
         </div>
       </div>
@@ -367,7 +367,7 @@ const LedTab = () => {
 
             <Button 
               onClick={applyLedSettings}
-              disabled={loading || !ledSettings.enabled}
+              disabled={loading || !ledSettings.enableled}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
               {loading ? (

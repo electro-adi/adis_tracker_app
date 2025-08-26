@@ -387,6 +387,20 @@ async def get_led_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
+@api_router.post("/device/led")
+async def set_led_config(ledconfig: LedConfig):
+    """Set LED configuration"""
+    try:
+        success = await mqtt_manager.set_led_config(json.loads(ledconfig.json(exclude_none=True)))
+        if success:
+            return {"success": True, "message": "LED configuration updated"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update LED configuration")
+    except Exception as e:
+        logger.error(f"Error setting LED config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#---------------------------------------------------------------------------  
 @api_router.get("/device/get_settings")
 async def get_device_settings():
     """get device settings"""
@@ -404,25 +418,11 @@ async def get_device_settings():
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
-@api_router.post("/device/led")
-async def set_led_config(config: LedConfig):
-    """Set LED configuration"""
-    try:
-        success = await mqtt_manager.set_led_config(config.dict(exclude_none=True))
-        if success:
-            return {"success": True, "message": "LED configuration updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update LED configuration")
-    except Exception as e:
-        logger.error(f"Error setting LED config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
 @api_router.post("/device/settings")
 async def update_device_settings(settings: DeviceSettings):
     """Update device settings"""
     try:
-        success = await mqtt_manager.set_device_config(settings.dict(exclude_none=True))
+        success = await mqtt_manager.set_device_config(json.loads(settings.json(exclude_none=True)))
         if success:
             return {"success": True, "message": "Device settings updated"}
         else:
