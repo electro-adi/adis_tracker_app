@@ -339,6 +339,39 @@ async def get_device_location_nomqtt():
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
+@api_router.get("/device/get_led_config")
+async def get_led_config():
+    """Get LED configuration"""
+    try:
+        await mqtt_manager.get_led_config()
+
+        led_config = await db_manager.get_led_config()
+        if led_config:
+            return led_config
+        else:
+            return {"message": "No led_config data available"}
+    except Exception as e:
+        logger.error(f"Error getting device led_config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#---------------------------------------------------------------------------  
+@api_router.get("/device/get_settings")
+async def get_device_settings():
+    """get device settings"""
+
+    try:
+        await mqtt_manager.get_device_config()
+
+        settings = await db_manager.get_device_config()
+        if settings:
+            return settings
+        else:
+            return {"message": "No settings data available"}
+    except Exception as e:
+        logger.error(f"Error getting device settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#---------------------------------------------------------------------------  
 @api_router.post("/device/led")
 async def set_led_config(config: LedConfig):
     """Set LED configuration"""

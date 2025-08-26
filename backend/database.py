@@ -3,7 +3,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from models import DeviceStatus, GpsLocation, Contact, SmsMessage, Notification
+from models import DeviceStatus, GpsLocation, Contact, SmsMessage, LedConfig, DeviceSettings, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,54 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting location history: {str(e)}")
             return []
+
+    # Led config operations
+    async def save_led_config(self, led_config: LedConfig) -> str:
+        """Save led config to database"""
+        try:
+            result = await self.db.led_config.insert_one(led_config.dict())
+            logger.info(f"Saved led config with ID: {result.inserted_id}")
+            return str(result.inserted_id)
+        except Exception as e:
+            logger.error(f"Error saving led config: {str(e)}")
+            raise
+
+    async def get_led_config(self) -> Optional[Dict[str, Any]]:
+        """Get the most recent led config"""
+        try:
+            led_config = await self.db.led_config.find_one(
+                sort=[("timestamp", -1)]
+            )
+            if led_config:
+                led_config['_id'] = str(led_config['_id'])
+            return led_config
+        except Exception as e:
+            logger.error(f"Error getting led config: {str(e)}")
+            return None
+        
+    # Config operations
+    async def save_config(self, config: DeviceSettings) -> str:
+        """Save device config to database"""
+        try:
+            result = await self.db.config.insert_one(config.dict())
+            logger.info(f"Saved device config with ID: {result.inserted_id}")
+            return str(result.inserted_id)
+        except Exception as e:
+            logger.error(f"Error saving device config: {str(e)}")
+            raise
+
+    async def get_device_config(self) -> Optional[Dict[str, Any]]:
+        """Get the most recent device config"""
+        try:
+            config = await self.db.config.find_one(
+                sort=[("timestamp", -1)]
+            )
+            if config:
+                config['_id'] = str(config['_id'])
+            return config
+        except Exception as e:
+            logger.error(f"Error getting device config: {str(e)}")
+            return None
 
     # Contact operations
     async def create_contact(self, contact: Contact) -> str:

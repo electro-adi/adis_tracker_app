@@ -31,7 +31,7 @@ const LedTab = () => {
 
   const loadDeviceStatus = async () => {
     try {
-      const response = await fetch(`${API}/device/status`);
+      const response = await fetch(`${API}/device/get_led_config`);
       if (response.ok) {
         const data = await response.json();
         if (data.red !== undefined) {

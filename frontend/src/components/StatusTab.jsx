@@ -31,15 +31,9 @@ const StatusTab = () => {
     wifi: "",
     in_call: false,
     locked: false,
-    buzzer: false,
-    vibrator: false,
     light_level: 0,
-    stored_lat: 0,
-    stored_lon: 0,
     uptime: "00:00:00",
     espnow_state: 0,
-    callmode: 0,
-    gpsmode: 0
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();

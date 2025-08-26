@@ -16,27 +16,46 @@ import {
   Wifi,
   Save
 } from 'lucide-react';
-import { mockApi, mockDeviceStatus } from '../utils/mock';
 import { useToast } from '../hooks/use-toast';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
-    bootanimation: mockDeviceStatus.bootanimation,
-    enablebuzzer: mockDeviceStatus.enablebuzzer,
-    enablehaptics: mockDeviceStatus.enablehaptics,
-    enableled: mockDeviceStatus.enableled,
-    bootsms: mockDeviceStatus.bootsms,
-    noti_sound: mockDeviceStatus.noti_sound,
-    noti_ppp: mockDeviceStatus.noti_ppp,
-    ringtone: mockDeviceStatus.ringtone,
-    prd_wakeup: mockDeviceStatus.prd_wakeup,
-    prd_wakeup_time: mockDeviceStatus.prd_wakeup_time,
-    callmode: mockDeviceStatus.callmode,
-    gpsmode: mockDeviceStatus.gpsmode,
-    DS_call_mode: mockDeviceStatus.DS_call_mode
+    bootanimation: true,
+    enablebuzzer: true,
+    enablehaptics: true,
+    bootsms: false,
+    noti_sound: true,
+    noti_ppp: true,
+    ringtone: 1,
+    prd_wakeup: false,
+    prd_wakeup_time: 300000,
+    callmode: 2,
+    gpsmode: 0,
+    DS_call_mode: 3
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const response = await fetch(`${API}/device/get_settings`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.message) {
+          setSettings(data);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -45,15 +64,12 @@ const SettingsTab = () => {
   const saveSettings = async () => {
     setLoading(true);
     try {
-      await mockApi.updateSettings(settings);
       const response = await fetch(`${API}/device/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...settings
-        })
+        body: JSON.stringify(settings)
       });
 
       if (response.ok) {
@@ -80,7 +96,6 @@ const SettingsTab = () => {
       bootanimation: true,
       enablebuzzer: true,
       enablehaptics: true,
-      enableled: true,
       bootsms: false,
       noti_sound: true,
       noti_ppp: true,
@@ -97,13 +112,41 @@ const SettingsTab = () => {
     });
   };
 
+  const UpdateMode = async (mode) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API}/device/mode/${mode}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        toast({
+          title: "Mode Updated",
+          description: "Device mode have been updated successfully.",
+        });
+      } else {
+        throw new Error('Failed to update mode.');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update mode.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const deviceModes = [
     { value: 0, name: 'Wake' },
     { value: 1, name: 'Display Off' },
     { value: 2, name: 'Deep Sleep' },
     { value: 3, name: 'Lock' },
     { value: 4, name: 'Unlock' },
-    { value: 7, name: 'Active Mode' }
+    { value: 5, name: 'Active Mode' }
   ];
 
   const callModes = [
@@ -448,7 +491,7 @@ const SettingsTab = () => {
                   key={mode.value}
                   variant="outline"
                   size="sm"
-                  onClick={() => mockApi.setMode(mode.value)}
+                  onClick={() => UpdateMode(mode.value)}
                   className="border-gray-600 text-gray-300 hover:bg-gray-700"
                 >
                   {mode.name}
@@ -461,7 +504,7 @@ const SettingsTab = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => mockApi.setMode(5)}
+                  onClick={() => UpdateMode(6)}
                   className="border-orange-600 text-orange-300 hover:bg-orange-900"
                 >
                   Reboot GSM
@@ -469,7 +512,7 @@ const SettingsTab = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => mockApi.setMode(6)}
+                  onClick={() => UpdateMode(7)}
                   className="border-red-600 text-red-300 hover:bg-red-900"
                 >
                   Reboot Device

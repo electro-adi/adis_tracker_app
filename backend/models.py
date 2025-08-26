@@ -17,32 +17,9 @@ class DeviceStatus(BaseModel):
     wifi: str
     in_call: bool
     locked: bool
-    buzzer: bool
-    vibrator: bool
     light_level: int
-    stored_lat: float
-    stored_lon: float
     uptime: str
     espnow_state: int
-    callmode: int
-    gpsmode: int
-    bootanimation: bool
-    enablebuzzer: bool
-    enablehaptics: bool
-    enableled: bool
-    bootsms: bool
-    noti_sound: bool
-    noti_ppp: bool
-    ringtone: int
-    prd_wakeup: bool
-    prd_wakeup_time: int
-    DS_call_mode: int
-    led_boot_ani: int
-    led_call_ani: int
-    led_noti_ani: int
-    red: int
-    green: int
-    blue: int
     last_activity_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -101,6 +78,7 @@ class SmsCreate(BaseModel):
 
 # Device Command Models
 class LedConfig(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     red: int = Field(ge=0, le=255)
     green: int = Field(ge=0, le=255)
     blue: int = Field(ge=0, le=255)
@@ -108,12 +86,13 @@ class LedConfig(BaseModel):
     led_boot_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_call_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_noti_ani: Optional[int] = Field(default=None, ge=0, le=10)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class DeviceSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     bootanimation: Optional[bool] = None
     enablebuzzer: Optional[bool] = None
     enablehaptics: Optional[bool] = None
-    enableled: Optional[bool] = None
     bootsms: Optional[bool] = None
     noti_sound: Optional[bool] = None
     noti_ppp: Optional[bool] = None
@@ -123,6 +102,7 @@ class DeviceSettings(BaseModel):
     callmode: Optional[int] = Field(default=None, ge=0, le=2)
     gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
     DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 # Notification Models
 class Notification(BaseModel):

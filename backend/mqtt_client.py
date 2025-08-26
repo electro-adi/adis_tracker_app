@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, Callable, Dict, Any
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
-from models import DeviceStatus, GpsLocation, CallStatus, SmsMessage, Notification
+from models import DeviceStatus, GpsLocation, CallStatus, DeviceSettings, LedConfig, SmsMessage, Notification
 from database import db_manager
 
 datetime.now(timezone.utc)
@@ -29,6 +29,8 @@ class MQTTManager:
         self.location_callback: Optional[Callable] = None
         self.sms_callback: Optional[Callable] = None
         self.call_callback: Optional[Callable] = None
+        self.led_config_callback: Optional[Callable] = None
+        self.config_callback: Optional[Callable] = None
         self.notification_callback: Optional[Callable] = None
         self.main_loop: Optional[asyncio.AbstractEventLoop] = None
         
@@ -37,6 +39,8 @@ class MQTTManager:
             "Tracker/from/status",
             "Tracker/from/location",
             "Tracker/from/call_status"
+            "Tracker/from/led_config"
+            "Tracker/from/config"
             "Tracker/from/sms/received",
             "Tracker/from/espnow/received",
         ]
@@ -151,6 +155,12 @@ class MQTTManager:
             elif topic == "Tracker/from/call_status":
                 self._handle_call_message(payload)
 
+            elif topic == "Tracker/from/led_config":
+                self._handle_led_config(payload)
+
+            elif topic == "Tracker/from/config":
+                self._handle_config(payload)
+
             elif topic == "Tracker/from/sms/received":
                 self._handle_sms_message(payload)
 
@@ -248,6 +258,30 @@ class MQTTManager:
         except Exception as e:
             logger.error(f"Error processing call message: {str(e)}")
 
+    def _handle_led_config(self, payload: str):
+        """Handle led config"""
+        try:
+            data = json.loads(payload)
+            led_config = LedConfig(**data)
+
+            if self.main_loop and self.led_config_callback:
+                asyncio.run_coroutine_threadsafe(self.led_config_callback(led_config), self.main_loop)
+           
+        except (json.JSONDecodeError, ValidationError) as e:
+            logger.error(f"Error parsing status message: {str(e)}")
+
+    def _handle_config(self, payload: str):
+        """Handle led config"""
+        try:
+            data = json.loads(payload)
+            config =  DeviceSettings(**data)
+
+            if self.main_loop and self.config_callback:
+                asyncio.run_coroutine_threadsafe(self.config_callback(config), self.main_loop)
+           
+        except (json.JSONDecodeError, ValidationError) as e:
+            logger.error(f"Error parsing status message: {str(e)}")
+
     def _handle_sms_message(self, payload: str):
         """Handle received SMS messages"""
         try:
@@ -333,13 +367,21 @@ class MQTTManager:
         """Request device callstatus"""
         return await self.publish_command("Tracker/to/request/", "2")
 
-    async def set_led_config(self, config: dict) -> bool:
+    async def get_led_config(self) -> bool:
+        """Get led configuration"""
+        return await self.publish_command("Tracker/to/request/", "3")
+    
+    async def get_device_config(self) -> bool:
+        """Get device configuration"""
+        return await self.publish_command("Tracker/to/request/", "4")
+
+    async def set_led_config(self, led_config: dict) -> bool:
         """Set LED configuration"""
-        return await self.publish_command("Tracker/to/set_led", config)
+        return await self.publish_command("Tracker/to/set/led_config", led_config)
 
     async def set_device_config(self, config: dict) -> bool:
         """Set device configuration"""
-        return await self.publish_command("Tracker/to/set_config", config)
+        return await self.publish_command("Tracker/to/set/config", config)
 
     async def make_call(self, number: str) -> bool:
         """Make device call a number"""
