@@ -402,6 +402,8 @@ async def get_led_config():
 async def set_led_config(ledconfig: LedConfig):
     """Set LED configuration"""
     try:
+        await db_manager.save_led_config(ledconfig)
+
         success = await mqtt_manager.set_led_config(json.loads(ledconfig.json(exclude_none=True)))
         if success:
             return {"success": True, "message": "LED configuration updated"}
@@ -433,6 +435,8 @@ async def get_device_settings():
 async def update_device_settings(settings: DeviceSettings):
     """Update device settings"""
     try:
+        await db_manager.save_device_config(settings)
+
         success = await mqtt_manager.set_device_config(json.loads(settings.json(exclude_none=True)))
         if success:
             return {"success": True, "message": "Device settings updated"}

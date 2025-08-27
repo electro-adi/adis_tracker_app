@@ -122,8 +122,7 @@ const LedTab = () => {
 
   const toggleLed = async () => {
     const newEnabled = !ledSettings.enableled;
-    setLedSettings(prev => ({ ...prev, enabled: newEnabled }));
-    
+    setLedSettings(prev => ({ ...prev, enableled: newEnabled }));
     try {
       const response = await fetch(`${API}/device/led`, {
         method: 'POST',
@@ -132,6 +131,7 @@ const LedTab = () => {
         },
         body: JSON.stringify({
           ...ledSettings,
+          enableled: newEnabled,
           ...animationSettings
         })
       });
@@ -182,22 +182,18 @@ const LedTab = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">LED Control</h1>
-        <div className="flex items-center gap-2">
-          <Badge 
-            variant={ledSettings.enableled ? 'default' : 'secondary'}
-            className={ledSettings.enableled ? 'bg-green-600' : 'bg-gray-600'}
-          >
-            {ledSettings.enableled ? 'Enabled' : 'Disabled'}
-          </Badge>
-          <Button 
-            onClick={toggleLed}
-            variant="outline"
-            size="sm"
-            className="border-gray-600 text-gray-300 hover:bg-gray-700"
-          >
-            {ledSettings.enableled ? 'Disable' : 'Enable'}
-          </Button>
-        </div>
+        
+        <Button
+          onClick={toggleLed}
+          size="sm"
+          className={
+            ledSettings.enableled
+              ? "bg-green-600 hover:bg-green-700 text-white"
+              : "bg-gray-600 hover:bg-gray-700 text-white"
+          }
+        >
+          {ledSettings.enableled ? "Disable LED" : "Enable LED"}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

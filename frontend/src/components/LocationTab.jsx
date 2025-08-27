@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon } from 'lucide-react';
@@ -60,21 +60,6 @@ const FitBoundsToMarkers = ({ gps, lbs, hasFit }) => {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const [showHistory, setShowHistory] = useState(false);
-const [historyData, setHistoryData] = useState([]);
-
-const loadHistory = async () => {
-  try {
-    const response = await fetch(`${API}/device/location_history?limit=50`);
-    if (response.ok) {
-      const data = await response.json();
-      setHistoryData(data);
-    }
-  } catch (error) {
-    console.error("Failed to load history:", error);
-  }
-};
-
 const LocationTab = () => {
 
   const hasFit = React.useRef(false); 
@@ -97,6 +82,9 @@ const LocationTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+
   useEffect(() => {
     loadlocation();
   }, []);
@@ -111,6 +99,18 @@ const LocationTab = () => {
       }
     } catch (error) {
       console.error('Failed to load location:', error);
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+      const response = await fetch(`${API}/device/location_history?limit=50`);
+      if (response.ok) {
+        const data = await response.json();
+        setHistoryData(data);
+      }
+    } catch (error) {
+      console.error("Failed to load history:", error);
     }
   };
 
@@ -291,9 +291,9 @@ const LocationTab = () => {
               )}
 
             </MapContainer>
-
+            
             {/* Overlay Controls */}
-            <div className="absolute top-4 right-4 z-5">
+            <div className="absolute top-4 right-4 z-50 flex items-center space-x-2">
               <Button
                 onClick={openInGoogleMaps}
                 size="sm"
@@ -309,8 +309,8 @@ const LocationTab = () => {
                   setShowHistory(!showHistory);
                 }}
                 size="sm"
-                className="ml-2 bg-gray-900/80 hover:bg-gray-900 text-white"
-              > 
+                className="bg-gray-900/80 hover:bg-gray-900 text-white"
+              >
                 {showHistory ? "Hide History" : "View History"}
               </Button>
             </div>
