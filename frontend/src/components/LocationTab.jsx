@@ -26,6 +26,20 @@ const greenIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+const blueDotIcon = L.divIcon({
+  className: "custom-blue-dot",
+  html: '<div style="width:10px;height:10px;background:blue;border-radius:50%;border:2px solid white;"></div>',
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+});
+
+const greenDotIcon = L.divIcon({
+  className: "custom-green-dot",
+  html: '<div style="width:10px;height:10px;background:green;border-radius:50%;border:2px solid white;"></div>',
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+});
+
 const FitBoundsToMarkers = ({ gps, lbs, hasFit }) => {
   const map = useMap();
 
@@ -45,6 +59,21 @@ const FitBoundsToMarkers = ({ gps, lbs, hasFit }) => {
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+const [showHistory, setShowHistory] = useState(false);
+const [historyData, setHistoryData] = useState([]);
+
+const loadHistory = async () => {
+  try {
+    const response = await fetch(`${API}/device/location_history?limit=50`);
+    if (response.ok) {
+      const data = await response.json();
+      setHistoryData(data);
+    }
+  } catch (error) {
+    console.error("Failed to load history:", error);
+  }
+};
 
 const LocationTab = () => {
 
@@ -207,6 +236,60 @@ const LocationTab = () => {
                   </div>
                 </Popup>
               </Marker>
+              {/* History points & polylines */}
+              {showHistory && historyData.length > 0 && (
+                <>
+                  {/* GPS history markers */}
+                  {historyData.map((point, idx) => (
+                    <Marker
+                      key={`gps-${idx}`}
+                      position={[point.gps_lat, point.gps_lon]}
+                      icon={blueDotIcon}
+                    >
+                      <Popup>
+                        <div className="text-center">
+                          <strong>GPS Point {idx + 1}</strong><br />
+                          Lat: {point.gps_lat}<br />
+                          Lon: {point.gps_lon}<br />
+                          Time: {new Date(point.timestamp).toLocaleString()}<br />
+                          Speed: {point.speed ?? "--"} km/h
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+
+                  {/* Blue polyline for GPS history */}
+                  <Polyline
+                    positions={historyData.map(p => [p.gps_lat, p.gps_lon])}
+                    color="blue"
+                  />
+
+                  {/* LBS history markers */}
+                  {historyData.map((point, idx) => (
+                    <Marker
+                      key={`lbs-${idx}`}
+                      position={[point.lbs_lat, point.lbs_lon]}
+                      icon={greenDotIcon}
+                    >
+                      <Popup>
+                        <div className="text-center">
+                          <strong>LBS Point {idx + 1}</strong><br />
+                          Lat: {point.lbs_lat}<br />
+                          Lon: {point.lbs_lon}<br />
+                          Time: {new Date(point.timestamp).toLocaleString()}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+
+                  {/* Green polyline for LBS history */}
+                  <Polyline
+                    positions={historyData.map(p => [p.lbs_lat, p.lbs_lon])}
+                    color="green"
+                  />
+                </>
+              )}
+
             </MapContainer>
 
             {/* Overlay Controls */}
@@ -218,6 +301,17 @@ const LocationTab = () => {
               >
                 <NavigationIcon className="w-4 h-4 mr-2" />
                 Open in Maps
+              </Button>
+
+              <Button
+                onClick={() => {
+                  if (!showHistory) loadHistory();
+                  setShowHistory(!showHistory);
+                }}
+                size="sm"
+                className="ml-2 bg-gray-900/80 hover:bg-gray-900 text-white"
+              > 
+                {showHistory ? "Hide History" : "View History"}
               </Button>
             </div>
           </div>

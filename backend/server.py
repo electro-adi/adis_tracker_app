@@ -369,6 +369,17 @@ async def get_device_location_nomqtt():
     except Exception as e:
         logger.error(f"Error getting device location: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+#---------------------------------------------------------------------------  
+@api_router.get("/device/location_history")
+async def get_device_location_history(limit: int = 100):
+    """Get device location history"""
+    try:
+        locations = await db_manager.get_location_history(limit=limit)
+        return locations
+    except Exception as e:
+        logger.error(f"Error getting location history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
 @api_router.get("/device/get_led_config")
