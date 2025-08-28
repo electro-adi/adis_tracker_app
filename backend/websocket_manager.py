@@ -3,7 +3,6 @@ import logging
 from typing import Dict, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from models import Notification
-from server import send_push_notification
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +50,7 @@ class WebSocketManager:
 
 async def broadcast_notification(self, notification: Notification, fcm_tokens: list = None):
     """Broadcast notification to all connected clients and send FCM"""
+    from server import send_push_notification
     try:
         # WebSocket broadcast
         message = {
