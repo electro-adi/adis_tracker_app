@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from models import Notification
+from server import send_push_notification
 
 logger = logging.getLogger(__name__)
 
@@ -48,29 +49,40 @@ class WebSocketManager:
         for connection in disconnected:
             self.disconnect(connection)
 
-    async def broadcast_notification(self, notification: Notification):
-        """Broadcast notification to all connected clients"""
-        try:
-            message = {
-                "type": "notification",
-                "data": {
-                    "id": notification.id,
-                    "title": notification.title,
-                    "message": notification.message,
-                    "notification_type": notification.type,
-                    "data": notification.data,
-                    "timestamp": notification.timestamp.isoformat()
-                }
+async def broadcast_notification(self, notification: Notification, fcm_tokens: list = None):
+    """Broadcast notification to all connected clients and send FCM"""
+    try:
+        # WebSocket broadcast
+        message = {
+            "type": "notification",
+            "data": {
+                "id": notification.id,
+                "title": notification.title,
+                "message": notification.message,
+                "notification_type": notification.type,
+                "data": notification.data,
+                "timestamp": notification.timestamp.isoformat()
             }
-            
-            await self.broadcast(json.dumps(message))
-            logger.info(f"Broadcasted notification: {notification.title}")
-            
-        except Exception as e:
-            logger.error(f"Error broadcasting notification: {str(e)}")
+        }
+        await self.broadcast(json.dumps(message))
+        logger.info(f"Broadcasted notification: {notification.title}")
 
+        # Send Firebase push notifications if tokens provided
+        if fcm_tokens:
+            for token in fcm_tokens:
+                await send_push_notification(
+                    token=token,
+                    title=notification.title,
+                    body=notification.message,
+                    data=notification.data or {}
+                )
+
+    except Exception as e:
+        logger.error(f"Error broadcasting notification: {str(e)}")
+
+"""
     async def broadcast_status_update(self, status_data: dict):
-        """Broadcast device status update"""
+        #Broadcast device status update
         try:
             message = {
                 "type": "status_update",
@@ -84,7 +96,7 @@ class WebSocketManager:
             logger.error(f"Error broadcasting status update: {str(e)}")
 
     async def broadcast_location_update(self, location_data: dict):
-        """Broadcast GPS location update"""
+        #Broadcast GPS location update
         try:
             message = {
                 "type": "location_update", 
@@ -98,7 +110,7 @@ class WebSocketManager:
             logger.error(f"Error broadcasting location update: {str(e)}")
 
     async def broadcast_sms_update(self, sms_data: dict):
-        """Broadcast SMS received update"""
+        #Broadcast SMS received update
         try:
             message = {
                 "type": "sms_update",
@@ -112,7 +124,7 @@ class WebSocketManager:
             logger.error(f"Error broadcasting SMS update: {str(e)}")
 
     async def broadcast_call_update(self, caller_number: str):
-        """Broadcast incoming call update"""
+        #Broadcast incoming call update
         try:
             message = {
                 "type": "call_update",
@@ -129,7 +141,7 @@ class WebSocketManager:
             logger.error(f"Error broadcasting call update: {str(e)}")
 
     async def broadcast_led_config_update(self, led_config_data: dict):
-        """Broadcast led config update"""
+        #Broadcast led config update
         try:
             message = {
                 "type": "led_config_update",
@@ -143,7 +155,7 @@ class WebSocketManager:
             logger.error(f"Error broadcasting LED configuration update: {str(e)}")
 
     async def broadcast_config_update(self, config_data: dict):
-        """Broadcast device configuration update"""
+        #Broadcast device configuration update
         try:
             message = {
                 "type": "config_update",
@@ -158,8 +170,8 @@ class WebSocketManager:
 
 
     def get_connection_count(self) -> int:
-        """Get number of active WebSocket connections"""
-        return len(self.active_connections)
-
+        #Get number of active WebSocket connections
+        return len(self.active_connections) 
+"""
 # Global WebSocket manager instance
 websocket_manager = WebSocketManager()

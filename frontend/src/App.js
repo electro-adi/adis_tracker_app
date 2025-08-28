@@ -9,12 +9,15 @@ import SettingsTab from "./components/SettingsTab";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { PushNotifications } from '@capacitor/push-notifications';
+import DeviceInfo from 'react-native-device-info';
 
 const WS_URL  = process.env.REACT_APP_BACKEND_URL;
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 function App() {
+
   const [activeTab, setActiveTab] = useState('location');
   const [websocket, setWebsocket] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -30,7 +33,27 @@ function App() {
     connection_attempts: 0
   });
 
-  // Effect for Capacitor StatusBar
+
+  //---------------------------------------------- Show notification function
+  const handleNotification = (notificationData) => {
+    // Show toast
+    toast({
+      title: notificationData.title,
+      description: notificationData.message,
+    });
+
+    // Show browser notification if permission granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(notificationData.title, {
+        body: notificationData.message,
+        icon: '/favicon.ico',
+        tag: notificationData.notification_type || "generic",
+      });
+    }
+  };
+
+
+  //---------------------------------------------- Configure Capacitor StatusBar
   useEffect(() => {
     const configureStatusBar = async () => {
       if (window.Capacitor?.isNativePlatform()) {
@@ -45,6 +68,8 @@ function App() {
     configureStatusBar();
   }, []);
 
+
+  //---------------------------------------------- Request mqtt status every 5 seconds
   useEffect(() => {
     const get_mqtt_status = async () => {
       try {
@@ -65,7 +90,31 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // WebSocket connection for real-time updates
+
+  //---------------------------------------------- Send stayawake message every 35 seconds
+  useEffect(() => {
+    const device_stayawake = async () => {
+    try {
+      const response = await fetch(`${API}/device/mode/0`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send stayawake message', error);
+    }
+    };
+
+    device_stayawake();
+
+    const interval = setInterval(device_stayawake, 35000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+
+  //---------------------------------------------- WebSocket connection for real-time updates
   useEffect(() => {
     const connectWebSocket = () => {
       try {
@@ -89,36 +138,27 @@ function App() {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            
-            if (data.type === 'notification') {
-              // Show browser notification
-              showNotification(data.data);
-            } else if (data.type === 'status_update') {
-              // Handle device status updates
-              console.log('Device status updated:', data.data);
-            } else if (data.type === 'location_update') {
-              // Handle GPS location updates
-              console.log('Location updated:', data.data);
-            } else if (data.type === 'sms_update') {
-              // Handle SMS updates
-              console.log('SMS received:', data.data);
-              toast({
-                title: "SMS Received",
-                description: `From ${data.data.number}: ${data.data.message.substring(0, 50)}...`,
-              });
-            } else if (data.type === 'call_update') {
-              // Handle incoming call notifications
-              console.log('Incoming call:', data.data);
-              toast({
-                title: "Incoming Call",
-                description: `Device receiving call from: ${data.data.caller}`,
-                variant: "default",
-              });
+
+            switch (data.type) {
+              case 'notification':
+              case 'sms_update':
+              case 'call_update':
+              case 'location_update':
+              case 'status_update':
+                handleNotification({
+                  title: data.data?.title || data.type,
+                  message: data.data?.message || JSON.stringify(data.data),
+                  notification_type: data.type
+                });
+                break;
+              default:
+                console.log('Unknown WS message type:', data);
             }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
           }
         };
+
 
         ws.onclose = () => {
           console.log('WebSocket disconnected');
@@ -161,32 +201,51 @@ function App() {
     };
   }, []);
 
-  // Request notification permission
+  //---------------------------------------------- Setup firebase notification functionality
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        console.log('Notification permission:', permission);
+    async function initPush() {
+
+      // Request permission (Android 13+ and iOS)
+      const perm = await PushNotifications.requestPermissions();
+      if (perm.receive !== "granted") return;
+
+      await PushNotifications.register();
+
+      // Token listener
+      PushNotifications.addListener("registration", async (token) => {
+        console.log("FCM token:", token.value);
+
+          const deviceId = DeviceInfo.getUniqueId();
+          const userId = loggedInUser?.id || `guest-${deviceId}`;
+
+        // Send token to backend
+        await fetch(`${API}/push/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: token.value,
+            deviceId: deviceId,
+            userId: userId
+          }),
+        });
+      });
+
+      // Foreground + background push
+      PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        console.log("Push received:", notification);
+
+        handleNotification({
+          title: notification.title || "Push Notification",
+          message: notification.body || "",
+          notification_type: notification.data?.type || "push",
+        });
       });
     }
+
+    initPush();
   }, []);
 
-  const showNotification = (notificationData) => {
-    // Show toast notification
-    toast({
-      title: notificationData.title,
-      description: notificationData.message,
-    });
-
-    // Show browser notification if permission granted
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(notificationData.title, {
-        body: notificationData.message,
-        icon: '/favicon.ico',
-        tag: notificationData.notification_type
-      });
-    }
-  };
-
+  //---------------------------------------------- Render the active tab component
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'location':

@@ -48,7 +48,7 @@ const SettingsTab = () => {
       const response = await fetch(`${API}/device/get_settings`);
       if (response.ok) {
         const data = await response.json();
-        if (data.message) {
+        if (data.bootanimation !== undefined) {
           setSettings(data);
         }
       }

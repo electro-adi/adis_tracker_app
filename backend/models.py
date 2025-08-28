@@ -7,6 +7,7 @@ import uuid
 class DeviceStatus(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message: str
+    send_reason: int
     screen_on: bool
     last_activity: str
     bat_voltage: float
@@ -31,6 +32,7 @@ model_config = {
 class GpsLocation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message: str
+    send_reason: int
     gps_lat: float
     gps_lon: float
     lbs_lat: float
@@ -125,3 +127,9 @@ class MqttStatus(BaseModel):
     last_msg_human: Optional[str] = None
     connection_attempts: int = 0
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PushTokenRegister(BaseModel):
+    token: str
+    deviceId: str
+    userId: str

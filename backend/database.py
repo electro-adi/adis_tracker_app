@@ -288,5 +288,23 @@ class DatabaseManager:
             logger.error(f"Error getting unread notification count: {str(e)}")
             return 0
 
+    async def save_push_token(self, token: str, device_id: str, user_id: str):
+        """Save or update a push token for a device"""
+        existing = await self.push_tokens_collection.find_one({"device_id": device_id})
+        if existing:
+            await self.push_tokens_collection.update_one(
+                {"device_id": device_id},
+                {"$set": {"token": token, "user_id": user_id, "updated_at": datetime.utcnow()}}
+            )
+        else:
+            await self.push_tokens_collection.insert_one({
+                "token": token,
+                "device_id": device_id,
+                "user_id": user_id,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            })
+
+
 # Global database manager instance
 db_manager = DatabaseManager()

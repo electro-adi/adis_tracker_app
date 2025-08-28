@@ -11,11 +11,14 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timezone
 import humanize
+import firebase_admin
+from firebase_admin import credentials, messaging
+
 
 # Import our custom modules
 from models import (
     DeviceStatus, GpsLocation, Contact, ContactCreate, ContactUpdate,
-    SmsMessage, SmsCreate, LedConfig, DeviceSettings, Notification, MqttStatus
+    SmsMessage, SmsCreate, LedConfig, DeviceSettings, Notification, MqttStatus, PushTokenRegister
 )
 from mqtt_client import MQTTManager
 from websocket_manager import websocket_manager
@@ -23,6 +26,13 @@ from database import db_manager
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Load Firebase SDK JSON from environment variable
+firebase_json_str = os.getenv("FIREBASE_ADMIN_SDK_JSON")
+cred = credentials.Certificate(json.loads(firebase_json_str))
+
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
 
 # Create the main app
 app = FastAPI(title="GPS Tracker Control API", version="1.0.0")
@@ -37,12 +47,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+mqtt_cred_str = os.getenv("MQTT_CREDENTIALS")
+if not mqtt_cred_str:
+    raise RuntimeError("MQTT_CREDENTIALS environment variable not set")
+
+try:
+    mqtt_cred = json.loads(mqtt_cred_str)
+    broker = mqtt_cred.get("broker")
+    port = int(mqtt_cred.get("port"))
+    username = mqtt_cred.get("username")
+    password = mqtt_cred.get("password")
+
+    if not all([broker, port, username, password]):
+        raise ValueError("MQTT_CREDENTIALS is missing required fields")
+except Exception as e:
+    raise RuntimeError(f"Failed to load MQTT credentials: {str(e)}")
+
 # Initialize MQTT Manager
 mqtt_manager = MQTTManager(
-    broker="ia6350c9.ala.eu-central-1.emqxsl.com",
-    port=8883,
-    username="admin",
-    password="MQTT6282"
+    broker=broker,
+    port=port,
+    username=username,
+    password=password
 )
 
 #---------------------------------------------------------------------------  
@@ -634,16 +660,52 @@ async def get_unread_notification_count():
 # WebSocket endpoint for real-time updates
 @app.websocket("/ws/notifications")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time notifications"""
     await websocket_manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive
             data = await websocket.receive_text()
-            # Echo back for heartbeat
-            await websocket.send_text(f"Echo: {data}")
+            # Send back a JSON payload
+            await websocket.send_text(json.dumps({
+                "type": "heartbeat",
+                "data": data
+            }))
     except WebSocketDisconnect:
         websocket_manager.disconnect(websocket)
+
+#---------------------------------------------------------------------------
+@api_router.post("/push/register")
+async def register_push_token(token_data: PushTokenRegister):
+    """Register device push notification token"""
+    try:
+        # Save the token in the database
+        await db_manager.save_push_token(
+            token=token_data.token,
+            device_id=token_data.deviceId,
+            user_id=token_data.userId
+        )
+        return {"success": True, "message": "Push token registered"}
+    except Exception as e:
+        logger.error(f"Error registering push token: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to register push token")
+
+async def send_push_notification(token: str, title: str, body: str, data: dict = None):
+    """Send push notification to a device token"""
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body
+        ),
+        token=token,
+        data=data or {}
+    )
+    
+    try:
+        response = messaging.send(message)
+        return response
+    except Exception as e:
+        print("Error sending push:", e)
+        return None
+
 
 # Include the router in the main app
 app.include_router(api_router)
