@@ -12,7 +12,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import humanize
 import firebase_admin
-from firebase_admin import credentials, messaging
+from firebase_admin import messaging, credentials, exceptions
 
 
 # Import our custom modules
@@ -690,6 +690,11 @@ async def register_push_token(token_data: PushTokenRegister):
 
 def send_push_notification(token: str, title: str, body: str, data: dict = None):
     """Send push notification to a device token"""
+
+    if not token:
+        logger.warning("Attempted to send push notification to empty token")
+        return {"success": False, "error": "Empty token"}
+
     message = messaging.Message(
         notification=messaging.Notification(
             title=title,
@@ -701,13 +706,19 @@ def send_push_notification(token: str, title: str, body: str, data: dict = None)
     
     try:
         response = messaging.send(message)
-        logger.info("Push sent:", response)
-        return response
-    except Exception as e:
-        response = messaging.send(message)
-        logger.error("Error sending push:", e)
-        return None
+        logger.info(f"FCM push successful for token {token}. Response ID: {response}")
+        return {"success": True, "response": response}
 
+    except exceptions.FirebaseError as e:
+        # Catch all Firebase-specific errors
+        logger.error(f"FCM push failed for token {token}: {e.code} - {e.message}")
+        return {"success": False, "error": f"{e.code} - {e.message}"}
+
+    except Exception as e:
+        # Catch unexpected errors
+        logger.exception(f"Unexpected error sending FCM push to token {token}")
+        return {"success": False, "error": str(e)}
+    
 # Include the router in the main app
 app.include_router(api_router)
 

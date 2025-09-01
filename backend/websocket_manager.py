@@ -66,19 +66,29 @@ class WebSocketManager:
             }
             await self.broadcast(json.dumps(message))
             logger.info(f"Broadcasted notification: {notification.title}")
-
-            # Send Firebase push notifications if tokens provided
-            if fcm_tokens:
-                for token in fcm_tokens:
-                    await send_push_notification(
-                        token=token,
-                        title=notification.title,
-                        body=notification.message,
-                        data=notification.data or {}
-                    )
-
         except Exception as e:
-            logger.error(f"Error broadcasting notification: {str(e)}")
+            logger.error(f"WebSocket broadcast failed: {str(e)}")
+
+        # Send firebase push notifications if token provided
+        if not fcm_tokens:
+            logger.warning("No FCM tokens provided. Skipping push notifications.")
+            return
+        
+        for token in fcm_tokens:
+            if not token:
+                logger.warning("Empty FCM token found. Skipping.")
+                continue
+    
+            try:
+                result = await send_push_notification(
+                    token=token,
+                    title=notification.title,
+                    body=notification.message,
+                    data=notification.data or {}
+                )
+                logger.info(f"FCM push sent to token {token}: {result}")
+            except Exception as e:
+                logger.error(f"FCM push failed for token {token}: {str(e)}")
 
     async def broadcast_status_update(self, status_data: dict):
         #Broadcast device status update
