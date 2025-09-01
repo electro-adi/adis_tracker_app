@@ -10,11 +10,17 @@ import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
-import DeviceInfo from 'react-native-device-info';
+import { v4 as uuidv4 } from 'uuid';
 
 const WS_URL  = process.env.REACT_APP_BACKEND_URL;
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+let deviceId = localStorage.getItem('deviceId');
+if (!deviceId) {
+  deviceId = uuidv4();
+  localStorage.setItem('deviceId', deviceId);
+}
 
 function App() {
 
@@ -215,8 +221,7 @@ function App() {
       PushNotifications.addListener("registration", async (token) => {
         console.log("FCM token:", token.value);
 
-          const deviceId = DeviceInfo.getUniqueId();
-          const userId = loggedInUser?.id || `guest-${deviceId}`;
+          const userId = 'user123';
 
         // Send token to backend
         await fetch(`${API}/push/register`, {

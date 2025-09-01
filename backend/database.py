@@ -20,6 +20,8 @@ class DatabaseManager:
             
             self.client = AsyncIOMotorClient(mongo_url)
             self.db = self.client[db_name]
+
+            self.push_tokens_collection = self.db["push_tokens"]
             
             # Test connection
             await self.client.admin.command('ping')

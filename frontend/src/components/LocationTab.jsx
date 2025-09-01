@@ -293,7 +293,7 @@ const LocationTab = () => {
             </MapContainer>
             
             {/* Overlay Controls */}
-            <div className="absolute top-4 right-4 z-50 flex items-center space-x-2">
+            <div className="absolute top-4 right-4 z-5 flex items-center space-x-2">
               <Button
                 onClick={openInGoogleMaps}
                 size="sm"
