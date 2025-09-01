@@ -80,7 +80,6 @@ async def broadcast_notification(self, notification: Notification, fcm_tokens: l
     except Exception as e:
         logger.error(f"Error broadcasting notification: {str(e)}")
 
-"""
     async def broadcast_status_update(self, status_data: dict):
         #Broadcast device status update
         try:
@@ -172,6 +171,6 @@ async def broadcast_notification(self, notification: Notification, fcm_tokens: l
     def get_connection_count(self) -> int:
         #Get number of active WebSocket connections
         return len(self.active_connections) 
-"""
+    
 # Global WebSocket manager instance
 websocket_manager = WebSocketManager()
