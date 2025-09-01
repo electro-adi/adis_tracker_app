@@ -221,8 +221,6 @@ function App() {
       PushNotifications.addListener("registration", async (token) => {
         console.log("FCM token:", token.value);
 
-          const userId = 'user123';
-
         // Send token to backend
         await fetch(`${API}/push/register`, {
           method: "POST",
@@ -230,9 +228,14 @@ function App() {
           body: JSON.stringify({
             token: token.value,
             deviceId: deviceId,
-            userId: userId
+            userId: 'user123'
           }),
         });
+      });
+
+      // Token refresh listener
+      PushNotifications.addListener("registrationError", (error) => {
+        console.error("Push registration error:", error);
       });
 
       // Foreground + background push

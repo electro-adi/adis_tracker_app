@@ -688,7 +688,7 @@ async def register_push_token(token_data: PushTokenRegister):
         logger.error(f"Error registering push token: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to register push token")
 
-async def send_push_notification(token: str, title: str, body: str, data: dict = None):
+def send_push_notification(token: str, title: str, body: str, data: dict = None):
     """Send push notification to a device token"""
     message = messaging.Message(
         notification=messaging.Notification(
@@ -701,11 +701,12 @@ async def send_push_notification(token: str, title: str, body: str, data: dict =
     
     try:
         response = messaging.send(message)
+        logger.info("Push sent:", response)
         return response
     except Exception as e:
-        print("Error sending push:", e)
+        response = messaging.send(message)
+        logger.error("Error sending push:", e)
         return None
-
 
 # Include the router in the main app
 app.include_router(api_router)
