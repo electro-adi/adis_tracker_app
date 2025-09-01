@@ -4,6 +4,8 @@ from typing import Dict, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from models import Notification
 
+from database import db_manager
+
 logger = logging.getLogger(__name__)
 
 class WebSocketManager:
@@ -48,8 +50,7 @@ class WebSocketManager:
         for connection in disconnected:
             self.disconnect(connection)
 
-    async def broadcast_notification(self, notification: Notification):
-        """Broadcast notification to all connected clients and send FCM"""
+    async def broadcast_notification(self, notification: Notification, user_id: str = None):
         from server import send_push_notification
 
         # WebSocket broadcast
@@ -70,20 +71,21 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"WebSocket broadcast failed: {str(e)}")
 
-        # Fetch FCM tokens from DB
+        # Retrieve FCM tokens
         fcm_tokens = []
-        tokens_cursor = self.push_tokens_collection.find({"user_id": "user123"})
-        fcm_tokens = [t["token"] for t in await tokens_cursor.to_list(length=100)]
+        if user_id:
+            fcm_tokens = await db_manager.get_push_tokens(user_id)
 
-        # Send FCM push notifications
+        # Send Firebase push notifications
         if not fcm_tokens:
-            logger.warning("No FCM tokens found for user. Skipping push notifications.")
+            logger.warning("No FCM tokens found. Skipping push notifications.")
             return
 
         for token in fcm_tokens:
             if not token:
                 logger.warning("Empty FCM token found. Skipping.")
                 continue
+
             try:
                 result = await send_push_notification(
                     token=token,
@@ -94,7 +96,6 @@ class WebSocketManager:
                 logger.info(f"FCM push sent to token {token}: {result}")
             except Exception as e:
                 logger.error(f"FCM push failed for token {token}: {str(e)}")
-
 
     async def broadcast_status_update(self, status_data: dict):
         #Broadcast device status update
@@ -182,7 +183,6 @@ class WebSocketManager:
 
         except Exception as e:
             logger.error(f"Error broadcasting device configuration update: {str(e)}")
-
 
     def get_connection_count(self) -> int:
         #Get number of active WebSocket connections

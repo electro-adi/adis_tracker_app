@@ -171,7 +171,7 @@ async def handle_notification(notification: Notification):
         await db_manager.save_notification(notification)
         
         # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_notification(notification)
+        await websocket_manager.broadcast_notification(notification, user_id="user123")
         
         logger.info("Notification saved and broadcasted")
     except Exception as e:

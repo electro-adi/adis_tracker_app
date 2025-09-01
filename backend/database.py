@@ -307,6 +307,16 @@ class DatabaseManager:
                 "updated_at": datetime.utcnow()
             })
 
+    async def get_push_tokens(self, user_id: str) -> list:
+        """Retrieve all push tokens for a given user"""
+        try:
+            tokens_cursor = self.push_tokens_collection.find({"user_id": user_id})
+            tokens = [t["token"] for t in await tokens_cursor.to_list(length=100)]
+            return tokens
+        except Exception as e:
+            logger.error(f"Failed to retrieve push tokens for user {user_id}: {str(e)}")
+            return []
+
 
 # Global database manager instance
 db_manager = DatabaseManager()
