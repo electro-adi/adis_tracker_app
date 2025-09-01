@@ -48,52 +48,52 @@ class WebSocketManager:
         for connection in disconnected:
             self.disconnect(connection)
 
-async def broadcast_notification(self, notification: Notification):
-    """Broadcast notification to all connected clients and send FCM"""
-    from server import send_push_notification
+    async def broadcast_notification(self, notification: Notification):
+        """Broadcast notification to all connected clients and send FCM"""
+        from server import send_push_notification
 
-    # WebSocket broadcast
-    try:
-        message = {
-            "type": "notification",
-            "data": {
-                "id": notification.id,
-                "title": notification.title,
-                "message": notification.message,
-                "notification_type": notification.type,
-                "data": notification.data,
-                "timestamp": notification.timestamp.isoformat()
-            }
-        }
-        await self.broadcast(json.dumps(message))
-        logger.info(f"Broadcasted notification: {notification.title}")
-    except Exception as e:
-        logger.error(f"WebSocket broadcast failed: {str(e)}")
-
-    # Fetch FCM tokens from DB
-    fcm_tokens = []
-    tokens_cursor = self.push_tokens_collection.find({"user_id": "user123"})
-    fcm_tokens = [t["token"] for t in await tokens_cursor.to_list(length=100)]
-
-    # Send FCM push notifications
-    if not fcm_tokens:
-        logger.warning("No FCM tokens found for user. Skipping push notifications.")
-        return
-
-    for token in fcm_tokens:
-        if not token:
-            logger.warning("Empty FCM token found. Skipping.")
-            continue
+        # WebSocket broadcast
         try:
-            result = await send_push_notification(
-                token=token,
-                title=notification.title,
-                body=notification.message,
-                data=notification.data or {}
-            )
-            logger.info(f"FCM push sent to token {token}: {result}")
+            message = {
+                "type": "notification",
+                "data": {
+                    "id": notification.id,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "notification_type": notification.type,
+                    "data": notification.data,
+                    "timestamp": notification.timestamp.isoformat()
+                }
+            }
+            await self.broadcast(json.dumps(message))
+            logger.info(f"Broadcasted notification: {notification.title}")
         except Exception as e:
-            logger.error(f"FCM push failed for token {token}: {str(e)}")
+            logger.error(f"WebSocket broadcast failed: {str(e)}")
+
+        # Fetch FCM tokens from DB
+        fcm_tokens = []
+        tokens_cursor = self.push_tokens_collection.find({"user_id": "user123"})
+        fcm_tokens = [t["token"] for t in await tokens_cursor.to_list(length=100)]
+
+        # Send FCM push notifications
+        if not fcm_tokens:
+            logger.warning("No FCM tokens found for user. Skipping push notifications.")
+            return
+
+        for token in fcm_tokens:
+            if not token:
+                logger.warning("Empty FCM token found. Skipping.")
+                continue
+            try:
+                result = await send_push_notification(
+                    token=token,
+                    title=notification.title,
+                    body=notification.message,
+                    data=notification.data or {}
+                )
+                logger.info(f"FCM push sent to token {token}: {result}")
+            except Exception as e:
+                logger.error(f"FCM push failed for token {token}: {str(e)}")
 
 
     async def broadcast_status_update(self, status_data: dict):
