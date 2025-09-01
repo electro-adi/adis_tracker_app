@@ -48,37 +48,37 @@ class WebSocketManager:
         for connection in disconnected:
             self.disconnect(connection)
 
-async def broadcast_notification(self, notification: Notification, fcm_tokens: list = None):
-    """Broadcast notification to all connected clients and send FCM"""
-    from server import send_push_notification
-    try:
-        # WebSocket broadcast
-        message = {
-            "type": "notification",
-            "data": {
-                "id": notification.id,
-                "title": notification.title,
-                "message": notification.message,
-                "notification_type": notification.type,
-                "data": notification.data,
-                "timestamp": notification.timestamp.isoformat()
+    async def broadcast_notification(self, notification: Notification, fcm_tokens: list = None):
+        """Broadcast notification to all connected clients and send FCM"""
+        from server import send_push_notification
+        try:
+            # WebSocket broadcast
+            message = {
+                "type": "notification",
+                "data": {
+                    "id": notification.id,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "notification_type": notification.type,
+                    "data": notification.data,
+                    "timestamp": notification.timestamp.isoformat()
+                }
             }
-        }
-        await self.broadcast(json.dumps(message))
-        logger.info(f"Broadcasted notification: {notification.title}")
+            await self.broadcast(json.dumps(message))
+            logger.info(f"Broadcasted notification: {notification.title}")
 
-        # Send Firebase push notifications if tokens provided
-        if fcm_tokens:
-            for token in fcm_tokens:
-                await send_push_notification(
-                    token=token,
-                    title=notification.title,
-                    body=notification.message,
-                    data=notification.data or {}
-                )
+            # Send Firebase push notifications if tokens provided
+            if fcm_tokens:
+                for token in fcm_tokens:
+                    await send_push_notification(
+                        token=token,
+                        title=notification.title,
+                        body=notification.message,
+                        data=notification.data or {}
+                    )
 
-    except Exception as e:
-        logger.error(f"Error broadcasting notification: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error broadcasting notification: {str(e)}")
 
     async def broadcast_status_update(self, status_data: dict):
         #Broadcast device status update
