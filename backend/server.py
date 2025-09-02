@@ -695,13 +695,21 @@ def send_push_notification(token: str, title: str, body: str, data: dict = None)
         logger.warning("Attempted to send push notification to empty token")
         return {"success": False, "error": "Empty token"}
 
+    safe_data = {}
+    if data:
+        for k, v in data.items():
+            if isinstance(v, (dict, list)):
+                safe_data[k] = json.dumps(v)
+            else:
+                safe_data[k] = str(v)
+
     message = messaging.Message(
         notification=messaging.Notification(
             title=title,
             body=body
         ),
         token=token,
-        data=data or {}
+        data=safe_data
     )
     
     try:

@@ -87,7 +87,7 @@ class WebSocketManager:
                 continue
 
             try:
-                result = await send_push_notification(
+                result = send_push_notification(
                     token=token,
                     title=notification.title,
                     body=notification.message,

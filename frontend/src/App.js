@@ -73,54 +73,10 @@ function App() {
     };
     configureStatusBar();
   }, []);
-
-
-  //---------------------------------------------- Request mqtt status every 5 seconds
-  useEffect(() => {
-    const get_mqtt_status = async () => {
-      try {
-        const response = await fetch(`${API}/mqtt/status`);
-        if (response.ok) {
-          const data = await response.json();
-          setMqttStatus(data);
-        }
-      } catch (error) {
-        console.error('Failed to get mqtt status', error);
-      }
-    };
-
-    get_mqtt_status();
-    
-    const interval = setInterval(get_mqtt_status, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-
-  //---------------------------------------------- Send stayawake message every 35 seconds
-  useEffect(() => {
-    const device_stayawake = async () => {
-    try {
-      const response = await fetch(`${API}/device/mode/0`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      console.error('Failed to send stayawake message', error);
-    }
-    };
-
-    device_stayawake();
-
-    const interval = setInterval(device_stayawake, 35000);
-
-    return () => clearInterval(interval);
-  }, []);
-
+  
 
   //---------------------------------------------- WebSocket connection for real-time updates
+
   useEffect(() => {
     const connectWebSocket = () => {
       try {
@@ -205,6 +161,50 @@ function App() {
         websocket.close();
       }
     };
+  }, []);
+
+  //---------------------------------------------- Request mqtt status every 5 seconds
+  useEffect(() => {
+    const get_mqtt_status = async () => {
+      try {
+        const response = await fetch(`${API}/mqtt/status`);
+        if (response.ok) {
+          const data = await response.json();
+          setMqttStatus(data);
+        }
+      } catch (error) {
+        console.error('Failed to get mqtt status', error);
+      }
+    };
+
+    get_mqtt_status();
+    
+    const interval = setInterval(get_mqtt_status, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+
+  //---------------------------------------------- Send stayawake message every 35 seconds
+  useEffect(() => {
+    const device_stayawake = async () => {
+    try {
+      const response = await fetch(`${API}/device/mode/0`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send stayawake message', error);
+    }
+    };
+
+    device_stayawake();
+
+    const interval = setInterval(device_stayawake, 35000);
+
+    return () => clearInterval(interval);
   }, []);
 
   //---------------------------------------------- Setup firebase notification functionality
