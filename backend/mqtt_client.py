@@ -387,10 +387,6 @@ class MQTTManager:
     async def get_led_config(self) -> bool:
         """Get led configuration"""
         return await self.publish_command("Tracker/to/request/", "3")
-    
-        async def set_led_config(self, led_config: dict) -> bool:
-        """Set LED configuration"""
-        return await self.publish_command("Tracker/to/set/led_config", led_config)
 
     async def set_led_config(self, led_config: dict) -> bool:
         """Set LED configuration"""
