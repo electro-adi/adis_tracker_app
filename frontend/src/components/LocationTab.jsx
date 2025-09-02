@@ -66,6 +66,7 @@ const LocationTab = () => {
 
   const [locationData, setLocationData] = useState({
     message: "Offline",
+    send_reason: 0,
     gps_lat: 49.9180204,
     gps_lon: 19.937429,
     lbs_lat: 49.9208907,
@@ -79,6 +80,15 @@ const LocationTab = () => {
     lbs_age_human: "--",
     gps_age_human: "--"
   });
+
+    const sendReasonMap = {
+    0: "Boot",
+    1: "Request",
+    2: "Request (Sleep)",
+    3: "Fix Found",
+    4: "Periodic Wakeup"
+  };
+
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -216,8 +226,9 @@ const LocationTab = () => {
                     Lat: {locationData.gps_lat}<br />
                     Lon: {locationData.gps_lon}<br />
                     Satellites: {locationData.sats ?? "--"}<br />
-                    Speed: {locationData.speed ?? "--"} km/h
+                    Speed: {locationData.speed ?? "--"} km/h <br />
                     Age: {locationData.gps_age_human ?? "--"}<br />
+                    Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
                   </div>
                 </Popup>
               </Marker>
@@ -233,9 +244,11 @@ const LocationTab = () => {
                     Lat: {locationData.lbs_lat}<br />
                     Lon: {locationData.lbs_lon}<br />
                     Age: {locationData.lbs_age_human ?? "--"}<br />
+                    Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
                   </div>
                 </Popup>
               </Marker>
+
               {/* History points & polylines */}
               {showHistory && historyData.length > 0 && (
                 <>
@@ -252,7 +265,8 @@ const LocationTab = () => {
                           Lat: {point.gps_lat}<br />
                           Lon: {point.gps_lon}<br />
                           Time: {new Date(point.timestamp).toLocaleString()}<br />
-                          Speed: {point.speed ?? "--"} km/h
+                          Speed: {point.speed ?? "--"} km/h <br />
+                          Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
                         </div>
                       </Popup>
                     </Marker>
@@ -276,7 +290,8 @@ const LocationTab = () => {
                           <strong>LBS Point {idx + 1}</strong><br />
                           Lat: {point.lbs_lat}<br />
                           Lon: {point.lbs_lon}<br />
-                          Time: {new Date(point.timestamp).toLocaleString()}
+                          Time: {new Date(point.timestamp).toLocaleString()} <br />
+                          Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
                         </div>
                       </Popup>
                     </Marker>
@@ -357,6 +372,10 @@ const LocationTab = () => {
               <span className="text-gray-400">Data Age:</span>
               <span className="text-white">{locationData.gps_age_human ?? "--"}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Event:</span>
+              <span className="text-white">{sendReasonMap[locationData.send_reason] ?? "--"}</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -379,6 +398,10 @@ const LocationTab = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
               <span className="text-white">{locationData.lbs_age_human ?? "--"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Event:</span>
+              <span className="text-white">{sendReasonMap[locationData.send_reason] ?? "--"}</span>
             </div>
           </CardContent>
         </Card>

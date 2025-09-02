@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, Callable, Dict, Any
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
-from models import DeviceStatus, GpsLocation, CallStatus, DeviceSettings, LedConfig, SmsMessage, Notification
+from models import DeviceStatus, GpsLocation, CallStatus, DeviceSettings, LedConfig, Contacts, SmsMessage, Notification
 from database import db_manager
 
 datetime.now(timezone.utc)
@@ -31,6 +31,7 @@ class MQTTManager:
         self.call_callback: Optional[Callable] = None
         self.led_config_callback: Optional[Callable] = None
         self.config_callback: Optional[Callable] = None
+        self.contacts_callback: Optional[Callable] = None
         self.notification_callback: Optional[Callable] = None
         self.main_loop: Optional[asyncio.AbstractEventLoop] = None
         
@@ -41,6 +42,7 @@ class MQTTManager:
             "Tracker/from/call_status",
             "Tracker/from/led_config",
             "Tracker/from/config",
+            "Tracker/from/contacts",
             "Tracker/from/sms/received",
             "Tracker/from/espnow/received"
         ]
@@ -160,6 +162,9 @@ class MQTTManager:
 
             elif topic == "Tracker/from/config":
                 self._handle_config(payload)
+
+            elif topic == "Tracker/from/contacts":
+                self._handle_contacts(payload)
 
             elif topic == "Tracker/from/sms/received":
                 self._handle_sms_message(payload)
@@ -282,6 +287,18 @@ class MQTTManager:
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing status message: {str(e)}")
 
+    def _handle_contacts(self, payload: str):
+        """Handle contacts"""
+        try:
+            data = json.loads(payload)
+            contacts =  Contacts(**data)
+
+            if self.main_loop and self.contacts_callback:
+                asyncio.run_coroutine_threadsafe(self.contacts_callback(contacts), self.main_loop)
+           
+        except (json.JSONDecodeError, ValidationError) as e:
+            logger.error(f"Error parsing status message: {str(e)}")
+
     def _handle_sms_message(self, payload: str):
         """Handle received SMS messages"""
         try:
@@ -371,17 +388,29 @@ class MQTTManager:
         """Get led configuration"""
         return await self.publish_command("Tracker/to/request/", "3")
     
-    async def get_device_config(self) -> bool:
-        """Get device configuration"""
-        return await self.publish_command("Tracker/to/request/", "4")
+        async def set_led_config(self, led_config: dict) -> bool:
+        """Set LED configuration"""
+        return await self.publish_command("Tracker/to/set/led_config", led_config)
 
     async def set_led_config(self, led_config: dict) -> bool:
         """Set LED configuration"""
         return await self.publish_command("Tracker/to/set/led_config", led_config)
 
+    async def get_device_config(self) -> bool:
+        """Get device configuration"""
+        return await self.publish_command("Tracker/to/request/", "4")
+
     async def set_device_config(self, config: dict) -> bool:
         """Set device configuration"""
         return await self.publish_command("Tracker/to/set/config", config)
+
+    async def get_contacts(self) -> bool:
+        """Get contacts"""
+        return await self.publish_command("Tracker/to/request/", "5")
+    
+    async def set_contacts(self, contacts: dict) -> bool:
+        """Set contacts"""
+        return await self.publish_command("Tracker/to/set/config", contacts)
 
     async def make_call(self, number: str) -> bool:
         """Make device call a number"""
@@ -400,7 +429,7 @@ class MQTTManager:
         return await self.publish_command("Tracker/to/vibrate", enabled)
 
     def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, 
-                     call_cb=None, led_config_cb=None, config_cb=None, notification_cb=None):
+                     call_cb=None, led_config_cb=None, config_cb=None, contacts_cb=None, notification_cb=None):
         """Set callback functions for handling device messages"""
         self.status_callback = status_cb
         self.location_callback = location_cb
@@ -408,6 +437,7 @@ class MQTTManager:
         self.call_callback = call_cb
         self.led_config_callback = led_config_cb
         self.config_callback = config_cb
+        self.contacts_callback = contacts_cb
         self.notification_callback = notification_cb
 
     def get_status(self) -> dict:

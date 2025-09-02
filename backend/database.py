@@ -3,7 +3,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from models import DeviceStatus, GpsLocation, Contact, SmsMessage, LedConfig, DeviceSettings, Notification
+from models import DeviceStatus, GpsLocation, Contacts, LedConfig, DeviceSettings
 
 logger = logging.getLogger(__name__)
 
@@ -162,134 +162,29 @@ class DatabaseManager:
             return None
 
     # Contact operations
-    async def create_contact(self, contact: Contact) -> str:
-        """Create a new contact"""
+    async def save_contacts(self, contacts: Contacts) -> str:
         try:
-            result = await self.db.contacts.insert_one(contact.dict())
-            logger.info(f"Created contact with ID: {result.inserted_id}")
+            result = await self.db.contacts.insert_one(contacts.dict())
+            logger.info(f"Saved contacts with ID: {result.inserted_id}")
             return str(result.inserted_id)
         except Exception as e:
             logger.error(f"Error creating contact: {str(e)}")
             raise
 
-    async def get_all_contacts(self) -> List[Dict[str, Any]]:
-        """Get all contacts"""
+    async def get_contacts(self) -> Optional[Dict[str, Any]]:
+        """Get device contacts list"""
         try:
-            cursor = self.db.contacts.find().sort("name", 1)
-            contacts = await cursor.to_list(length=None)
-            
-            for contact in contacts:
-                contact['_id'] = str(contact['_id'])
-                
+            contacts = await self.db.contacts.find_one(
+                sort=[("timestamp", -1)]
+            )
+            if contacts:
+                contacts['_id'] = str(contacts['_id'])
             return contacts
         except Exception as e:
-            logger.error(f"Error getting contacts: {str(e)}")
-            return []
-
-    async def get_contact_by_id(self, contact_id: str) -> Optional[Dict[str, Any]]:
-        """Get contact by ID"""
-        try:
-            contact = await self.db.contacts.find_one({"id": contact_id})
-            if contact:
-                contact['_id'] = str(contact['_id'])
-            return contact
-        except Exception as e:
-            logger.error(f"Error getting contact: {str(e)}")
+            logger.error(f"Error getting device contacts: {str(e)}")
             return None
 
-    async def update_contact(self, contact_id: str, update_data: Dict[str, Any]) -> bool:
-        """Update contact"""
-        try:
-            result = await self.db.contacts.update_one(
-                {"id": contact_id}, 
-                {"$set": update_data}
-            )
-            return result.modified_count > 0
-        except Exception as e:
-            logger.error(f"Error updating contact: {str(e)}")
-            return False
-
-    async def delete_contact(self, contact_id: str) -> bool:
-        """Delete contact"""
-        try:
-            result = await self.db.contacts.delete_one({"id": contact_id})
-            return result.deleted_count > 0
-        except Exception as e:
-            logger.error(f"Error deleting contact: {str(e)}")
-            return False
-
-    # SMS operations
-    async def save_sms_message(self, sms: SmsMessage) -> str:
-        """Save SMS message to database"""
-        try:
-            result = await self.db.sms_history.insert_one(sms.dict())
-            logger.info(f"Saved SMS message with ID: {result.inserted_id}")
-            return str(result.inserted_id)
-        except Exception as e:
-            logger.error(f"Error saving SMS message: {str(e)}")
-            raise
-
-    async def get_sms_history(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get SMS history"""
-        try:
-            cursor = self.db.sms_history.find().sort("timestamp", -1).limit(limit)
-            messages = await cursor.to_list(length=limit)
-            
-            for message in messages:
-                message['_id'] = str(message['_id'])
-                
-            return messages
-        except Exception as e:
-            logger.error(f"Error getting SMS history: {str(e)}")
-            return []
-
-    # Notification operations
-    async def save_notification(self, notification: Notification) -> str:
-        """Save notification to database"""
-        try:
-            result = await self.db.notifications.insert_one(notification.dict())
-            logger.info(f"Saved notification with ID: {result.inserted_id}")
-            return str(result.inserted_id)
-        except Exception as e:
-            logger.error(f"Error saving notification: {str(e)}")
-            raise
-
-    async def get_notifications(self, limit: int = 50, unread_only: bool = False) -> List[Dict[str, Any]]:
-        """Get notifications"""
-        try:
-            query = {"read": False} if unread_only else {}
-            cursor = self.db.notifications.find(query).sort("timestamp", -1).limit(limit)
-            notifications = await cursor.to_list(length=limit)
-            
-            for notification in notifications:
-                notification['_id'] = str(notification['_id'])
-                
-            return notifications
-        except Exception as e:
-            logger.error(f"Error getting notifications: {str(e)}")
-            return []
-
-    async def mark_notification_read(self, notification_id: str) -> bool:
-        """Mark notification as read"""
-        try:
-            result = await self.db.notifications.update_one(
-                {"id": notification_id},
-                {"$set": {"read": True}}
-            )
-            return result.modified_count > 0
-        except Exception as e:
-            logger.error(f"Error marking notification as read: {str(e)}")
-            return False
-
-    async def get_unread_notification_count(self) -> int:
-        """Get count of unread notifications"""
-        try:
-            count = await self.db.notifications.count_documents({"read": False})
-            return count
-        except Exception as e:
-            logger.error(f"Error getting unread notification count: {str(e)}")
-            return 0
-
+    # FCM Token operations
     async def save_push_token(self, token: str, device_id: str, user_id: str):
         """Save or update a push token for a device"""
         existing = await self.push_tokens_collection.find_one({"device_id": device_id})

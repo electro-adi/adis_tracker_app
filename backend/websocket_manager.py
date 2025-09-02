@@ -184,6 +184,21 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error broadcasting device configuration update: {str(e)}")
 
+    async def broadcast_contacts_update(self, contacts_data: dict):
+        #Broadcast device configuration update
+        try:
+            message = {
+                "type": "contacts_update",
+                "data": contacts_data
+            }
+            
+            await self.broadcast(json.dumps(message))
+            logger.info("Broadcasted device contacts update")
+
+        except Exception as e:
+            logger.error(f"Error broadcasting device contacts update: {str(e)}")
+
+
     def get_connection_count(self) -> int:
         #Get number of active WebSocket connections
         return len(self.active_connections) 

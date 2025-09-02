@@ -37,6 +37,15 @@ const StatusTab = () => {
     espnow_state: 0,
     last_activity_human: "N/A"
   });
+
+    const sendReasonMap = {
+    0: "Boot",
+    1: "Request",
+    2: "Request (Sleep)",
+    3: "Fix Found",
+    4: "Periodic Wakeup"
+  };
+
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -161,6 +170,10 @@ const StatusTab = () => {
                 )}
                 <span className="text-white">{status.locked ? 'Yes' : 'No'}</span>
               </div>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Event:</span>
+              <span className="text-white">{sendReasonMap[status.send_reason] ?? "--"}</span>
             </div>
           </CardContent>
         </Card>

@@ -3,7 +3,6 @@ from typing import List, Optional
 from datetime import datetime
 import uuid
 
-# Device Status Models
 class DeviceStatus(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message: str
@@ -28,7 +27,6 @@ model_config = {
     "validate_by_name": True
 }
 
-# GPS Location Models
 class GpsLocation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message: str
@@ -47,26 +45,24 @@ class GpsLocation(BaseModel):
     gps_age_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-# Contact Models
-class Contact(BaseModel):
+class Contacts(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    number: str
+    name1: str
+    number1: str
+    name2: str
+    number2: str
+    name3: str
+    number3: str
+    name4: str
+    number4: str
+    name5: str
+    number5: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
-class ContactCreate(BaseModel):
-    name: str
-    number: str
-
-class ContactUpdate(BaseModel):
-    name: Optional[str] = None
-    number: Optional[str] = None
 
 class CallStatus(BaseModel):
     status: int = Field(ge=0, le=3)
     number: Optional[str] = None
 
-# SMS Models
 class SmsMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     number: str
@@ -78,7 +74,7 @@ class SmsCreate(BaseModel):
     number: str
     sms: str
 
-# Device Command Models
+
 class LedConfig(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     red: int = Field(ge=0, le=255)
@@ -106,17 +102,15 @@ class DeviceSettings(BaseModel):
     DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-# Notification Models
 class Notification(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    #id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     message: str
     type: str  # 'status', 'location', 'sms', 'call', 'system'
     data: Optional[dict] = None
-    read: bool = False
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    #read: bool = False
+    #timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-# MQTT Connection Status
 class MqttStatus(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     connected: bool
@@ -127,7 +121,6 @@ class MqttStatus(BaseModel):
     last_msg_human: Optional[str] = None
     connection_attempts: int = 0
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
 
 class PushTokenRegister(BaseModel):
     token: str

@@ -17,8 +17,8 @@ from firebase_admin import messaging, credentials, exceptions
 
 # Import our custom modules
 from models import (
-    DeviceStatus, GpsLocation, Contact, ContactCreate, ContactUpdate,
-    SmsMessage, SmsCreate, LedConfig, DeviceSettings, Notification, MqttStatus, PushTokenRegister
+    DeviceStatus, GpsLocation, Contacts, SmsMessage, SmsCreate, 
+    LedConfig, DeviceSettings, Notification, MqttStatus, PushTokenRegister
 )
 from mqtt_client import MQTTManager
 from websocket_manager import websocket_manager
@@ -108,9 +108,6 @@ async def handle_location_update(location: GpsLocation):
 async def handle_sms_received(sms: SmsMessage):
     """Handle received SMS messages from MQTT"""
     try:
-        # Save to database
-        await db_manager.save_sms_message(sms)
-
         data = json.loads(sms.json())
         
         # Broadcast to WebSocket clients
@@ -163,13 +160,26 @@ async def handle_config(config: DeviceSettings):
     except Exception as e:
         logger.error(f"Error handling configuration update: {str(e)}")
 
+#---------------------------------------------------------------------------
+async def handle_contacts(contacts: Contacts):
+    """Handle device configuration updates from MQTT"""
+    try:
+        # Save to database
+        await db_manager.save_contacts(contacts)
+
+        data = json.loads(contacts.json())
+        
+        # Broadcast to WebSocket clients
+        await websocket_manager.broadcast_contacts_update(data)
+
+        logger.info("Device configuration updated and broadcasted")
+    except Exception as e:
+        logger.error(f"Error handling configuration update: {str(e)}")
+
 #---------------------------------------------------------------------------  
 async def handle_notification(notification: Notification):
     """Handle system notifications from MQTT"""
     try:
-        # Save to database
-        await db_manager.save_notification(notification)
-        
         # Broadcast to WebSocket clients
         await websocket_manager.broadcast_notification(notification, user_id="user123")
         
@@ -511,8 +521,7 @@ async def send_sms(sms_data: SmsCreate):
             message=sms_data.sms,
             type="sent"
         )
-        await db_manager.save_sms_message(sms_message)
-        
+
         # Send via MQTT
         success = await mqtt_manager.send_sms(sms_data.dict())
         if success:
@@ -552,108 +561,35 @@ async def control_vibrator(enabled: bool):
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
-# Contact management routes
-@api_router.get("/contacts", response_model=List[Contact])
-async def get_contacts():
-    """Get all contacts"""
+@api_router.get("/device/get_contacts")
+async def get_device_contacts():
+    """get device contacts"""
     try:
-        contacts = await db_manager.get_all_contacts()
-        return [Contact(**contact) for contact in contacts]
-    except Exception as e:
-        logger.error(f"Error getting contacts: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        await mqtt_manager.get_contacts()
 
-#---------------------------------------------------------------------------  
-@api_router.post("/contacts", response_model=Contact)
-async def create_contact(contact_data: ContactCreate):
-    """Create new contact"""
-    try:
-        contact = Contact(**contact_data.dict())
-        contact_id = await db_manager.create_contact(contact)
-        return contact
-    except Exception as e:
-        logger.error(f"Error creating contact: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.put("/contacts/{contact_id}", response_model=Contact)
-async def update_contact(contact_id: str, contact_data: ContactUpdate):
-    """Update contact"""
-    try:
-        update_data = contact_data.dict(exclude_none=True)
-        success = await db_manager.update_contact(contact_id, update_data)
-        
-        if success:
-            updated_contact = await db_manager.get_contact_by_id(contact_id)
-            if updated_contact:
-                return Contact(**updated_contact)
-        
-        raise HTTPException(status_code=404, detail="Contact not found")
-    except Exception as e:
-        logger.error(f"Error updating contact: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.delete("/contacts/{contact_id}")
-async def delete_contact(contact_id: str):
-    """Delete contact"""
-    try:
-        success = await db_manager.delete_contact(contact_id)
-        if success:
-            return {"success": True, "message": "Contact deleted"}
+        contacts = await db_manager.get_contacts()
+        if contacts:
+            return contacts
         else:
-            raise HTTPException(status_code=404, detail="Contact not found")
+            return {"message": "No contacts data available"}
     except Exception as e:
-        logger.error(f"Error deleting contact: {str(e)}")
+        logger.error(f"Error getting device contacts: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
-# SMS history routes
-@api_router.get("/sms/history", response_model=List[SmsMessage])
-async def get_sms_history(limit: int = 50):
-    """Get SMS history"""
+@api_router.post("/device/set_contacts")
+async def update_device_contacts(contacts: Contacts):
+    """Update device contacts"""
     try:
-        messages = await db_manager.get_sms_history(limit)
-        return [SmsMessage(**message) for message in messages]
-    except Exception as e:
-        logger.error(f"Error getting SMS history: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        await db_manager.save_contacts(contacts)
 
-#---------------------------------------------------------------------------  
-# Notification routes
-@api_router.get("/notifications", response_model=List[Notification])
-async def get_notifications(limit: int = 50, unread_only: bool = False):
-    """Get notifications"""
-    try:
-        notifications = await db_manager.get_notifications(limit, unread_only)
-        return [Notification(**notification) for notification in notifications]
-    except Exception as e:
-        logger.error(f"Error getting notifications: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str):
-    """Mark notification as read"""
-    try:
-        success = await db_manager.mark_notification_read(notification_id)
+        success = await mqtt_manager.set_contacts(json.loads(contacts.json(exclude_none=True)))
         if success:
-            return {"success": True, "message": "Notification marked as read"}
+            return {"success": True, "message": "Device contacts updated"}
         else:
-            raise HTTPException(status_code=404, detail="Notification not found")
+            raise HTTPException(status_code=500, detail="Failed to update device contacts")
     except Exception as e:
-        logger.error(f"Error marking notification as read: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/notifications/unread-count")
-async def get_unread_notification_count():
-    """Get count of unread notifications"""
-    try:
-        count = await db_manager.get_unread_notification_count()
-        return {"count": count}
-    except Exception as e:
-        logger.error(f"Error getting unread notification count: {str(e)}")
+        logger.error(f"Error updating device contacts: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  
