@@ -17,8 +17,8 @@ from firebase_admin import messaging, credentials, exceptions
 
 # Import our custom modules
 from models import (
-    DeviceStatus, GpsLocation, Contacts, SmsMessage, SmsCreate, 
-    LedConfig, DeviceSettings, Notification, MqttStatus, PushTokenRegister
+    DeviceStatus, GpsLocation, Contacts, SmsMessage, LedConfig, 
+    DeviceSettings, Notification, MqttStatus, PushTokenRegister
 )
 from mqtt_client import MQTTManager
 from websocket_manager import websocket_manager
