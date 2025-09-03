@@ -115,47 +115,51 @@ class DatabaseManager:
 
     # Led config operations
     async def save_led_config(self, led_config: LedConfig) -> str:
-        """Save led config to database"""
+        """Save led config"""
         try:
-            result = await self.db.led_config.insert_one(led_config.dict())
-            logger.info(f"Saved led config with ID: {result.inserted_id}")
-            return str(result.inserted_id)
+            result = await self.db.led_config.update_one(
+                {},
+                {"$set": led_config.dict()},
+                upsert=True
+            )
+            logger.info("LED config saved/updated")
+            return "updated" if result.modified_count > 0 else "inserted"
         except Exception as e:
             logger.error(f"Error saving led config: {str(e)}")
             raise
 
     async def get_led_config(self) -> Optional[Dict[str, Any]]:
-        """Get the most recent led config"""
+        """Get led config"""
         try:
-            led_config = await self.db.led_config.find_one(
-                sort=[("timestamp", -1)]
-            )
+            led_config = await self.db.led_config.find_one({})
             if led_config:
-                led_config['_id'] = str(led_config['_id'])
+                led_config["_id"] = str(led_config["_id"])
             return led_config
         except Exception as e:
             logger.error(f"Error getting led config: {str(e)}")
             return None
-        
+          
     # Config operations
     async def save_device_config(self, config: DeviceSettings) -> str:
-        """Save device config to database"""
+        """Save device config"""
         try:
-            result = await self.db.config.insert_one(config.dict())
-            logger.info(f"Saved device config with ID: {result.inserted_id}")
-            return str(result.inserted_id)
+            result = await self.db.config.update_one(
+                {},
+                {"$set": config.dict()},
+                upsert=True
+            )
+            logger.info("Device config saved/updated")
+            return "updated" if result.modified_count > 0 else "inserted"
         except Exception as e:
             logger.error(f"Error saving device config: {str(e)}")
             raise
 
     async def get_device_config(self) -> Optional[Dict[str, Any]]:
-        """Get the most recent device config"""
+        """Get device config"""
         try:
-            config = await self.db.config.find_one(
-                sort=[("timestamp", -1)]
-            )
+            config = await self.db.config.find_one({})
             if config:
-                config['_id'] = str(config['_id'])
+                config["_id"] = str(config["_id"])
             return config
         except Exception as e:
             logger.error(f"Error getting device config: {str(e)}")
@@ -163,47 +167,55 @@ class DatabaseManager:
 
     # Contact operations
     async def save_contacts(self, contacts: Contacts) -> str:
+        """Save or update contacts (only one document in collection)"""
         try:
-            result = await self.db.contacts.insert_one(contacts.dict())
-            logger.info(f"Saved contacts with ID: {result.inserted_id}")
-            return str(result.inserted_id)
+            result = await self.db.contacts.update_one(
+                {},  # match any existing doc
+                {"$set": contacts.dict()},
+                upsert=True
+            )
+            logger.info("Contacts saved/updated")
+            return "updated" if result.modified_count > 0 else "inserted"
         except Exception as e:
-            logger.error(f"Error creating contact: {str(e)}")
+            logger.error(f"Error saving contacts: {str(e)}")
             raise
 
     async def get_contacts(self) -> Optional[Dict[str, Any]]:
-        """Get device contacts list"""
+        """Get the single contacts list"""
         try:
-            contacts = await self.db.contacts.find_one(
-                sort=[("timestamp", -1)]
-            )
+            contacts = await self.db.contacts.find_one({})
             if contacts:
-                contacts['_id'] = str(contacts['_id'])
+                contacts["_id"] = str(contacts["_id"])
             return contacts
         except Exception as e:
-            logger.error(f"Error getting device contacts: {str(e)}")
+            logger.error(f"Error getting contacts: {str(e)}")
             return None
+
 
     # SMS operations
     async def save_sms(self, sms: SmsMessage) -> str:
+        """Save or update SMS (only one message stored)"""
         try:
-            result = await self.db.sms.insert_one(sms.dict())
-            logger.info(f"Saved sms message with ID: {result.inserted_id}")
-            return str(result.inserted_id)
+            result = await self.db.sms.update_one(
+                {},  # always overwrite the single doc
+                {"$set": sms.dict()},
+                upsert=True
+            )
+            logger.info("SMS saved/updated")
+            return "updated" if result.modified_count > 0 else "inserted"
         except Exception as e:
-            logger.error(f"Error saving sms message: {str(e)}")
+            logger.error(f"Error saving sms: {str(e)}")
             raise
 
     async def get_sms(self) -> Optional[Dict[str, Any]]:
+        """Get the single SMS"""
         try:
-            sms = await self.db.sms.find_one(
-                sort=[("timestamp", -1)]
-            )
+            sms = await self.db.sms.find_one({})
             if sms:
-                sms['_id'] = str(sms['_id'])
+                sms["_id"] = str(sms["_id"])
             return sms
         except Exception as e:
-            logger.error(f"Error getting sms message: {str(e)}")
+            logger.error(f"Error getting sms: {str(e)}")
             return None
 
 

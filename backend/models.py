@@ -45,7 +45,6 @@ class GpsLocation(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Contacts(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nam1: str
     num1: str
     nam2: str
@@ -56,22 +55,18 @@ class Contacts(BaseModel):
     num4: str
     nam5: str
     num5: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class CallStatus(BaseModel):
     status: int = Field(ge=0, le=3)
     number: Optional[str] = None
 
 class SmsMessage(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     number: str
     message: str
     time_sent: Optional[str] = None
-    timestamp_human: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    time_sent_human: Optional[str] = None
 
 class LedConfig(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     red: int = Field(ge=0, le=255)
     green: int = Field(ge=0, le=255)
     blue: int = Field(ge=0, le=255)
@@ -79,10 +74,8 @@ class LedConfig(BaseModel):
     led_boot_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_call_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_noti_ani: Optional[int] = Field(default=None, ge=0, le=10)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class DeviceSettings(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     bootanimation: Optional[bool] = None
     enablebuzzer: Optional[bool] = None
     enablehaptics: Optional[bool] = None
@@ -95,19 +88,14 @@ class DeviceSettings(BaseModel):
     callmode: Optional[int] = Field(default=None, ge=0, le=2)
     gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
     DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Notification(BaseModel):
-    #id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     message: str
     type: str  # 'status', 'location', 'sms', 'call', 'system'
     data: Optional[dict] = None
-    #read: bool = False
-    #timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class MqttStatus(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     connected: bool
     broker: str
     port: int
@@ -115,7 +103,6 @@ class MqttStatus(BaseModel):
     last_msg: Optional[datetime] = None
     last_msg_human: Optional[str] = None
     connection_attempts: int = 0
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class PushTokenRegister(BaseModel):
     token: str
