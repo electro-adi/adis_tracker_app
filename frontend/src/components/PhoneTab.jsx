@@ -49,7 +49,7 @@ const PhoneTab = () => {
     const [sms_message, setSMS] = useState({
       number: "--",
       message: "--",
-      timestamp_human: "--"
+      time_sent_human: "--"
     });
 
   const [loading, setLoading] = useState({ call: false, sms: false, contacts: false });
@@ -465,7 +465,7 @@ const PhoneTab = () => {
             <h2 className="text-xl font-bold text-white mb-4">📩 SMS Details</h2>
             <div className="space-y-2">
               <p className="text-gray-300"><span className="font-semibold">From:</span> {sms_message.number}</p>
-              <p className="text-gray-300"><span className="font-semibold">Time:</span> {sms_message.timestamp_human}</p>
+              <p className="text-gray-300"><span className="font-semibold">Time:</span> {sms_message.time_sent_human}</p>
               <div className="p-3 bg-gray-800 rounded-lg text-white whitespace-pre-wrap">
                 {sms_message.message}
               </div>

@@ -191,7 +191,6 @@ class DatabaseManager:
             logger.error(f"Error getting contacts: {str(e)}")
             return None
 
-
     # SMS operations
     async def save_sms(self, sms: SmsMessage) -> str:
         """Save SMS"""
@@ -217,7 +216,6 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting sms: {str(e)}")
             return None
-
 
     # FCM Token operations
     async def save_push_token(self, token: str, device_id: str, user_id: str):
@@ -246,7 +244,6 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to retrieve push tokens for user {user_id}: {str(e)}")
             return []
-
 
 # Global database manager instance
 db_manager = DatabaseManager()

@@ -186,10 +186,22 @@ class MQTTManager:
             if self.main_loop and self.status_callback:
                 asyncio.run_coroutine_threadsafe(self.status_callback(status), self.main_loop)
 
-            # Create notification
+            reason_map = {
+                (0, 1): "Device is online",
+                (2, 3): "Device woken up",
+                (4,): "Periodic Wake up"
+            }
+
+            reason_message = "Unknown status"
+
+            for keys, msg in reason_map.items():
+                if status.send_reason in keys:
+                    reason_message = msg
+                    break
+
             notification = Notification(
                 title="Device Status Updated",
-                message=f"Device is {status.message.lower()} - Battery: {status.bat_percent}%",
+                message=f"{reason_message} - Battery: {status.bat_percent}%",
                 type="status",
                 data=data
             )
@@ -199,6 +211,7 @@ class MQTTManager:
                     
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing status message: {str(e)}")
+
 
     def _handle_location_message(self, payload: str):
         """Handle GPS location updates"""
