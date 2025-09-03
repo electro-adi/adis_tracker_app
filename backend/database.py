@@ -167,7 +167,7 @@ class DatabaseManager:
 
     # Contact operations
     async def save_contacts(self, contacts: Contacts) -> str:
-        """Save or update contacts (only one document in collection)"""
+        """Save contacts"""
         try:
             result = await self.db.contacts.update_one(
                 {},  # match any existing doc
@@ -181,7 +181,7 @@ class DatabaseManager:
             raise
 
     async def get_contacts(self) -> Optional[Dict[str, Any]]:
-        """Get the single contacts list"""
+        """Get contacts list"""
         try:
             contacts = await self.db.contacts.find_one({})
             if contacts:
@@ -194,7 +194,7 @@ class DatabaseManager:
 
     # SMS operations
     async def save_sms(self, sms: SmsMessage) -> str:
-        """Save or update SMS (only one message stored)"""
+        """Save SMS"""
         try:
             result = await self.db.sms.update_one(
                 {},  # always overwrite the single doc
@@ -208,7 +208,7 @@ class DatabaseManager:
             raise
 
     async def get_sms(self) -> Optional[Dict[str, Any]]:
-        """Get the single SMS"""
+        """Get SMS"""
         try:
             sms = await self.db.sms.find_one({})
             if sms:

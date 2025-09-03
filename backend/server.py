@@ -537,12 +537,12 @@ async def send_sms(sms: SmsMessage):
                     dt_obj = dt_obj.replace(tzinfo=timezone.utc)
 
                     # Convert to human-readable time ago
-                    sms.timestamp_human = humanize.naturaltime(datetime.now(timezone.utc) - dt_obj)
+                    sms.time_sent_human = humanize.naturaltime(datetime.now(timezone.utc) - dt_obj)
                 except Exception as e:
-                    sms.timestamp_human = "--"
+                    sms.time_sent_human = "--"
                     logger.warning(f"Failed to parse sms.time_sent '{sms.time_sent}': {e}")
             else:
-                sms.timestamp_human = "--"
+                sms.time_sent_human = "--"
 
             return {"success": True, "message": f"SMS sent to {sms.number}", "sms": sms.dict()}
         else:
