@@ -105,17 +105,20 @@ async def handle_location_update(location: GpsLocation):
         logger.error(f"Error handling location update: {str(e)}")
 
 #---------------------------------------------------------------------------  
-async def handle_sms_received(sms: SmsMessage):
-    """Handle received SMS messages from MQTT"""
+async def handle_sms(sms: SmsMessage):
+    """Handle stored SMS messages from MQTT"""
     try:
+        # Save to database
+        await db_manager.save_sms(sms)
+
         data = json.loads(sms.json())
         
         # Broadcast to WebSocket clients
         await websocket_manager.broadcast_sms_update(data)
         
-        logger.info("SMS message received and broadcasted")
+        logger.info("stored SMS message broadcasted")
     except Exception as e:
-        logger.error(f"Error handling SMS update: {str(e)}")
+        logger.error(f"Error handling stored SMS: {str(e)}")
 
 #---------------------------------------------------------------------------  
 async def handle_call_received(caller_number: str):
@@ -512,20 +515,30 @@ async def make_call(number: str):
 
 #---------------------------------------------------------------------------  
 @api_router.post("/device/sms")
-async def send_sms(sms_data: SmsCreate):
+async def send_sms(sms: SmsMessage):
     """Send SMS via device"""
     try:
-        # Save to database as sent message
-        sms_message = SmsMessage(
-            number=sms_data.number,
-            message=sms_data.sms,
-            type="sent"
-        )
-
         # Send via MQTT
-        success = await mqtt_manager.send_sms(sms_data.dict())
+        success = await mqtt_manager.send_sms(sms.dict())
         if success:
-            return {"success": True, "message": f"SMS sent to {sms_data.number}"}
+            # Convert time_sent -> datetime
+            if sms.time_sent:
+                try:
+                    time_str = sms.time_sent.split("+")[0]
+                    dt_obj = datetime.strptime(time_str, "%d/%m/%y,%H:%M:%S")
+
+                    # Assume UTC if no timezone given
+                    dt_obj = dt_obj.replace(tzinfo=timezone.utc)
+
+                    # Convert to human-readable time ago
+                    sms.timestamp_human = humanize.naturaltime(datetime.now(timezone.utc) - dt_obj)
+                except Exception as e:
+                    sms.timestamp_human = "--"
+                    logger.warning(f"Failed to parse sms.time_sent '{sms.time_sent}': {e}")
+            else:
+                sms.timestamp_human = "--"
+
+            return {"success": True, "message": f"SMS sent to {sms.number}", "sms": sms.dict()}
         else:
             raise HTTPException(status_code=500, detail="Failed to send SMS")
     except Exception as e:
@@ -590,6 +603,23 @@ async def update_device_contacts(contacts: Contacts):
             raise HTTPException(status_code=500, detail="Failed to update device contacts")
     except Exception as e:
         logger.error(f"Error updating device contacts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#---------------------------------------------------------------------------  
+@api_router.get("/device/get_sms/{index}")
+async def set_device_sms(index: int):
+    """Set a stored sms with index"""
+    try:
+        await mqtt_manager.get_sms(index)
+
+        sms = await db_manager.get_sms()
+
+        if sms:
+            return sms
+        else:
+            return {"sms": "No sms data available"}
+    except Exception as e:
+        logger.error(f"Error getting sms: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 #---------------------------------------------------------------------------  

@@ -5,7 +5,6 @@ import uuid
 
 class DeviceStatus(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    message: str
     send_reason: int
     screen_on: bool
     last_activity: str
@@ -20,6 +19,7 @@ class DeviceStatus(BaseModel):
     light_level: int
     uptime: str
     espnow_state: int
+    stored_sms: int
     last_activity_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -29,7 +29,6 @@ model_config = {
 
 class GpsLocation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    message: str
     send_reason: int
     gps_lat: float
     gps_lon: float
@@ -47,16 +46,16 @@ class GpsLocation(BaseModel):
 
 class Contacts(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name1: str
-    number1: str
-    name2: str
-    number2: str
-    name3: str
-    number3: str
-    name4: str
-    number4: str
-    name5: str
-    number5: str
+    nam1: str
+    num1: str
+    nam2: str
+    num2: str
+    nam3: str
+    num3: str
+    nam4: str
+    num4: str
+    nam5: str
+    num5: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class CallStatus(BaseModel):
@@ -67,13 +66,9 @@ class SmsMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     number: str
     message: str
-    type: str  # 'sent' or 'received'
+    time_sent: Optional[str] = None
+    timestamp_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-class SmsCreate(BaseModel):
-    number: str
-    sms: str
-
 
 class LedConfig(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

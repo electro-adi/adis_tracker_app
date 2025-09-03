@@ -65,7 +65,6 @@ const LocationTab = () => {
   const hasFit = React.useRef(false); 
 
   const [locationData, setLocationData] = useState({
-    message: "Offline",
     send_reason: 0,
     gps_lat: 49.9180204,
     gps_lon: 19.937429,

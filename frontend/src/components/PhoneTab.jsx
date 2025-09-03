@@ -1,65 +1,156 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Badge } from './ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { 
-  Phone, 
-  MessageSquare, 
-  Send, 
-  PhoneCall, 
-  History, 
-  UserPlus, 
-  Edit, 
-  Trash2,
-  Users
-} from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
+import {
+  Phone,
+  MessageSquare,
+  Send,
+  PhoneCall,
+  Users,
+  Edit,
+} from "lucide-react";
+import { useToast } from "../hooks/use-toast";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const PhoneTab = () => {
-  const [callNumber, setCallNumber] = useState('');
-  const [smsNumber, setSmsNumber] = useState('');
-  const [smsMessage, setSmsMessage] = useState('');
-  const [smsHistory, setSmsHistory] = useState([]);
-  const [contacts, setContacts] = useState([]);
-  const [loading, setLoading] = useState({ call: false, sms: false });
-  const [showAddContact, setShowAddContact] = useState(false);
-  const [editingContact, setEditingContact] = useState(null);
-  const [newContact, setNewContact] = useState({ name: '', number: '' });
   const { toast } = useToast();
 
-  // Load contacts and SMS history
+  const [contacts, setContacts] = useState([
+    { id: 1, name: "--", number: "--", editing: false },
+    { id: 2, name: "--", number: "--", editing: false },
+    { id: 3, name: "--", number: "--", editing: false },
+    { id: 4, name: "--", number: "--", editing: false },
+    { id: 5, name: "--", number: "--", editing: false },
+  ]);
+
+  const [status, setStatus] = useState({
+      send_reason: 0,
+      screen_on: false,
+      last_activity: 0,
+      bat_voltage: 0,
+      bat_percent: 0,
+      gsm_rssi: 0,
+      wifi_enabled: false,
+      wifi_rssi: 0,
+      wifi: "",
+      in_call: false,
+      locked: false,
+      light_level: 0,
+      uptime: "00:00:00",
+      espnow_state: 0,
+      stored_sms: 0,
+      last_activity_human: "N/A"
+    });
+
+    const [sms_message, setSMS] = useState({
+      number: "--",
+      message: "--",
+      timestamp_human: "--"
+    });
+
+  const [loading, setLoading] = useState({ call: false, sms: false, contacts: false });
+  const [callNumber, setCallNumber] = useState("");
+  const [smsNumber, setSmsNumber] = useState("");
+  const [smsMessage, setSmsMessage] = useState("");
+  const [smsIndex, setSmsIndex] = useState("");
+  const [showSMSDialog, setShowSMSDialog] = useState(false);
+
+
+  //---------------------------------------------- Load contacts
   useEffect(() => {
     loadContacts();
-    loadSmsHistory();
+    loadDeviceStatus();
   }, []);
 
   const loadContacts = async () => {
     try {
-      const response = await fetch(`${API}/contacts`);
+      const response = await fetch(`${API}/device/get_contacts`);
       if (response.ok) {
         const data = await response.json();
-        setContacts(data);
+
+        // normalize API data into fixed 5 contacts
+        const updatedContacts = contacts.map((c, idx) => ({
+          ...c,
+          name: data[`nam${idx + 1}`] ?? "--",
+          number: data[`num${idx + 1}`] ?? "--",
+        }));
+        setContacts(updatedContacts);
       }
     } catch (error) {
-      console.error('Failed to load contacts:', error);
+      console.error("Failed to load contacts:", error);
     }
   };
 
-  const loadSmsHistory = async () => {
+  const loadDeviceStatus = async () => {
     try {
-      const response = await fetch(`${API}/sms/history`);
+      const response = await fetch(`${API}/device/status_nomqtt`);
       if (response.ok) {
         const data = await response.json();
-        setSmsHistory(data);
+        if (data.message) {
+          setStatus(data);
+        }
       }
     } catch (error) {
-      console.error('Failed to load SMS history:', error);
+      console.error('Failed to load device status:', error);
+    }
+  };
+
+  const getSMS = async (index) => {
+    setLoading((prev) => ({ ...prev, sms: true }));
+    try {
+      const response = await fetch(`${API}/device/get_sms/${index}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.message) {
+          setSMS(data);
+          setShowSMSDialog(true);   // show popup when sms is retrieved
+        }
+      }
+    } catch (error) {
+      console.error("Failed to get sms:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, sms: false }));
+    }
+  };
+
+  const saveContacts = async () => {
+    setLoading((prev) => ({ ...prev, contacts: true }));
+    try {
+      const payload = {};
+      contacts.forEach((c, idx) => {
+        payload[`nam${idx + 1}`] = c.name;
+        payload[`num${idx + 1}`] = c.number;
+      });
+
+      const response = await fetch(`${API}/device/set_contacts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Contacts Updated",
+          description: "Contacts have been updated successfully.",
+        });
+        loadContacts();
+      } else {
+        throw new Error("Failed to update contacts.");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update contacts.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading((prev) => ({ ...prev, contacts: false }));
     }
   };
 
@@ -73,20 +164,21 @@ const PhoneTab = () => {
       return;
     }
 
-    setLoading(prev => ({ ...prev, call: true }));
+    setLoading((prev) => ({ ...prev, call: true }));
     try {
-      const response = await fetch(`${API}/device/call/${encodeURIComponent(callNumber)}`, {
-        method: 'POST'
-      });
-      
+      const response = await fetch(
+        `${API}/device/call/${encodeURIComponent(callNumber)}`,
+        { method: "POST" }
+      );
+
       if (response.ok) {
         toast({
           title: "Call Initiated",
           description: `Calling ${callNumber}...`,
         });
-        setCallNumber('');
+        setCallNumber("");
       } else {
-        throw new Error('Failed to initiate call');
+        throw new Error("Failed to initiate call");
       }
     } catch (error) {
       toast({
@@ -95,7 +187,7 @@ const PhoneTab = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(prev => ({ ...prev, call: false }));
+      setLoading((prev) => ({ ...prev, call: false }));
     }
   };
 
@@ -109,17 +201,14 @@ const PhoneTab = () => {
       return;
     }
 
-    setLoading(prev => ({ ...prev, sms: true }));
+    setLoading((prev) => ({ ...prev, sms: true }));
     try {
       const response = await fetch(`${API}/device/sms`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          number: smsNumber,
-          sms: smsMessage
-        })
+        body: JSON.stringify({ number: smsNumber, sms: smsMessage }),
       });
 
       if (response.ok) {
@@ -127,11 +216,10 @@ const PhoneTab = () => {
           title: "SMS Sent",
           description: `Message sent to ${smsNumber}`,
         });
-        setSmsNumber('');
-        setSmsMessage('');
-        loadSmsHistory(); // Reload SMS history
+        setSmsNumber("");
+        setSmsMessage("");
       } else {
-        throw new Error('Failed to send SMS');
+        throw new Error("Failed to send SMS");
       }
     } catch (error) {
       toast({
@@ -140,158 +228,102 @@ const PhoneTab = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(prev => ({ ...prev, sms: false }));
+      setLoading((prev) => ({ ...prev, sms: false }));
     }
   };
 
   const selectContact = (number, type) => {
-    if (type === 'call') {
-      setCallNumber(number);
-    } else {
-      setSmsNumber(number);
-    }
+    if (type === "call") setCallNumber(number);
+    if (type === "sms") setSmsNumber(number);
   };
 
-  const saveContact = async () => {
-    if (!newContact.name.trim() || !newContact.number.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter both name and number",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const url = editingContact 
-        ? `${API}/contacts/${editingContact.id}`
-        : `${API}/contacts`;
-      
-      const method = editingContact ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newContact)
-      });
-
-      if (response.ok) {
-        toast({
-          title: editingContact ? "Contact Updated" : "Contact Added",
-          description: `${newContact.name} has been ${editingContact ? 'updated' : 'saved'} successfully.`,
-        });
-        setNewContact({ name: '', number: '' });
-        setEditingContact(null);
-        setShowAddContact(false);
-        loadContacts(); // Reload contacts
-      } else {
-        throw new Error(`Failed to ${editingContact ? 'update' : 'save'} contact`);
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Unable to ${editingContact ? 'update' : 'save'} contact`,
-        variant: "destructive",
-      });
-    }
+  const toggleEdit = (id) => {
+    setContacts((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, editing: !c.editing } : { ...c, editing: false }
+      )
+    );
   };
 
-  const editContact = (contact) => {
-    setEditingContact(contact);
-    setNewContact({ name: contact.name, number: contact.number });
-    setShowAddContact(true);
-  };
-
-  const deleteContact = async (contactId) => {
-    try {
-      const response = await fetch(`${API}/contacts/${contactId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Contact Deleted",
-          description: "Contact has been removed successfully.",
-        });
-        loadContacts(); // Reload contacts
-      } else {
-        throw new Error('Failed to delete contact');
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Unable to delete contact",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
+  const updateContactField = (id, field, value) => {
+    setContacts((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+    );
   };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Phone Control</h1>
-        <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={() => {
-                setEditingContact(null);
-                setNewContact({ name: '', number: '' });
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Contact
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-gray-800 border-gray-700">
-            <DialogHeader>
-              <DialogTitle className="text-white">
-                {editingContact ? 'Edit Contact' : 'Add New Contact'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400">Name</label>
-                <Input
-                  value={newContact.name}
-                  onChange={(e) => setNewContact(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter contact name"
-                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400">Phone Number</label>
-                <Input
-                  value={newContact.number}
-                  onChange={(e) => setNewContact(prev => ({ ...prev, number: e.target.value }))}
-                  placeholder="Enter phone number"
-                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button onClick={saveContact} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                  {editingContact ? 'Update Contact' : 'Save Contact'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAddContact(false)}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Contacts Management */}
+        <Card className="bg-gray-800 border-gray-700 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <Users className="w-5 h-5 mr-2 text-purple-400" />
+              Saved Contacts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {contacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex items-center justify-between p-3 bg-gray-700 rounded-lg"
+                >
+                  {contact.editing ? (
+                    <div className="flex-1 flex gap-2">
+                      <Input
+                        value={contact.name}
+                        onChange={(e) =>
+                          updateContactField(contact.id, "name", e.target.value)
+                        }
+                        className="bg-gray-600 text-white"
+                        placeholder="Name"
+                      />
+                      <Input
+                        value={contact.number}
+                        onChange={(e) =>
+                          updateContactField(contact.id, "number", e.target.value)
+                        }
+                        className="bg-gray-600 text-white"
+                        placeholder="Number"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-1">
+                      <p className="text-white font-medium">{contact.name}</p>
+                      <p className="text-gray-400 text-sm font-mono">
+                        {contact.number}
+                      </p>
+                    </div>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleEdit(contact.id)}
+                    className="border-gray-600 text-gray-300 hover:bg-gray-600 ml-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6">
+              <Button
+                onClick={saveContacts}
+                disabled={loading.contacts}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                {loading.contacts ? "Saving..." : "Save Contacts"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Call Section */}
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
@@ -301,43 +333,29 @@ const PhoneTab = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-gray-400">Phone Number</label>
-              <Input
-                value={callNumber}
-                onChange={(e) => setCallNumber(e.target.value)}
-                placeholder="Enter phone number"
-                className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-              />
-            </div>
-            
-            <Button 
+            <Input
+              value={callNumber}
+              onChange={(e) => setCallNumber(e.target.value)}
+              placeholder="Enter phone number"
+              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+            />
+            <Button
               onClick={makeCall}
               disabled={loading.call}
               className="w-full bg-green-600 hover:bg-green-700 text-white"
             >
-              {loading.call ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Calling...
-                </>
-              ) : (
-                <>
-                  <PhoneCall className="w-4 h-4 mr-2" />
-                  Make Call
-                </>
-              )}
+              {loading.call ? "Calling..." : "Make Call"}
             </Button>
 
             <div className="space-y-2">
               <label className="text-sm text-gray-400">Quick Contacts</label>
               <div className="flex flex-wrap gap-2">
-                {contacts.slice(0, 6).map((contact) => (
+                {contacts.map((contact) => (
                   <Button
                     key={contact.id}
                     variant="outline"
                     size="sm"
-                    onClick={() => selectContact(contact.number, 'call')}
+                    onClick={() => selectContact(contact.number, "call")}
                     className="border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     {contact.name}
@@ -357,57 +375,39 @@ const PhoneTab = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-gray-400">Phone Number</label>
-              <Input
-                value={smsNumber}
-                onChange={(e) => setSmsNumber(e.target.value)}
-                placeholder="Enter phone number"
-                className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-              />
+            <Input
+              value={smsNumber}
+              onChange={(e) => setSmsNumber(e.target.value)}
+              placeholder="Enter phone number"
+              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+            />
+            <Textarea
+              value={smsMessage}
+              onChange={(e) => setSmsMessage(e.target.value)}
+              placeholder="Enter your message"
+              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 resize-none"
+              rows={3}
+            />
+            <div className="text-xs text-gray-500 text-right">
+              {smsMessage.length}/160 characters
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm text-gray-400">Message</label>
-              <Textarea
-                value={smsMessage}
-                onChange={(e) => setSmsMessage(e.target.value)}
-                placeholder="Enter your message"
-                className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 resize-none"
-                rows={3}
-              />
-              <div className="text-xs text-gray-500 text-right">
-                {smsMessage.length}/160 characters
-              </div>
-            </div>
-
-            <Button 
+            <Button
               onClick={sendSms}
               disabled={loading.sms}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {loading.sms ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Send SMS
-                </>
-              )}
+              {loading.sms ? "Sending..." : "Send SMS"}
             </Button>
 
             <div className="space-y-2">
               <label className="text-sm text-gray-400">Quick Contacts</label>
               <div className="flex flex-wrap gap-2">
-                {contacts.slice(0, 6).map((contact) => (
+                {contacts.map((contact) => (
                   <Button
                     key={contact.id}
                     variant="outline"
                     size="sm"
-                    onClick={() => selectContact(contact.number, 'sms')}
+                    onClick={() => selectContact(contact.number, "sms")}
                     className="border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     {contact.name}
@@ -417,91 +417,70 @@ const PhoneTab = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Retrieve Stored SMS Section */}
+        <Card className="bg-gray-800 border-gray-700 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <MessageSquare className="w-5 h-5 mr-2 text-yellow-400" />
+              Retrieve Stored SMS
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-gray-300">
+              Stored SMS Count: <span className="font-mono">{status.stored_sms}</span>
+            </p>
+            
+            <Input
+              value={smsIndex}
+              onChange={(e) => setSmsIndex(e.target.value)}
+              placeholder={`Enter index (1 - ${status.stored_sms})`}
+              className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+            />
+            
+            <Button
+              onClick={() => {
+                if (Number(smsIndex) > 0 && Number(smsIndex) <= status.stored_sms) {
+                  getSMS(smsIndex);
+                } else {
+                  toast({
+                    title: "Invalid Index",
+                    description: "Please enter a valid SMS index",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              disabled={loading.sms}
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              {loading.sms ? "Retrieving..." : "Retrieve SMS"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Contacts Management */}
-      <Card className="bg-gray-800 border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center">
-            <Users className="w-5 h-5 mr-2 text-purple-400" />
-            Saved Contacts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {contacts.map((contact) => (
-              <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                <div className="flex-1">
-                  <p className="text-white font-medium">{contact.name}</p>
-                  <p className="text-gray-400 text-sm font-mono">{contact.number}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => editContact(contact)}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-600"
-                  >
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => deleteContact(contact.id)}
-                    className="border-red-600 text-red-300 hover:bg-red-900"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
+      {/* SMS Popup */}
+      {showSMSDialog && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-gray-900 rounded-xl shadow-xl p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold text-white mb-4">📩 SMS Details</h2>
+            <div className="space-y-2">
+              <p className="text-gray-300"><span className="font-semibold">From:</span> {sms_message.number}</p>
+              <p className="text-gray-300"><span className="font-semibold">Time:</span> {sms_message.timestamp_human}</p>
+              <div className="p-3 bg-gray-800 rounded-lg text-white whitespace-pre-wrap">
+                {sms_message.message}
               </div>
-            ))}
-            
-            {contacts.length === 0 && (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-400">No contacts saved yet</p>
-                <p className="text-gray-500 text-sm">Click "Add Contact" to get started</p>
-              </div>
-            )}
+            </div>
+            <div className="mt-4 text-right">
+              <Button
+                onClick={() => setShowSMSDialog(false)}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Close
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* SMS History */}
-      <Card className="bg-gray-800 border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center">
-            <History className="w-5 h-5 mr-2 text-orange-400" />
-            Recent SMS Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {smsHistory.map((sms) => (
-              <div key={sms.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge 
-                      variant={sms.type === 'sent' ? 'default' : 'secondary'}
-                      className={sms.type === 'sent' ? 'bg-green-600' : 'bg-blue-600'}
-                    >
-                      {sms.type.toUpperCase()}
-                    </Badge>
-                    <span className="text-gray-300 font-mono text-sm">{sms.number}</span>
-                  </div>
-                  <p className="text-white text-sm">{sms.message}</p>
-                  <p className="text-gray-400 text-xs mt-1">{formatTimestamp(sms.timestamp)}</p>
-                </div>
-              </div>
-            ))}
-            
-            {smsHistory.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-400">No SMS history available</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 };

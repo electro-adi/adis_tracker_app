@@ -5,7 +5,9 @@ import LocationTab from "./components/LocationTab";
 import StatusTab from "./components/StatusTab";
 import PhoneTab from "./components/PhoneTab";
 import LedTab from "./components/LedTab";
+import IRTab from "./components/IRTab";
 import SettingsTab from "./components/SettingsTab";
+import CMDTab from "./components/CMDTab";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -264,8 +266,12 @@ function App() {
         return <PhoneTab />;
       case 'led':
         return <LedTab />;
+      case 'remote':
+        return <IRTab />;
       case 'settings':
         return <SettingsTab />;
+      case 'cmd':
+        return <CMDTab />;
       default:
         return <LocationTab />;
     }

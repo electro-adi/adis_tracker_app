@@ -36,6 +36,7 @@ const SettingsTab = () => {
     gpsmode: 0,
     DS_call_mode: 3
   });
+  
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 

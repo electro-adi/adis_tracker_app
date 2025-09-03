@@ -20,7 +20,6 @@ const API = `${BACKEND_URL}/api`;
 
 const StatusTab = () => {
   const [status, setStatus] = useState({
-    message: "Offline",
     send_reason: 0,
     screen_on: false,
     last_activity: 0,
@@ -35,6 +34,7 @@ const StatusTab = () => {
     light_level: 0,
     uptime: "00:00:00",
     espnow_state: 0,
+    stored_sms: 0,
     last_activity_human: "N/A"
   });
 

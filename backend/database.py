@@ -3,7 +3,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from models import DeviceStatus, GpsLocation, Contacts, LedConfig, DeviceSettings
+from models import DeviceStatus, GpsLocation, Contacts, LedConfig, DeviceSettings, SmsMessage
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +183,29 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting device contacts: {str(e)}")
             return None
+
+    # SMS operations
+    async def save_sms(self, sms: SmsMessage) -> str:
+        try:
+            result = await self.db.sms.insert_one(sms.dict())
+            logger.info(f"Saved sms message with ID: {result.inserted_id}")
+            return str(result.inserted_id)
+        except Exception as e:
+            logger.error(f"Error saving sms message: {str(e)}")
+            raise
+
+    async def get_sms(self) -> Optional[Dict[str, Any]]:
+        try:
+            sms = await self.db.sms.find_one(
+                sort=[("timestamp", -1)]
+            )
+            if sms:
+                sms['_id'] = str(sms['_id'])
+            return sms
+        except Exception as e:
+            logger.error(f"Error getting sms message: {str(e)}")
+            return None
+
 
     # FCM Token operations
     async def save_push_token(self, token: str, device_id: str, user_id: str):

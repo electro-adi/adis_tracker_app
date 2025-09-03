@@ -28,6 +28,7 @@ class MQTTManager:
         self.status_callback: Optional[Callable] = None
         self.location_callback: Optional[Callable] = None
         self.sms_callback: Optional[Callable] = None
+        self.stored_sms_callback: Optional[Callable] = None
         self.call_callback: Optional[Callable] = None
         self.led_config_callback: Optional[Callable] = None
         self.config_callback: Optional[Callable] = None
@@ -44,6 +45,7 @@ class MQTTManager:
             "Tracker/from/config",
             "Tracker/from/contacts",
             "Tracker/from/sms/received",
+            "Tracker/from/sms/stored",
             "Tracker/from/espnow/received"
         ]
 
@@ -166,7 +168,7 @@ class MQTTManager:
             elif topic == "Tracker/from/contacts":
                 self._handle_contacts(payload)
 
-            elif topic == "Tracker/from/sms/received":
+            elif topic == "Tracker/from/sms/stored":
                 self._handle_sms_message(payload)
 
             elif topic == "Tracker/from/espnow/received":
@@ -300,28 +302,13 @@ class MQTTManager:
             logger.error(f"Error parsing status message: {str(e)}")
 
     def _handle_sms_message(self, payload: str):
-        """Handle received SMS messages"""
+        """Handle stored SMS messages"""
         try:
             data = json.loads(payload)
-            sms = SmsMessage(
-                number=data.get("number", ""),
-                message=data.get("sms", ""),
-                type="received"
-            )
+            sms = SmsMessage(**data)
 
             if self.main_loop and self.sms_callback:
                 asyncio.run_coroutine_threadsafe(self.sms_callback(sms), self.main_loop)
-                
-            # Create notification
-            notification = Notification(
-                title="SMS Received",
-                message=f"From {sms.number}: {sms.message[:50]}...",
-                type="sms",
-                data=data
-            )
-            
-            if self.main_loop and self.notification_callback:
-                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
                 
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing SMS message: {str(e)}")
@@ -415,6 +402,10 @@ class MQTTManager:
     async def send_sms(self, sms_data: dict) -> bool:
         """Send SMS via device"""
         return await self.publish_command("Tracker/to/sms/send", sms_data)
+    
+    async def get_sms(self, index: int) -> bool:
+        """Get stored sms"""
+        return await self.publish_command("Tracker/to/sms/get/", str(index))
 
     async def control_buzzer(self, enabled: bool) -> bool:
         """Control device buzzer"""
@@ -424,8 +415,8 @@ class MQTTManager:
         """Control device vibrator"""
         return await self.publish_command("Tracker/to/vibrate", enabled)
 
-    def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, 
-                     call_cb=None, led_config_cb=None, config_cb=None, contacts_cb=None, notification_cb=None):
+    def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, call_cb=None, 
+                      led_config_cb=None, config_cb=None, contacts_cb=None, notification_cb=None):
         """Set callback functions for handling device messages"""
         self.status_callback = status_cb
         self.location_callback = location_cb

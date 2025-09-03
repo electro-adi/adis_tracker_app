@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Settings, Activity, Phone, Lightbulb } from 'lucide-react';
+import { MapPin, Settings, Activity, Phone, Lightbulb, Tv, MessageSquareCode } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab }) => {
   const menuItems = [
@@ -7,7 +7,9 @@ const Navigation = ({ activeTab, setActiveTab }) => {
     { id: 'status', label: 'Status', icon: Activity },
     { id: 'phone', label: 'Phone', icon: Phone },
     { id: 'led', label: 'LED', icon: Lightbulb },
-    { id: 'settings', label: 'Settings', icon: Settings }
+    { id: 'remote', label: 'IR Transmit', icon: Tv },
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'cmd', label: 'SMS CMD', icon: MessageSquareCode }
   ];
 
   return (
