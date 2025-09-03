@@ -225,8 +225,14 @@ async def get_mqtt_status():
     """Get MQTT connection status"""
     status_data = mqtt_manager.get_status()
 
-    #convert to datetime format from string
-    last_msg = datetime.fromisoformat(status_data.get("last_msg"))
+    last_msg_raw = status_data.get("last_msg")
+
+    if isinstance(last_msg_raw, str):
+        last_msg = datetime.fromisoformat(last_msg_raw)
+    elif isinstance(last_msg_raw, datetime):
+        last_msg = last_msg_raw
+    else:
+        last_msg = None
 
     if last_msg:
         status_data["last_msg_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_msg)
@@ -717,7 +723,7 @@ async def startup_event():
         mqtt_manager.set_callbacks(
             status_cb=handle_status_update,
             location_cb=handle_location_update,
-            sms_cb=handle_sms_received,
+            sms_cb=handle_sms,
             call_cb=handle_call_received,
             led_config_cb=handle_led_config,
             config_cb=handle_config,
