@@ -90,9 +90,7 @@ const PhoneTab = () => {
       const response = await fetch(`${API}/device/status_nomqtt`);
       if (response.ok) {
         const data = await response.json();
-        if (data.message) {
-          setStatus(data);
-        }
+        setStatus(data);
       }
     } catch (error) {
       console.error('Failed to load device status:', error);

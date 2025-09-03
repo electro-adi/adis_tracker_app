@@ -115,6 +115,8 @@ function App() {
                   notification_type: data.type
                 });
                 break;
+              case 'heartbeat':
+                  break;
               default:
                 console.log('Unknown WS message type:', data);
             }

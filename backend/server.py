@@ -628,6 +628,23 @@ async def set_device_sms(index: int):
         logger.error(f"Error getting sms: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+#---------------------------------------------------------------------------
+@api_router.post("/device/irsend/{cmd}")
+async def send_ir_cmd(cmd: int):
+    """Send ir command (0-4)"""
+    if cmd < 0 or cmd > 4:
+        raise HTTPException(status_code=400, detail="CMD must be between 0 and 4")
+    
+    try:
+        success = await mqtt_manager.send_ir_cmd(cmd)
+        if success:
+            return {"success": True, "message": f"Send IR CMD {cmd}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send IR CMD")
+    except Exception as e:
+        logger.error(f"Error sending IR CMD: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 #---------------------------------------------------------------------------  
 # WebSocket endpoint for real-time updates
 @app.websocket("/ws/notifications")
@@ -636,7 +653,6 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            # Send back a JSON payload
             await websocket.send_text(json.dumps({
                 "type": "heartbeat",
                 "data": data

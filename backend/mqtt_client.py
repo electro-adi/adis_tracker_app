@@ -428,6 +428,10 @@ class MQTTManager:
         """Control device vibrator"""
         return await self.publish_command("Tracker/to/vibrate", enabled)
 
+    async def send_ir_cmd(self, cmd: int) -> bool:
+        """Send IR CMD (0-4)"""
+        return await self.publish_command("Tracker/to/irsend", str(cmd))
+
     def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, call_cb=None, 
                       led_config_cb=None, config_cb=None, contacts_cb=None, notification_cb=None):
         """Set callback functions for handling device messages"""

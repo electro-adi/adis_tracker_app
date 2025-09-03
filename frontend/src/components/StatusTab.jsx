@@ -11,7 +11,6 @@ import {
   Unlock,
   RefreshCw,
   Clock,
-  MapPin
 } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 
@@ -58,9 +57,7 @@ const StatusTab = () => {
       const response = await fetch(`${API}/device/status_nomqtt`);
       if (response.ok) {
         const data = await response.json();
-        if (data.message) {
-          setStatus(data);
-        }
+        setStatus(data);
       }
     } catch (error) {
       console.error('Failed to load device status:', error);
@@ -73,19 +70,11 @@ const StatusTab = () => {
       const response = await fetch(`${API}/device/status`);
       if (response.ok) {
         const data = await response.json();
-        if (data.message) {
-          setStatus(data);
-          toast({
-            title: "Status Updated",
-            description: "Device status has been refreshed.",
-          });
-        } else {
-          toast({
-            title: "No Data",
-            description: "No status data available from device.",
-            variant: "destructive",
-          });
-        }
+        setStatus(data);
+        toast({
+          title: "Status Updated",
+          description: "Device status has been refreshed.",
+        });
       } else {
         throw new Error('Failed to fetch status');
       }
