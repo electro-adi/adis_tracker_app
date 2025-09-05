@@ -58,12 +58,10 @@ class WebSocketManager:
             message = {
                 "type": "notification",
                 "data": {
-                    "id": notification.id,
                     "title": notification.title,
                     "message": notification.message,
                     "notification_type": notification.type,
                     "data": notification.data,
-                    "timestamp": notification.timestamp.isoformat()
                 }
             }
             await self.broadcast(json.dumps(message))

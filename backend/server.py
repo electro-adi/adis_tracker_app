@@ -767,6 +767,9 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
     try:
+
+        await mqtt_manager.app_offline()
+
         # Disconnect MQTT
         mqtt_manager.disconnect()
         

@@ -374,19 +374,19 @@ class MQTTManager:
 
     async def get_device_status(self) -> bool:
         """Request device status"""
-        return await self.publish_command("Tracker/to/request/", "0")
+        return await self.publish_command("Tracker/to/request", "0")
 
     async def get_device_location(self) -> bool:
         """Request device location"""
-        return await self.publish_command("Tracker/to/request/", "1")
+        return await self.publish_command("Tracker/to/request", "1")
     
     async def get_device_callstatus(self) -> bool:
         """Request device callstatus"""
-        return await self.publish_command("Tracker/to/request/", "2")
+        return await self.publish_command("Tracker/to/request", "2")
 
     async def get_led_config(self) -> bool:
         """Get led configuration"""
-        return await self.publish_command("Tracker/to/request/", "3")
+        return await self.publish_command("Tracker/to/request", "3")
 
     async def set_led_config(self, led_config: dict) -> bool:
         """Set LED configuration"""
@@ -394,7 +394,7 @@ class MQTTManager:
 
     async def get_device_config(self) -> bool:
         """Get device configuration"""
-        return await self.publish_command("Tracker/to/request/", "4")
+        return await self.publish_command("Tracker/to/request", "4")
 
     async def set_device_config(self, config: dict) -> bool:
         """Set device configuration"""
@@ -402,7 +402,7 @@ class MQTTManager:
 
     async def get_contacts(self) -> bool:
         """Get contacts"""
-        return await self.publish_command("Tracker/to/request/", "5")
+        return await self.publish_command("Tracker/to/request", "5")
     
     async def set_contacts(self, contacts: dict) -> bool:
         """Set contacts"""
@@ -418,7 +418,7 @@ class MQTTManager:
     
     async def get_sms(self, index: int) -> bool:
         """Get stored sms"""
-        return await self.publish_command("Tracker/to/sms/get/", str(index))
+        return await self.publish_command("Tracker/to/sms/get", str(index))
 
     async def control_buzzer(self, enabled: bool) -> bool:
         """Control device buzzer"""
@@ -431,6 +431,10 @@ class MQTTManager:
     async def send_ir_cmd(self, cmd: int) -> bool:
         """Send IR CMD (0-4)"""
         return await self.publish_command("Tracker/to/irsend", str(cmd))
+
+    async def app_offline(self) -> bool:
+        """Tell Tracker that app is offline"""
+        return await self.publish_command("Tracker/to/app_offline", "1")
 
     def set_callbacks(self, status_cb=None, location_cb=None, sms_cb=None, call_cb=None, 
                       led_config_cb=None, config_cb=None, contacts_cb=None, notification_cb=None):
