@@ -95,6 +95,19 @@ const LocationTab = () => {
   const [historyData, setHistoryData] = useState([]);
 
   useEffect(() => {
+    const handler = (e) => {
+      const newData = e.detail;
+      setLocationData(newData);
+    };
+
+    window.addEventListener("location_update", handler);
+
+    return () => {
+      window.removeEventListener("location_update", handler);
+    };
+  }, []);
+
+  useEffect(() => {
     loadlocation();
   }, []);
   
@@ -133,7 +146,7 @@ const LocationTab = () => {
         setLocationData(data);
         toast({
           title: "Location Updated",
-          description: "GPS coordinates have been refreshed successfully.",
+          description: "Request Sent for new location data.",
         });
       } else {
         throw new Error('Failed to get location');

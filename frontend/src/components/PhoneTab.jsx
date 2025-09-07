@@ -59,6 +59,18 @@ const PhoneTab = () => {
   const [smsIndex, setSmsIndex] = useState("");
   const [showSMSDialog, setShowSMSDialog] = useState(false);
 
+  useEffect(() => {
+    const handler = (e) => {
+      const newData = e.detail;
+      setContacts(newData);
+    };
+
+    window.addEventListener("contacts_update", handler);
+
+    return () => {
+      window.removeEventListener("contacts_update", handler);
+    };
+  }, []);
 
   //---------------------------------------------- Load contacts
   useEffect(() => {

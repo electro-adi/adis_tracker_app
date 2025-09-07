@@ -41,6 +41,19 @@ const SettingsTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    const handler = (e) => {
+      const newData = e.detail;
+      setSettings(newData);
+    };
+
+    window.addEventListener("config_update", handler);
+
+    return () => {
+      window.removeEventListener("config_update", handler);
+    };
+  }, []);
+
+  useEffect(() => {
     loadSettings();
   }, []);
 

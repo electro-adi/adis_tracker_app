@@ -3,6 +3,8 @@ import logging
 from typing import Dict, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from models import Notification
+from datetime import datetime, timezone
+import humanize
 
 from database import db_manager
 
@@ -98,6 +100,27 @@ class WebSocketManager:
     async def broadcast_status_update(self, status_data: dict):
         #Broadcast device status update
         try:
+            # Normalize last_activity
+            last_activity = status_data.get("last_activity")
+
+            if isinstance(last_activity, str) and last_activity not in ("N/A", "", None):
+                try:
+                    last_activity = datetime.fromisoformat(last_activity)
+                except ValueError:
+                    last_activity = None
+            else:
+                last_activity = None
+
+            if last_activity and last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+
+            if last_activity:
+                status_data["last_activity_human"] = humanize.naturaltime(
+                    datetime.now(timezone.utc) - last_activity
+                )
+            else:
+                status_data["last_activity_human"] = "--"
+
             message = {
                 "type": "status_update",
                 "data": status_data
@@ -112,10 +135,35 @@ class WebSocketManager:
     async def broadcast_location_update(self, location_data: dict):
         #Broadcast GPS location update
         try:
-            message = {
-                "type": "location_update", 
-                "data": location_data
-            }
+            # convert to datetime format from string
+            gps_age = location_data.get("gps_age")
+            lbs_age = location_data.get("lbs_age")
+
+            if isinstance(gps_age, str):
+                gps_age = datetime.fromisoformat(gps_age)
+
+            if isinstance(lbs_age, str):
+                lbs_age = datetime.fromisoformat(lbs_age)
+
+            if gps_age and gps_age.tzinfo is None:
+                gps_age = gps_age.replace(tzinfo=timezone.utc)
+
+            if lbs_age and lbs_age.tzinfo is None:
+                lbs_age = lbs_age.replace(tzinfo=timezone.utc)
+
+            if gps_age:
+                location_data["gps_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
+            else:
+                location_data["gps_age_human"] = "--"
+
+            if lbs_age:
+                location_data["lbs_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
+            else:
+                location_data["lbs_age_human"] = "--"
+                message = {
+                    "type": "location_update", 
+                    "data": location_data
+                }
             
             await self.broadcast(json.dumps(message))
             logger.info("Broadcasted location update")

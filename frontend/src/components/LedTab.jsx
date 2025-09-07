@@ -26,6 +26,28 @@ const LedTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    const handler = (e) => {
+      const newData = e.detail;
+
+      setLedSettings({
+        red: newData.red ?? 0,
+        green: newData.green ?? 0,
+        blue: newData.blue ?? 0,
+        enableled: newData.enableled ?? true,
+      });
+
+      setAnimationSettings({
+        led_boot_ani: newData.led_boot_ani ?? 4,
+        led_call_ani: newData.led_call_ani ?? 6,
+        led_noti_ani: newData.led_noti_ani ?? 5,
+      });
+    };
+
+    window.addEventListener("led_config_update", handler);
+    return () => window.removeEventListener("led_config_update", handler);
+  }, []);
+
+  useEffect(() => {
     loadDeviceStatus();
   }, []);
 

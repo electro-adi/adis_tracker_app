@@ -49,6 +49,19 @@ const StatusTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    const handler = (e) => {
+      const newData = e.detail;
+      setStatus(newData);
+    };
+
+    window.addEventListener("status_update", handler);
+
+    return () => {
+      window.removeEventListener("status_update", handler);
+    };
+  }, []);
+
+  useEffect(() => {
     loadDeviceStatus();
   }, []);
 
@@ -136,12 +149,12 @@ const StatusTab = () => {
                 <Smartphone className="w-5 h-5 mr-2 text-blue-400" />
                 Device
               </div>
-              <Badge 
-                variant={status.message === 'Online' ? 'default' : 'destructive'}
-                className={status.message === 'Online' ? 'bg-green-600' : ''}
-              >
-                {status.message}
-              </Badge>
+                <Badge
+                  variant={status.send_reason === 0 || status.send_reason === 1 ? 'default' : 'destructive'}
+                  className={status.send_reason === 0 || status.send_reason === 1 ? 'bg-green-600' : 'bg-red-600'}
+                >
+                  {status.send_reason === 0 || status.send_reason === 1 ? 'Awake' : 'Asleep'}
+                </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">

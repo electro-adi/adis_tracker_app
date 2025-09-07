@@ -103,22 +103,50 @@ function App() {
           try {
             const data = JSON.parse(event.data);
 
-            switch (data.type) {
-              case 'notification':
-              case 'sms_update':
-              case 'call_update':
-              case 'location_update':
-              case 'status_update':
-                handleNotification({
-                  title: data.data?.title || data.type,
-                  message: data.data?.message || JSON.stringify(data.data),
-                  notification_type: data.type
-                });
-                break;
-              case 'heartbeat':
-                  break;
-              default:
-                console.log('Unknown WS message type:', data);
+            if (data.type === "notification") {
+              handleNotification({
+                title: data.data?.title || data.type,
+                message: data.data?.message || JSON.stringify(data.data),
+                notification_type: data.type
+              });
+            }
+            else if (data.type === "status_update") {
+              window.dispatchEvent(new CustomEvent("status_update", { detail: data.data }));
+            }
+            else if (data.type === "location_update") {
+              window.dispatchEvent(new CustomEvent("location_update", { detail: data.data }));
+            }
+            else if (data.type === "sms_update") {
+              const from = data.data?.from || "Unknown number";
+              const content = data.data?.message || "--";
+
+              handleNotification({
+                title: `SMS from ${from}`,
+                message: content,
+                notification_type: data.type
+              });
+            }
+            else if (data.type === "call_update") {
+              const caller = data.data?.caller || "Unknown number";
+
+              handleNotification({
+                title: `Incoming call from ${caller}`,
+                message: "Tap to view details.",
+                notification_type: data.type
+              });
+            }
+            else if (data.type === "led_config_update") {
+              window.dispatchEvent(new CustomEvent("led_config_update", { detail: data.data }));
+            }
+            else if (data.type === "config_update") {
+              window.dispatchEvent(new CustomEvent("config_update", { detail: data.data }));
+            }
+            else if (data.type === "contacts_update") {
+              window.dispatchEvent(new CustomEvent("contacts_update", { detail: data.data }));
+            }
+            else
+            {
+              console.log('Unknown WS message type:', data);
             }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
