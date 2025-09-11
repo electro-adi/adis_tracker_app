@@ -5,6 +5,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from models import Notification
 from datetime import datetime, timezone
 import humanize
+from mqtt_client import MQTTManager
 
 from database import db_manager
 
@@ -21,10 +22,21 @@ class WebSocketManager:
         self.active_connections.add(websocket)
         logger.info(f"WebSocket client connected. Total connections: {len(self.active_connections)}")
 
-    def disconnect(self, websocket: WebSocket):
+    async def disconnect(self, websocket: WebSocket):
         """Remove WebSocket connection"""
         self.active_connections.discard(websocket)
-        logger.info(f"WebSocket client disconnected. Total connections: {len(self.active_connections)}")
+
+        total_connections = len(self.active_connections)
+        logger.info(f"WebSocket client disconnected. Total connections: {total_connections}")
+
+        # If no active clients left, mark app as offline
+        if total_connections == 0:
+            try:
+                await mqtt_manager.app_offline()
+                logger.info("All clients disconnected. Sent app_offline MQTT message.")
+            except Exception as e:
+                logger.error(f"Failed to send app_offline message: {e}")
+
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         """Send message to specific WebSocket connection"""
@@ -243,7 +255,6 @@ class WebSocketManager:
 
         except Exception as e:
             logger.error(f"Error broadcasting device contacts update: {str(e)}")
-
 
     def get_connection_count(self) -> int:
         #Get number of active WebSocket connections

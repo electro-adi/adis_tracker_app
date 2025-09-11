@@ -75,16 +75,34 @@ class DatabaseManager:
         data = await self.db.mqtt_status.find_one({"_id": "tracker"})
         return data.get("last_msg") if data else None
 
-    # GPS Location operations
+# GPS Location operations
     async def save_gps_location(self, location: GpsLocation) -> str:
         """Save GPS location to database"""
         try:
+            # If GPS coords are invalid
+            if location.gps_lat == 0.0 and location.gps_lon == 0.0:
+                last_entry = await self.db.gps_locations.find_one(
+                    {"gps_lat": {"$ne": 0.0}, "gps_lon": {"$ne": 0.0}},
+                    sort=[("timestamp", -1)]
+                )
+                if last_entry:
+                    # Replace GPS fields with the last known good GPS
+                    location.gps_lat = last_entry.get("gps_lat", 0.0)
+                    location.gps_lon = last_entry.get("gps_lon", 0.0)
+                    location.alt = last_entry.get("alt", 0.0)
+                    location.speed = last_entry.get("speed", 0.0)
+                    location.course = last_entry.get("course", 0.0)
+                    location.sats = last_entry.get("sats", 0)
+
+            # Save new
             result = await self.db.gps_locations.insert_one(location.dict())
             logger.info(f"Saved GPS location with ID: {result.inserted_id}")
             return str(result.inserted_id)
+
         except Exception as e:
             logger.error(f"Error saving GPS location: {str(e)}")
-            raise
+        raise
+
 
     async def get_latest_gps_location(self) -> Optional[Dict[str, Any]]:
         """Get the most recent GPS location"""

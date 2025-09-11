@@ -406,7 +406,7 @@ class MQTTManager:
     
     async def set_contacts(self, contacts: dict) -> bool:
         """Set contacts"""
-        return await self.publish_command("Tracker/to/set/config", contacts)
+        return await self.publish_command("Tracker/to/set/contacts", contacts)
 
     async def make_call(self, number: str) -> bool:
         """Make device call a number"""
