@@ -111,6 +111,7 @@ function App() {
               });
             }
             else if (data.type === "status_update") {
+              console.log("Dispatching status_update:", data.data);
               window.dispatchEvent(new CustomEvent("status_update", { detail: data.data }));
             }
             else if (data.type === "location_update") {

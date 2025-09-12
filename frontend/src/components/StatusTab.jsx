@@ -42,21 +42,24 @@ const StatusTab = () => {
     1: "Request",
     2: "Request (Sleep)",
     3: "Fix Found",
-    4: "Periodic Wakeup"
+    4: "Fix Found (Sleep)",
+    5: "Periodic Wakeup"
   };
 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("status.jsx mounted, attaching listener");
+
     const handler = (e) => {
-      const newData = e.detail;
-      setStatus(newData);
+      console.log("Received status_update:", e.detail);
+      setStatus({ ...e.detail });
     };
 
     window.addEventListener("status_update", handler);
-
     return () => {
+      console.log("status.jsx unmounted, removing listener");
       window.removeEventListener("status_update", handler);
     };
   }, []);
@@ -150,10 +153,14 @@ const StatusTab = () => {
                 Device
               </div>
                 <Badge
-                  variant={status.send_reason === 0 || status.send_reason === 1 ? 'default' : 'destructive'}
-                  className={status.send_reason === 0 || status.send_reason === 1 ? 'bg-green-600' : 'bg-red-600'}
+                  variant={
+                    [0, 1, 3].includes(status.send_reason) ? "default" : "destructive"
+                  }
+                  className={
+                    [0, 1, 3].includes(status.send_reason) ? "bg-green-600" : "bg-red-600"
+                  }
                 >
-                  {status.send_reason === 0 || status.send_reason === 1 ? 'Awake' : 'Asleep'}
+                  {[0, 1, 3].includes(status.send_reason) ? "Awake" : "Asleep"}
                 </Badge>
             </CardTitle>
           </CardHeader>

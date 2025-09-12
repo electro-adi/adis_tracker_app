@@ -22,8 +22,8 @@ class WebSocketManager:
         self.active_connections.add(websocket)
         logger.info(f"WebSocket client connected. Total connections: {len(self.active_connections)}")
 
+    """
     async def disconnect(self, websocket: WebSocket):
-        """Remove WebSocket connection"""
         self.active_connections.discard(websocket)
 
         total_connections = len(self.active_connections)
@@ -36,6 +36,13 @@ class WebSocketManager:
                 logger.info("All clients disconnected. Sent app_offline MQTT message.")
             except Exception as e:
                 logger.error(f"Failed to send app_offline message: {e}")
+
+    """
+
+    def disconnect(self, websocket: WebSocket):
+        """Remove WebSocket connection"""
+        self.active_connections.discard(websocket)
+        logger.info(f"WebSocket client disconnected. Total connections: {len(self.active_connections)}")
 
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
@@ -146,6 +153,7 @@ class WebSocketManager:
 
     async def broadcast_location_update(self, location_data: dict):
         #Broadcast GPS location update
+        message = None
         try:
             # convert to datetime format from string
             gps_age = location_data.get("gps_age")

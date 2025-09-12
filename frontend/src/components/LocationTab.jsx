@@ -85,7 +85,8 @@ const LocationTab = () => {
     1: "Request",
     2: "Request (Sleep)",
     3: "Fix Found",
-    4: "Periodic Wakeup"
+    4: "Fix Found (Sleep)",
+    5: "Periodic Wakeup"
   };
 
   const [loading, setLoading] = useState(false);
