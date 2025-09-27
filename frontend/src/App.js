@@ -111,7 +111,7 @@ function App() {
               });
             }
             else if (data.type === "status_update") {
-              console.log("Dispatching status_update:", data.data);
+              console.log("Dispatching status_update:", JSON.stringify(data.data));
               window.dispatchEvent(new CustomEvent("status_update", { detail: data.data }));
             }
             else if (data.type === "location_update") {
@@ -145,9 +145,12 @@ function App() {
             else if (data.type === "contacts_update") {
               window.dispatchEvent(new CustomEvent("contacts_update", { detail: data.data }));
             }
+            else if (data.type === "heartbeat") {
+              console.log("Heartbeat..");
+            }
             else
             {
-              console.log('Unknown WS message type:', data);
+              console.log('Unknown WS message type:', JSON.stringify(data));
             }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);

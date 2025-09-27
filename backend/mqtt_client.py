@@ -46,7 +46,8 @@ class MQTTManager:
             "Tracker/from/contacts",
             "Tracker/from/sms/received",
             "Tracker/from/sms/stored",
-            "Tracker/from/espnow/received"
+            "Tracker/from/espnow/received",
+            "Tracker/from/lastwill"
         ]
 
     def set_event_loop(self, loop):
@@ -174,6 +175,9 @@ class MQTTManager:
             elif topic == "Tracker/from/espnow/received":
                 self._handle_espnow_message(payload)
 
+            elif topic == "Tracker/from/lastwill":
+                self._handle_lastwill()
+
         except Exception as e:
             logger.error(f"Error processing MQTT message: {str(e)}")
 
@@ -211,7 +215,6 @@ class MQTTManager:
                     
         except (json.JSONDecodeError, ValidationError) as e:
             logger.error(f"Error parsing status message: {str(e)}")
-
 
     def _handle_location_message(self, payload: str):
         """Handle GPS location updates"""
@@ -332,7 +335,7 @@ class MQTTManager:
             notification = Notification(
                 title="ESP-NOW Message",
                 message=f"Received: {payload}",
-                type="system",
+                type="notification",
                 data={"espnow_message": payload}
             )
             
@@ -341,6 +344,20 @@ class MQTTManager:
                 
         except Exception as e:
             logger.error(f"Error processing ESP-NOW message: {str(e)}")
+
+    def _handle_lastwill(self):
+        """Handle MQTT Last Will"""
+        try:
+            notification = Notification(
+                title="Tracker Connnection Lost",
+                type="notification",
+            )
+            
+            if self.main_loop and self.notification_callback:
+                asyncio.run_coroutine_threadsafe(self.notification_callback(notification), self.main_loop)
+                
+        except Exception as e:
+            logger.error(f"Error processing Lastwill message: {str(e)}")
 
     async def publish_command(self, topic: str, payload: Any) -> bool:
         """Publish command to device"""

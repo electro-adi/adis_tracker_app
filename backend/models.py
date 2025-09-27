@@ -20,6 +20,7 @@ class DeviceStatus(BaseModel):
     uptime: str
     espnow_state: int
     stored_sms: int
+    prd_eps: Optional[bool] = None
     last_activity_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -88,6 +89,8 @@ class DeviceSettings(BaseModel):
     callmode: Optional[int] = Field(default=None, ge=0, le=2)
     gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
     DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
+    prd_location: Optional[bool] = None
+    sms_thru_mqtt: Optional[bool] = None
 
 class Notification(BaseModel):
     title: str

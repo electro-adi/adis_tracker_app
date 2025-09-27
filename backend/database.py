@@ -103,7 +103,6 @@ class DatabaseManager:
             logger.error(f"Error saving GPS location: {str(e)}")
         raise
 
-
     async def get_latest_gps_location(self) -> Optional[Dict[str, Any]]:
         """Get the most recent GPS location"""
         try:

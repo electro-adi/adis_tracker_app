@@ -34,6 +34,7 @@ const StatusTab = () => {
     uptime: "00:00:00",
     espnow_state: 0,
     stored_sms: 0,
+    prd_eps: false,
     last_activity_human: "N/A"
   });
 
@@ -43,7 +44,7 @@ const StatusTab = () => {
     2: "Request (Sleep)",
     3: "Fix Found",
     4: "Fix Found (Sleep)",
-    5: "Periodic Wakeup"
+    5: "Periodic Wakeup (Sleep)"
   };
 
   const [loading, setLoading] = useState(false);
@@ -278,6 +279,10 @@ const StatusTab = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">In Call:</span>
               <span className="text-white">{status.in_call ? 'Yes' : 'No'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Extreme Power Saving Mode:</span>
+              <span className="text-white">{status.prd_eps ? 'Active' : 'Inactive'}</span>
             </div>
           </CardContent>
         </Card>

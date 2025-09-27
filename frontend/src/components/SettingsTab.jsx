@@ -160,7 +160,7 @@ const SettingsTab = () => {
     { value: 2, name: 'Deep Sleep' },
     { value: 3, name: 'Lock' },
     { value: 4, name: 'Unlock' },
-    { value: 5, name: 'Active Mode' }
+    { value: 5, name: 'EPS Mode' }
   ];
 
   const callModes = [
