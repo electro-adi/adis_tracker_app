@@ -44,7 +44,6 @@ class WebSocketManager:
         self.active_connections.discard(websocket)
         logger.info(f"WebSocket client disconnected. Total connections: {len(self.active_connections)}")
 
-
     async def send_personal_message(self, message: str, websocket: WebSocket):
         """Send message to specific WebSocket connection"""
         try:

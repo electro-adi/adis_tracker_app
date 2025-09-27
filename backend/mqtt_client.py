@@ -144,12 +144,14 @@ class MQTTManager:
         try:
             topic = msg.topic
             payload = msg.payload.decode('utf-8')
-            self.last_msg = datetime.now(timezone.utc).isoformat()
             logger.info(f"Received message on topic {topic}: {payload}")
 
             if self.main_loop and self._on_message:
                 asyncio.run_coroutine_threadsafe(db_manager.save_mqtt_last_msg(self.last_msg), self.main_loop)
-            
+
+            if topic != "Tracker/from/lastwill":
+                self.last_msg = datetime.now(timezone.utc).isoformat()
+
             # Route messages based on topic
             if topic == "Tracker/from/status":
                 self._handle_status_message(payload)

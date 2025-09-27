@@ -226,6 +226,7 @@ async def get_mqtt_status():
     status_data = mqtt_manager.get_status()
 
     last_msg_raw = status_data.get("last_msg")
+    lastwill_time_raw = status_data.get("lastwill_time")
 
     if isinstance(last_msg_raw, str):
         last_msg = datetime.fromisoformat(last_msg_raw)
@@ -238,6 +239,21 @@ async def get_mqtt_status():
         status_data["last_msg_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_msg)
     else:
         status_data["last_msg_human"] = "--"
+
+    if isinstance(lastwill_time_raw, str):
+        lastwill_time = datetime.fromisoformat(lastwill_time_raw)
+    elif isinstance(lastwill_time_raw, datetime):
+        lastwill_time = lastwill_time_raw
+    else:
+        lastwill_time = None
+
+    if lastwill_time and last_msg:
+        if lastwill_time > last_msg:
+            status_data["tracker_connected"] = False
+        else:
+            status_data["tracker_connected"] = True
+    else:
+        status_data["tracker_connected"] = False
 
     return MqttStatus(**status_data)
 

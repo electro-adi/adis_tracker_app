@@ -23,6 +23,8 @@ const API = `${BACKEND_URL}/api`;
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
+    callmode: 2,
+    gpsmode: 0,
     bootanimation: true,
     enablebuzzer: true,
     enablehaptics: true,
@@ -30,11 +32,12 @@ const SettingsTab = () => {
     noti_sound: true,
     noti_ppp: true,
     ringtone: 1,
+    sms_thru_mqtt: true,
+    DS_call_mode: 3,
     prd_wakeup: false,
-    prd_wakeup_time: 300000,
-    callmode: 2,
-    gpsmode: 0,
-    DS_call_mode: 3
+    prd_wakeup_time: 120,
+    prd_sms_intvrl: 0,
+    prd_mqtt_intvrl: 0
   });
   
   const [loading, setLoading] = useState(false);
@@ -439,7 +442,7 @@ const SettingsTab = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Power className="w-4 h-4 text-gray-400" />
-                <span className="text-white">Periodic Location Updates</span>
+                <span className="text-white">Periodic Wakeup</span>
               </div>
               <Switch
                 checked={settings.prd_wakeup}
@@ -448,22 +451,70 @@ const SettingsTab = () => {
             </div>
 
             {settings.prd_wakeup && (
-              <div className="space-y-2">
-                <label className="text-sm text-gray-400">Wakeup Interval (milliseconds)</label>
-                <Input
-                  type="number"
-                  min="60000"
-                  step="1000"
-                  value={settings.prd_wakeup_time}
-                  onChange={(e) => updateSetting('prd_wakeup_time', parseInt(e.target.value) || 300000)}
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-                <p className="text-xs text-gray-500">
-                  {Math.round(settings.prd_wakeup_time / 60000)} minutes
-                </p>
+              <div className="space-y-4">
+                {/* Wakeup interval slider */}
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">Wakeup Interval (minutes)</label>
+                  <Input
+                    type="range"
+                    min="5"
+                    max="28800"
+                    step="1"
+                    value={settings.prd_wakeup_time}
+                    onChange={(e) => updateSetting('prd_wakeup_time', parseInt(e.target.value))}
+                    className="w-full accent-green-500"/>
+                  <p className="text-xs text-gray-500">
+                    {settings.prd_wakeup_time < 60
+                      ? `${settings.prd_wakeup_time} minutes`
+                      : settings.prd_wakeup_time % 60 === 0
+                      ? `${settings.prd_wakeup_time / 60} hours`
+                      : `${Math.floor(settings.prd_wakeup_time / 60)}h ${settings.prd_wakeup_time % 60}m`}
+                  </p>
+                </div>
+
+                {/* SMS interval slider */}
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">SMS Location Update Interval</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value={settings.prd_sms_intvrl}
+                    onChange={(e) => updateSetting('prd_sms_intvrl', parseInt(e.target.value))}
+                    className="w-full accent-blue-500"
+                  />
+                  <p className="text-xs text-gray-500">
+                    {settings.prd_sms_intvrl === 0
+                      ? "Do not send"
+                      : settings.prd_sms_intvrl === 1
+                      ? "Send everytime"
+                      : `Send every ${settings.prd_sms_intvrl} wakeups`}
+                  </p>
+                </div>
+
+                {/* MQTT interval slider */}
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">MQTT Location Update Interval</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value={settings.prd_mqtt_intvrl}
+                    onChange={(e) => updateSetting('prd_mqtt_intvrl', parseInt(e.target.value))}
+                    className="w-full accent-purple-500"
+                  />
+                  <p className="text-xs text-gray-500">
+                    {settings.prd_mqtt_intvrl === 0
+                      ? "Do not send"
+                      : settings.prd_mqtt_intvrl === 1
+                      ? "Send everytime"
+                      : `Send every ${settings.prd_mqtt_intvrl} wakeups`}
+                  </p>
+                </div>
               </div>
             )}
-
             <div className="space-y-2">
               <label className="text-sm text-gray-400">GPS Mode</label>
               <div className="grid grid-cols-2 gap-2">

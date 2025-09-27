@@ -43,6 +43,7 @@ const PhoneTab = () => {
       uptime: "00:00:00",
       espnow_state: 0,
       stored_sms: 0,
+      prd_eps: false,
       last_activity_human: "N/A"
     });
 

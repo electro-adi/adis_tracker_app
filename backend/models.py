@@ -77,6 +77,8 @@ class LedConfig(BaseModel):
     led_noti_ani: Optional[int] = Field(default=None, ge=0, le=10)
 
 class DeviceSettings(BaseModel):
+    callmode: Optional[int] = Field(default=None, ge=0, le=2)
+    gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
     bootanimation: Optional[bool] = None
     enablebuzzer: Optional[bool] = None
     enablehaptics: Optional[bool] = None
@@ -84,13 +86,12 @@ class DeviceSettings(BaseModel):
     noti_sound: Optional[bool] = None
     noti_ppp: Optional[bool] = None
     ringtone: Optional[int] = Field(default=None, ge=0, le=24)
-    prd_wakeup: Optional[bool] = None
-    prd_wakeup_time: Optional[int] = Field(default=None, ge=60000)
-    callmode: Optional[int] = Field(default=None, ge=0, le=2)
-    gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
-    DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
-    prd_location: Optional[bool] = None
     sms_thru_mqtt: Optional[bool] = None
+    DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
+    prd_wakeup: Optional[bool] = None
+    prd_wakeup_time: Optional[int] = Field(default=None, ge=5, le=28800)
+    prd_sms_intvrl: Optional[int] = Field(default=None, ge=0, le=10)
+    prd_mqtt_intvrl: Optional[int] = Field(default=None, ge=0, le=10)
 
 class Notification(BaseModel):
     title: str
@@ -106,6 +107,8 @@ class MqttStatus(BaseModel):
     last_msg: Optional[datetime] = None
     last_msg_human: Optional[str] = None
     connection_attempts: int = 0
+    lastwill_time: Optional[datetime] = None
+    tracker_connected: bool
 
 class PushTokenRegister(BaseModel):
     token: str

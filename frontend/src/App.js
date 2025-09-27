@@ -38,7 +38,9 @@ function App() {
     last_connected: 0,
     last_msg: 0,
     last_msg_human: "--",
-    connection_attempts: 0
+    connection_attempts: 0,
+    lastwill_time: 0,
+    tracker_connected: false
   });
 
 
@@ -322,6 +324,13 @@ function App() {
                 <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]' : 'bg-yellow-400 animate-pulse'}`}> </div>
                 <span className={`text-sm font-medium ${ connectionStatus === 'connected' ? 'text-green-400' : connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-300'}`}>
                   {connectionStatus === 'connected' ? 'Server Online' : connectionStatus === 'error' ? 'Server Error' : 'Connecting...'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ mqtt_status.tracker_connected ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'}`}> </div>
+                <span
+                  className={`text-sm font-medium ${ mqtt_status.tracker_connected ? 'text-green-400' : 'text-red-400'}`}> 
+                  {mqtt_status.tracker_connected ? 'Device Connected' : 'Device Disconnected'}
                 </span>
               </div>
               <span className="text-xs text-gray-400 mt-0.5 opacity-90">

@@ -3,7 +3,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from models import DeviceStatus, GpsLocation, Contacts, LedConfig, DeviceSettings, SmsMessage
+from models import DeviceStatus, GpsLocation, Contacts, LedConfig, DeviceSettings, SmsMessage, MqttStatus
 
 logger = logging.getLogger(__name__)
 
@@ -61,19 +61,31 @@ class DatabaseManager:
             logger.error(f"Error getting device status: {str(e)}")
             return None
         
-    # last msg operations
-    async def save_mqtt_last_msg(self, timestamp: datetime):
-        """Persist most recent MQTT message timestamp"""
-        await self.db.mqtt_status.update_one(
-            {"_id": "tracker"},
-            {"$set": {"last_msg": timestamp}},
-            upsert=True
-        )
+    # Mqtt Status operations
+    async def save_mqtt_status(self, mqtt_status: MqttStatus) -> str:
+        """Save MQTT status"""
+        try:
+            result = await self.db.mqtt_status.update_one(
+                {},
+                {"$set": mqtt_status.dict()},
+                upsert=True
+            )
+            logger.info("MQTT Status saved/updated")
+            return "updated" if result.modified_count > 0 else "inserted"
+        except Exception as e:
+            logger.error(f"Error saving MQTT status: {str(e)}")
+            raise
 
-    async def get_mqtt_last_msg(self) -> Optional[datetime]:
-        """Load persisted last_msg from database"""
-        data = await self.db.mqtt_status.find_one({"_id": "tracker"})
-        return data.get("last_msg") if data else None
+    async def get_mqtt_status(self) -> Optional[Dict[str, Any]]:
+        """Get MQTT status"""
+        try:
+            mqtt_status = await self.db.mqtt_status.find_one({})
+            if mqtt_status:
+                mqtt_status["_id"] = str(mqtt_status["_id"])
+            return mqtt_status
+        except Exception as e:
+            logger.error(f"Error getting MQTT status: {str(e)}")
+            return None
 
 # GPS Location operations
     async def save_gps_location(self, location: GpsLocation) -> str:
