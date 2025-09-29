@@ -223,35 +223,32 @@ async def connect_mqtt():
 @api_router.get("/mqtt/status", response_model=MqttStatus)
 async def get_mqtt_status():
     """Get MQTT connection status"""
+
     status_data = mqtt_manager.get_status()
 
+    # Convert last_msg for human readable and Pydantic
     last_msg_raw = status_data.get("last_msg")
-    lastwill_time_raw = status_data.get("lastwill_time")
-
     if isinstance(last_msg_raw, str):
         last_msg = datetime.fromisoformat(last_msg_raw)
     elif isinstance(last_msg_raw, datetime):
         last_msg = last_msg_raw
     else:
         last_msg = None
+    status_data["last_msg"] = last_msg
 
-    if last_msg:
-        status_data["last_msg_human"] = humanize.naturaltime(datetime.now(timezone.utc) - last_msg)
-    else:
-        status_data["last_msg_human"] = "--"
-
+    # lastwill_time same thing
+    lastwill_time_raw = status_data.get("lastwill_time")
     if isinstance(lastwill_time_raw, str):
         lastwill_time = datetime.fromisoformat(lastwill_time_raw)
     elif isinstance(lastwill_time_raw, datetime):
         lastwill_time = lastwill_time_raw
     else:
         lastwill_time = None
+    status_data["lastwill_time"] = lastwill_time
 
+    # tracker_connected logic
     if lastwill_time and last_msg:
-        if lastwill_time > last_msg:
-            status_data["tracker_connected"] = False
-        else:
-            status_data["tracker_connected"] = True
+        status_data["tracker_connected"] = lastwill_time <= last_msg
     else:
         status_data["tracker_connected"] = False
 
@@ -778,7 +775,7 @@ async def startup_event():
 
         mqtt_manager.set_event_loop(asyncio.get_running_loop())
 
-        mqtt_manager.last_msg = await db_manager.get_mqtt_status()
+        #mqtt_manager.last_msg = await db_manager.get_mqtt_status()
         
         # Connect to MQTT broker
         success = await mqtt_manager.connect()

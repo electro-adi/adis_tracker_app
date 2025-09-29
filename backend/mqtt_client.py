@@ -149,7 +149,7 @@ class MQTTManager:
             logger.info(f"Received message on topic {topic}: {payload}")
 
             if topic != "Tracker/from/lastwill":
-                self.last_msg = datetime.now(timezone.utc).isoformat()
+                self.last_msg = datetime.now(timezone.utc)
 
             if self.main_loop and self._on_message:
                 asyncio.run_coroutine_threadsafe(db_manager.save_mqtt_status(self.last_msg), self.main_loop)
