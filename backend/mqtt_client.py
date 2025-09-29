@@ -23,6 +23,8 @@ class MQTTManager:
         self.connection_attempts = 0
         self.last_connected: Optional[datetime] = None
         self.last_msg: Optional[datetime] = None
+        self.lastwill_time: Optional[datetime] = None
+        self.tracker_connected = False
         
         # Callback handlers
         self.status_callback: Optional[Callable] = None
