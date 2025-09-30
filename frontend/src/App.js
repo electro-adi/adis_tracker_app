@@ -291,7 +291,7 @@ function App() {
     initPush();
   }, []);
 
-  //---------------------------------------------- Render the active tab component
+  //---------------------------------------------- Render the active tab component padding from 33 to 50
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'location':
@@ -315,7 +315,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
-      <header className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md" style={{ paddingTop: '33px' }}>
+      <header className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md" style={{ paddingTop: '50px' }}>
         <div className="px-4 py-3 border-b border-gray-700">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>

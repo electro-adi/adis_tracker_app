@@ -1,10 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
-import uuid
 
 class DeviceStatus(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     send_reason: int
     screen_on: bool
     last_activity: str
@@ -22,14 +20,12 @@ class DeviceStatus(BaseModel):
     stored_sms: int
     prd_eps: Optional[bool] = None
     last_activity_human: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-model_config = {
-    "validate_by_name": True
-}
+    model_config = {
+        "validate_by_name": True
+    }
 
 class GpsLocation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     send_reason: int
     gps_lat: float
     gps_lon: float
@@ -39,11 +35,10 @@ class GpsLocation(BaseModel):
     alt: float
     speed: float
     course: float
-    lbs_age: Optional[datetime] = None
-    gps_age: Optional[datetime] = None
+    lbs_age: Optional[str] = None  # Store as ISO string
+    gps_age: Optional[str] = None  # Store as ISO string
     lbs_age_human: Optional[str] = None
     gps_age_human: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Contacts(BaseModel):
     nam1: str
@@ -98,17 +93,6 @@ class Notification(BaseModel):
     message: str
     type: str  # 'status', 'location', 'sms', 'call', 'system'
     data: Optional[dict] = None
-
-class MqttStatus(BaseModel):
-    connected: bool
-    broker: str
-    port: int
-    last_connected: Optional[datetime] = None
-    last_msg: Optional[datetime] = None
-    last_msg_human: Optional[str] = None
-    connection_attempts: int = 0
-    lastwill_time: Optional[datetime] = None
-    tracker_connected: bool
 
 class PushTokenRegister(BaseModel):
     token: str

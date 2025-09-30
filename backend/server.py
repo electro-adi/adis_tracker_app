@@ -1,41 +1,41 @@
-from fastapi import FastAPI, APIRouter, WebSocket, WebSocketDisconnect, HTTPException
-from contextlib import asynccontextmanager
+from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
 import json
 import logging
-import asyncio
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 import humanize
 import firebase_admin
-from firebase_admin import messaging, credentials, exceptions
+from firebase_admin import messaging, credentials, exceptions, db
+import requests
+from pydantic import BaseModel
 
-
-# Import our custom modules
+# Import models
 from models import (
     DeviceStatus, GpsLocation, Contacts, SmsMessage, LedConfig, 
-    DeviceSettings, Notification, MqttStatus, PushTokenRegister
+    DeviceSettings, Notification, PushTokenRegister
 )
-from mqtt_client import MQTTManager
-from websocket_manager import websocket_manager
-from database import db_manager
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
-# Load Firebase SDK JSON from environment variable
+# Firebase initialization
 firebase_json_str = os.getenv("FIREBASE_ADMIN_SDK_JSON")
+firebase_db_url = os.getenv("FIREBASE_DATABASE_URL")
 cred = credentials.Certificate(json.loads(firebase_json_str))
 
 if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred)
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': firebase_db_url
+    })
+
+# EMQX Configuration
+EMQX_API_URL = os.getenv("EMQX_API_URL")
+EMQX_API_KEY = os.getenv("EMQX_API_KEY")
+EMQX_SECRET_KEY = os.getenv("EMQX_SECRET_KEY")
 
 # Create the main app
-app = FastAPI(title="GPS Tracker Control API", version="1.0.0")
+app = FastAPI(title="GPS Tracker Control API", version="2.0.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -47,665 +47,101 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-mqtt_cred_str = os.getenv("MQTT_CREDENTIALS")
-if not mqtt_cred_str:
-    raise RuntimeError("MQTT_CREDENTIALS environment variable not set")
-
-try:
-    mqtt_cred = json.loads(mqtt_cred_str)
-    broker = mqtt_cred.get("broker")
-    port = int(mqtt_cred.get("port"))
-    username = mqtt_cred.get("username")
-    password = mqtt_cred.get("password")
-
-    if not all([broker, port, username, password]):
-        raise ValueError("MQTT_CREDENTIALS is missing required fields")
-except Exception as e:
-    raise RuntimeError(f"Failed to load MQTT credentials: {str(e)}")
-
-# Initialize MQTT Manager
-mqtt_manager = MQTTManager(
-    broker=broker,
-    port=port,
-    username=username,
-    password=password
-)
-
-#---------------------------------------------------------------------------  
-# MQTT callback handlers
-async def handle_status_update(status: DeviceStatus):
-    """Handle device status updates from MQTT"""
-    try:
-        # Save to database
-        await db_manager.save_device_status(status)
-
-        data = json.loads(status.json())
-        
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_status_update(data)
-        
-        logger.info("Device status updated and broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling status update: {str(e)}")
-
-#---------------------------------------------------------------------------  
-async def handle_location_update(location: GpsLocation):
-    """Handle GPS location updates from MQTT"""
-    try:
-        # Save to database
-        await db_manager.save_gps_location(location)
-
-        data = json.loads(location.json())
-        
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_location_update(data)
-        
-        logger.info("GPS location updated and broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling location update: {str(e)}")
-
-#---------------------------------------------------------------------------  
-async def handle_sms(sms: SmsMessage):
-    """Handle stored SMS messages from MQTT"""
-    try:
-        # Save to database
-        await db_manager.save_sms(sms)
-
-        data = json.loads(sms.json())
-        
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_sms_update(data)
-        
-        logger.info("stored SMS message broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling stored SMS: {str(e)}")
-
-#---------------------------------------------------------------------------  
-async def handle_call_received(caller_number: str):
-    """Handle incoming call notifications from MQTT"""
-    try:
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_call_update(caller_number)
-        
-        logger.info(f"Incoming call from {caller_number} broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling call update: {str(e)}")
-
-#---------------------------------------------------------------------------
-async def handle_led_config(led_config: LedConfig):
-    """Handle device LED configuration updates from MQTT"""
-    try:
-        # Save to database
-        await db_manager.save_led_config(led_config)
-
-        data = json.loads(led_config.json())
-        
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_led_config_update(data)
-
-        logger.info("Device LED configuration updated and broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling LED configuration update: {str(e)}")
-
-#---------------------------------------------------------------------------
-async def handle_config(config: DeviceSettings):
-    """Handle device configuration updates from MQTT"""
-    try:
-        # Save to database
-        await db_manager.save_device_config(config)
-
-        data = json.loads(config.json())
-        
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_config_update(data)
-
-        logger.info("Device configuration updated and broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling configuration update: {str(e)}")
-
-#---------------------------------------------------------------------------
-async def handle_contacts(contacts: Contacts):
-    """Handle device configuration updates from MQTT"""
-    try:
-        # Save to database
-        await db_manager.save_contacts(contacts)
-
-        data = json.loads(contacts.json())
-        
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_contacts_update(data)
-
-        logger.info("Device configuration updated and broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling configuration update: {str(e)}")
-
-#---------------------------------------------------------------------------  
-async def handle_notification(notification: Notification):
-    """Handle system notifications from MQTT"""
-    try:
-        # Broadcast to WebSocket clients
-        await websocket_manager.broadcast_notification(notification, user_id="user123")
-        
-        logger.info("Notification saved and broadcasted")
-    except Exception as e:
-        logger.error(f"Error handling notification: {str(e)}")
-
-#---------------------------------------------------------------------------  
-@api_router.get("/")
-async def root():
-    return {"message": "GPS Tracker Control API", "version": "1.0.0"}
-
-#---------------------------------------------------------------------------  
-@api_router.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "mqtt_connected": mqtt_manager.connected,
-        "websocket_connections": websocket_manager.get_connection_count(),
-        "database_connected": db_manager.client is not None
-    }
-
-#---------------------------------------------------------------------------  
-@api_router.post("/mqtt/connect")
-async def connect_mqtt():
-    """Connect to MQTT broker"""
-    try:
-        success = await mqtt_manager.connect()
-        if success:
-            return {"success": True, "message": "Connected to MQTT broker"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to connect to MQTT broker")
-    except Exception as e:
-        logger.error(f"MQTT connection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/mqtt/status", response_model=MqttStatus)
-async def get_mqtt_status():
-    """Get MQTT connection status"""
-
-    status_data = mqtt_manager.get_status()
-
-    # Convert last_msg for human readable and Pydantic
-    last_msg_raw = status_data.get("last_msg")
-    if isinstance(last_msg_raw, str):
-        last_msg = datetime.fromisoformat(last_msg_raw)
-    elif isinstance(last_msg_raw, datetime):
-        last_msg = last_msg_raw
-    else:
-        last_msg = None
-    status_data["last_msg"] = last_msg
-
-    # lastwill_time same thing
-    lastwill_time_raw = status_data.get("lastwill_time")
-    if isinstance(lastwill_time_raw, str):
-        lastwill_time = datetime.fromisoformat(lastwill_time_raw)
-    elif isinstance(lastwill_time_raw, datetime):
-        lastwill_time = lastwill_time_raw
-    else:
-        lastwill_time = None
-    status_data["lastwill_time"] = lastwill_time
-
-    # tracker_connected logic
-    if lastwill_time and last_msg:
-        status_data["tracker_connected"] = lastwill_time <= last_msg
-    else:
-        status_data["tracker_connected"] = False
-
-    return MqttStatus(**status_data)
-
-#---------------------------------------------------------------------------  
-@api_router.post("/mqtt/disconnect")
-async def disconnect_mqtt():
-    """Disconnect from MQTT broker"""
-    try:
-        mqtt_manager.disconnect()
-        return {"success": True, "message": "Disconnected from MQTT broker"}
-    except Exception as e:
-        logger.error(f"MQTT disconnection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/mode/{mode}")
-async def set_device_mode(mode: int):
-    """Set device mode (0-7)"""
-    if mode < 0 or mode > 7:
-        raise HTTPException(status_code=400, detail="Mode must be between 0 and 7")
+#--------------------------------------------------------------------------- 
+# Firebase Realtime Database Helper Functions
+class FirebaseManager:
+    @staticmethod
+    def get_ref(path: str):
+        """Get Firebase database reference"""
+        return db.reference(path)
     
-    try:
-        success = await mqtt_manager.set_device_mode(mode)
-        if success:
-            return {"success": True, "message": f"Device mode set to {mode}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to set device mode")
-    except Exception as e:
-        logger.error(f"Error setting device mode: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/device/status")
-async def get_device_status():
-    """Get current device status"""
-    try:
-        # Request fresh status from device
-        await mqtt_manager.get_device_status()
-        
-        # Return latest status from database
-        status = await db_manager.get_latest_device_status()
-        if status:
-            last_activity = status.get("last_activity")
-
-            if isinstance(last_activity, str) and last_activity not in ("N/A", "", None):
-                try:
-                    last_activity = datetime.fromisoformat(last_activity)
-                except ValueError:
-                    last_activity = None
-            else:
-                last_activity = None
-
-            if last_activity and last_activity.tzinfo is None:
-                last_activity = last_activity.replace(tzinfo=timezone.utc)
-
-            if last_activity:
-                status["last_activity_human"] = humanize.naturaltime(
-                    datetime.now(timezone.utc) - last_activity
-                )
-            else:
-                status["last_activity_human"] = "--"
-
-            return status
-        else:
-            return {"message": "No status data available"}
-    except Exception as e:
-        logger.error(f"Error getting device status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------    
-@api_router.get("/device/status_nomqtt")
-async def get_device_status_nomqtt():
-    """Get current device status without sending the mqtt message"""
-    try:
-        # Return latest status from database
-        status = await db_manager.get_latest_device_status()
-        if status:
-            last_activity = status.get("last_activity")
-
-            if isinstance(last_activity, str) and last_activity not in ("N/A", "", None):
-                try:
-                    last_activity = datetime.fromisoformat(last_activity)
-                except ValueError:
-                    last_activity = None
-            else:
-                last_activity = None
-
-            if last_activity and last_activity.tzinfo is None:
-                last_activity = last_activity.replace(tzinfo=timezone.utc)
-
-            if last_activity:
-                status["last_activity_human"] = humanize.naturaltime(
-                    datetime.now(timezone.utc) - last_activity
-                )
-            else:
-                status["last_activity_human"] = "--"
-
-            return status
-        else:
-            return {"message": "No status data available"}
-    except Exception as e:
-        logger.error(f"Error getting device status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/device/location")
-async def get_device_location():
-    """Get current device location"""
-    try:
-        # Request fresh location from device
-        await mqtt_manager.get_device_location()
-        
-        # Return latest location from database
-        location = await db_manager.get_latest_gps_location()
-        if location:
-
-            # convert to datetime format from string
-            gps_age = location.get("gps_age")
-            lbs_age = location.get("lbs_age")
-
-            if isinstance(gps_age, str):
-                gps_age = datetime.fromisoformat(gps_age)
-
-            if isinstance(lbs_age, str):
-                lbs_age = datetime.fromisoformat(lbs_age)
-
-            if gps_age and gps_age.tzinfo is None:
-                gps_age = gps_age.replace(tzinfo=timezone.utc)
-
-            if lbs_age and lbs_age.tzinfo is None:
-                lbs_age = lbs_age.replace(tzinfo=timezone.utc)
-
-            if gps_age:
-                location["gps_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
-            else:
-                location["gps_age_human"] = "--"
-
-            if lbs_age:
-                location["lbs_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
-            else:
-                location["lbs_age_human"] = "--"
-
-            return location
-        else:
-            return {"message": "No location data available"}
-    except Exception as e:
-        logger.error(f"Error getting device location: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    @staticmethod
+    async def save_data(path: str, data: dict):
+        """Save data to Firebase"""
+        try:
+            ref = db.reference(path)
+            ref.set(data)
+            logger.info(f"Data saved to Firebase at {path}")
+        except Exception as e:
+            logger.error(f"Error saving to Firebase: {str(e)}")
+            raise
     
-#---------------------------------------------------------------------------  
-@api_router.get("/device/location_nomqtt")
-async def get_device_location_nomqtt():
-    """Get current device location without sending the mqtt message"""
-    try:
-        # Return latest location from database
-        location = await db_manager.get_latest_gps_location()
-        if location:
-
-            # convert to datetime format from string
-            gps_age = location.get("gps_age")
-            lbs_age = location.get("lbs_age")
-
-            if isinstance(gps_age, str):
-                gps_age = datetime.fromisoformat(gps_age)
-
-            if isinstance(lbs_age, str):
-                lbs_age = datetime.fromisoformat(lbs_age)
-
-            if gps_age and gps_age.tzinfo is None:
-                gps_age = gps_age.replace(tzinfo=timezone.utc)
-
-            if lbs_age and lbs_age.tzinfo is None:
-                lbs_age = lbs_age.replace(tzinfo=timezone.utc)
-
-            if gps_age:
-                location["gps_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - gps_age)
-            else:
-                location["gps_age_human"] = "--"
-
-            if lbs_age:
-                location["lbs_age_human"] = humanize.naturaltime(datetime.now(timezone.utc) - lbs_age)
-            else:
-                location["lbs_age_human"] = "--"
-
-            return location
-        else:
-            return {"message": "No location data available"}
-    except Exception as e:
-        logger.error(f"Error getting device location: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    @staticmethod
+    async def update_data(path: str, data: dict):
+        """Update data in Firebase"""
+        try:
+            ref = db.reference(path)
+            ref.update(data)
+            logger.info(f"Data updated in Firebase at {path}")
+        except Exception as e:
+            logger.error(f"Error updating Firebase: {str(e)}")
+            raise
     
-#---------------------------------------------------------------------------  
-@api_router.get("/device/location_history")
-async def get_device_location_history(limit: int = 100):
-    """Get device location history"""
-    try:
-        locations = await db_manager.get_location_history(limit=limit)
-        return locations
-    except Exception as e:
-        logger.error(f"Error getting location history: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/device/get_led_config")
-async def get_led_config():
-    """Get LED configuration"""
-    try:
-        await mqtt_manager.get_led_config()
-
-        led_config = await db_manager.get_led_config()
-        if led_config:
-            return led_config
-        else:
-            return {"message": "No led_config data available"}
-    except Exception as e:
-        logger.error(f"Error getting device led_config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/led")
-async def set_led_config(ledconfig: LedConfig):
-    """Set LED configuration"""
-    try:
-        await db_manager.save_led_config(ledconfig)
-
-        success = await mqtt_manager.set_led_config(json.loads(ledconfig.json(exclude_none=True)))
-        if success:
-            return {"success": True, "message": "LED configuration updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update LED configuration")
-    except Exception as e:
-        logger.error(f"Error setting LED config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/device/get_settings")
-async def get_device_settings():
-    """get device settings"""
-
-    try:
-        await mqtt_manager.get_device_config()
-
-        settings = await db_manager.get_device_config()
-        if settings:
-            return settings
-        else:
-            return {"message": "No settings data available"}
-    except Exception as e:
-        logger.error(f"Error getting device settings: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/settings")
-async def update_device_settings(settings: DeviceSettings):
-    """Update device settings"""
-    try:
-        await db_manager.save_device_config(settings)
-
-        success = await mqtt_manager.set_device_config(json.loads(settings.json(exclude_none=True)))
-        if success:
-            return {"success": True, "message": "Device settings updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update device settings")
-    except Exception as e:
-        logger.error(f"Error updating device settings: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/get_callstatus")
-async def get_device_callstatus():
-    """Get device call status"""
-    try:
-        status = await mqtt_manager.get_device_callstatus()
-        if status:
-            return {"success": True, "call_status": status}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to get device call status")
-    except Exception as e:
-        logger.error(f"Error getting device call status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/call/{number}")
-async def make_call(number: str):
-    """Make device call a number"""
-    try:
-        success = await mqtt_manager.make_call(number)
-        if success:
-            return {"success": True, "message": f"Call initiated to {number}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to initiate call")
-    except Exception as e:
-        logger.error(f"Error making call: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/sms")
-async def send_sms(sms: SmsMessage):
-    """Send SMS via device"""
-    try:
-        # Send via MQTT
-        success = await mqtt_manager.send_sms(sms.dict())
-        if success:
-            # Convert time_sent -> datetime
-            if sms.time_sent:
-                try:
-                    time_str = sms.time_sent.split("+")[0]
-                    dt_obj = datetime.strptime(time_str, "%d/%m/%y,%H:%M:%S")
-
-                    # Assume UTC if no timezone given
-                    dt_obj = dt_obj.replace(tzinfo=timezone.utc)
-
-                    # Convert to human-readable time ago
-                    sms.time_sent_human = humanize.naturaltime(datetime.now(timezone.utc) - dt_obj)
-                except Exception as e:
-                    sms.time_sent_human = "--"
-                    logger.warning(f"Failed to parse sms.time_sent '{sms.time_sent}': {e}")
-            else:
-                sms.time_sent_human = "--"
-
-            return {"success": True, "message": f"SMS sent to {sms.number}", "sms": sms.dict()}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to send SMS")
-    except Exception as e:
-        logger.error(f"Error sending SMS: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/buzzer")
-async def control_buzzer(enabled: bool):
-    """Control device buzzer"""
-    try:
-        success = await mqtt_manager.control_buzzer(enabled)
-        if success:
-            return {"success": True, "message": f"Buzzer {'enabled' if enabled else 'disabled'}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to control buzzer")
-    except Exception as e:
-        logger.error(f"Error controlling buzzer: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/vibrate")
-async def control_vibrator(enabled: bool):
-    """Control device vibrator"""
-    try:
-        success = await mqtt_manager.control_vibrator(enabled)
-        if success:
-            return {"success": True, "message": f"Vibrator {'enabled' if enabled else 'disabled'}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to control vibrator")
-    except Exception as e:
-        logger.error(f"Error controlling vibrator: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/device/get_contacts")
-async def get_device_contacts():
-    """get device contacts"""
-    try:
-        await mqtt_manager.get_contacts()
-
-        contacts = await db_manager.get_contacts()
-        if contacts:
-            return contacts
-        else:
-            return {"message": "No contacts data available"}
-    except Exception as e:
-        logger.error(f"Error getting device contacts: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.post("/device/set_contacts")
-async def update_device_contacts(contacts: Contacts):
-    """Update device contacts"""
-    try:
-        await db_manager.save_contacts(contacts)
-
-        success = await mqtt_manager.set_contacts(json.loads(contacts.json(exclude_none=True)))
-        if success:
-            return {"success": True, "message": "Device contacts updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update device contacts")
-    except Exception as e:
-        logger.error(f"Error updating device contacts: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------  
-@api_router.get("/device/get_sms/{index}")
-async def set_device_sms(index: int):
-    """Set a stored sms with index"""
-    try:
-        await mqtt_manager.get_sms(index)
-
-        sms = await db_manager.get_sms()
-
-        if sms:
-            return sms
-        else:
-            return {"sms": "No sms data available"}
-    except Exception as e:
-        logger.error(f"Error getting sms: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-#---------------------------------------------------------------------------
-@api_router.post("/device/irsend/{cmd}")
-async def send_ir_cmd(cmd: int):
-    """Send ir command (0-4)"""
-    if cmd < 0 or cmd > 4:
-        raise HTTPException(status_code=400, detail="CMD must be between 0 and 4")
+    @staticmethod
+    async def get_data(path: str) -> Optional[dict]:
+        """Get data from Firebase"""
+        try:
+            ref = db.reference(path)
+            return ref.get()
+        except Exception as e:
+            logger.error(f"Error getting data from Firebase: {str(e)}")
+            return None
     
-    try:
-        success = await mqtt_manager.send_ir_cmd(cmd)
-        if success:
-            return {"success": True, "message": f"Send IR CMD {cmd}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to send IR CMD")
-    except Exception as e:
-        logger.error(f"Error sending IR CMD: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    @staticmethod
+    async def push_data(path: str, data: dict) -> str:
+        """Push data to Firebase list"""
+        try:
+            ref = db.reference(path)
+            new_ref = ref.push(data)
+            return new_ref.key
+        except Exception as e:
+            logger.error(f"Error pushing to Firebase: {str(e)}")
+            raise
 
-#---------------------------------------------------------------------------  
-# WebSocket endpoint for real-time updates
-@app.websocket("/ws/notifications")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket_manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await websocket.send_text(json.dumps({
-                "type": "heartbeat",
-                "data": data
-            }))
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket)
+firebase_manager = FirebaseManager()
 
-#---------------------------------------------------------------------------
-@api_router.post("/push/register")
-async def register_push_token(token_data: PushTokenRegister):
-    """Register device push notification token"""
-    try:
-        # Save the token in the database
-        await db_manager.save_push_token(
-            token=token_data.token,
-            device_id=token_data.deviceId,
-            user_id=token_data.userId
-        )
-        return {"success": True, "message": "Push token registered"}
-    except Exception as e:
-        logger.error(f"Error registering push token: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to register push token")
+#--------------------------------------------------------------------------- 
+# EMQX HTTP API Helper
+class EMQXManager:
+    @staticmethod
+    async def publish(topic: str, payload: Any) -> bool:
+        """Publish message to EMQX broker via HTTP API"""
+        try:
+            if isinstance(payload, (dict, list)):
+                payload_str = json.dumps(payload)
+            else:
+                payload_str = str(payload)
+            
+            data = {
+                "topic": topic,
+                "qos": 1,
+                "payload": payload_str
+            }
+            
+            response = requests.post(
+                EMQX_API_URL,
+                json=data,
+                auth=(EMQX_API_KEY, EMQX_SECRET_KEY),
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Published to {topic}: {payload_str}")
+                return True
+            else:
+                logger.error(f"Failed to publish to EMQX: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error publishing to EMQX: {str(e)}")
+            return False
 
+emqx_manager = EMQXManager()
+
+#--------------------------------------------------------------------------- 
+# Push Notification Helper
 def send_push_notification(token: str, title: str, body: str, data: dict = None):
     """Send push notification to a device token"""
-
     if not token:
         logger.warning("Attempted to send push notification to empty token")
         return {"success": False, "error": "Empty token"}
@@ -729,19 +165,451 @@ def send_push_notification(token: str, title: str, body: str, data: dict = None)
     
     try:
         response = messaging.send(message)
-        logger.info(f"FCM push successful for token {token}. Response ID: {response}")
+        logger.info(f"FCM push successful. Response ID: {response}")
         return {"success": True, "response": response}
-
     except exceptions.FirebaseError as e:
-        # Catch all Firebase-specific errors
-        logger.error(f"FCM push failed for token {token}: {e.code} - {e.message}")
+        logger.error(f"FCM push failed: {e.code} - {e.message}")
         return {"success": False, "error": f"{e.code} - {e.message}"}
-
     except Exception as e:
-        # Catch unexpected errors
-        logger.exception(f"Unexpected error sending FCM push to token {token}")
+        logger.exception(f"Unexpected error sending FCM push")
         return {"success": False, "error": str(e)}
+
+async def send_notification(notification: Notification, user_id: str = "default_user"):
+    """Send notification via Firebase and push notifications"""
+    # Save to Firebase for real-time updates
+    await firebase_manager.update_data(
+        f"notifications/{user_id}/latest",
+        {
+            "title": notification.title,
+            "message": notification.message,
+            "type": notification.type,
+            "data": notification.data or {},
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    )
     
+    # Also push to notification history
+    await firebase_manager.push_data(
+        f"notifications/{user_id}/history",
+        {
+            "title": notification.title,
+            "message": notification.message,
+            "type": notification.type,
+            "data": notification.data or {},
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    )
+    
+    # Send push notifications
+    tokens = await firebase_manager.get_data(f"push_tokens/{user_id}")
+    if tokens:
+        for device_id, token_data in tokens.items():
+            if token_data and "token" in token_data:
+                send_push_notification(
+                    token=token_data["token"],
+                    title=notification.title,
+                    body=notification.message,
+                    data=notification.data or {}
+                )
+
+#--------------------------------------------------------------------------- 
+# Webhook endpoints for EMQX HTTP connector
+@api_router.post("/webhook/mqtt")
+async def webhook_mqtt(request: Request):
+    """Catch all MQTT messages from EMQX connector"""
+    try:
+        body = await request.json()
+
+        topic = body.get("topic")
+        payload_raw = body.get("payload")
+
+        # Payload is usually a string; if it's JSON, parse it
+        try:
+            payload = json.loads(payload_raw)
+        except Exception:
+            payload = payload_raw
+
+        logger.info(f"MQTT Message → Topic: {topic}, Payload: {payload}")
+
+        # Example: route messages depending on topic
+        if topic.endswith("/status"):
+            # process status payload
+            ...
+        elif topic.endswith("/location"):
+            # process location payload
+            ...
+        elif topic.endswith("/sms"):
+            ...
+        elif topic.endswith("/call"):
+            ...
+        else:
+            logger.warning(f"Unhandled topic: {topic}")
+
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error processing MQTT webhook: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/webhook/status")
+async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks):
+    """Handle device status updates from EMQX webhook"""
+    try:
+        status_dict = status.dict()
+        status_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("device/status/current", status_dict)
+        await firebase_manager.push_data("device/status/history", status_dict)
+        
+        # Send notification
+        reason_map = {
+            (0, 1): "Device is online",
+            (2, 3): "Device woken up",
+            (4,): "Periodic Wake up"
+        }
+        reason_message = next((msg for keys, msg in reason_map.items() if status.send_reason in keys), "Unknown status")
+        
+        notification = Notification(
+            title="Device Status Updated",
+            message=f"{reason_message} - Battery: {status.bat_percent}%",
+            type="status",
+            data=status_dict
+        )
+        
+        background_tasks.add_task(send_notification, notification)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling status webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/webhook/location")
+async def webhook_location(location: GpsLocation, background_tasks: BackgroundTasks):
+    """Handle GPS location updates from EMQX webhook"""
+    try:
+        location_dict = location.dict()
+        
+        # Update age timestamps
+        if location.gps_lat and location.gps_lon:
+            location_dict["gps_age"] = datetime.now(timezone.utc).isoformat()
+        if location.lbs_lat and location.lbs_lon:
+            location_dict["lbs_age"] = datetime.now(timezone.utc).isoformat()
+        
+        location_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Handle invalid GPS coordinates
+        if location.gps_lat == 0.0 and location.gps_lon == 0.0:
+            last_good = await firebase_manager.get_data("device/location/last_good_gps")
+            if last_good:
+                location_dict.update({
+                    "gps_lat": last_good.get("gps_lat", 0.0),
+                    "gps_lon": last_good.get("gps_lon", 0.0),
+                    "alt": last_good.get("alt", 0.0),
+                    "speed": last_good.get("speed", 0.0),
+                    "course": last_good.get("course", 0.0),
+                    "sats": last_good.get("sats", 0)
+                })
+        else:
+            # Save as last good GPS
+            await firebase_manager.update_data("device/location/last_good_gps", location_dict)
+        
+        # Save to Firebase
+        await firebase_manager.update_data("device/location/current", location_dict)
+        await firebase_manager.push_data("device/location/history", location_dict)
+        
+        # Send notification
+        notification = Notification(
+            title="Location Updated",
+            message=f"New GPS coordinates: {location.gps_lat:.6f}, {location.gps_lon:.6f}",
+            type="location",
+            data=location_dict
+        )
+        
+        background_tasks.add_task(send_notification, notification)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling location webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/webhook/sms")
+async def webhook_sms(sms: SmsMessage, background_tasks: BackgroundTasks):
+    """Handle SMS messages from EMQX webhook"""
+    try:
+        sms_dict = sms.dict()
+        sms_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("device/sms/latest", sms_dict)
+        await firebase_manager.push_data("device/sms/history", sms_dict)
+        
+        # Send notification
+        notification = Notification(
+            title="SMS Received",
+            message=f"From {sms.number}: {sms.message[:50]}...",
+            type="sms",
+            data=sms_dict
+        )
+        
+        background_tasks.add_task(send_notification, notification)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling SMS webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/webhook/call")
+async def webhook_call(data: dict, background_tasks: BackgroundTasks):
+    """Handle incoming call notifications from EMQX webhook"""
+    try:
+        caller = data.get("number", "Unknown")
+        status = data.get("status", 0)
+        
+        call_data = {
+            "caller": caller,
+            "status": status,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Save to Firebase
+        await firebase_manager.update_data("device/call/latest", call_data)
+        
+        if status == 2:  # Incoming call
+            notification = Notification(
+                title="Incoming Call",
+                message=f"Device receiving call from: {caller}",
+                type="call",
+                data=call_data
+            )
+            background_tasks.add_task(send_notification, notification)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling call webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+#--------------------------------------------------------------------------- 
+# API Endpoints
+@api_router.get("/")
+async def root():
+    return {"message": "GPS Tracker Control API", "version": "2.0.0"}
+
+@api_router.get("/health")
+async def health_check():
+    firebase_connected = firebase_admin._apps.get('[DEFAULT]') is not None
+    return {
+        "status": "healthy",
+        "firebase_connected": firebase_connected,
+        "emqx_configured": bool(EMQX_API_KEY)
+    }
+
+@api_router.post("/device/mode/{mode}")
+async def set_device_mode(mode: int):
+    """Set device mode (0-7)"""
+    if mode < 0 or mode > 7:
+        raise HTTPException(status_code=400, detail="Mode must be between 0 and 7")
+    
+    success = await emqx_manager.publish("Tracker/to/mode", str(mode))
+    if success:
+        await firebase_manager.update_data("device/mode", {"value": mode, "timestamp": datetime.now(timezone.utc).isoformat()})
+        return {"success": True, "message": f"Device mode set to {mode}"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to set device mode")
+
+@api_router.get("/device/status")
+async def get_device_status():
+    """Get current device status"""
+    try:
+        # Request fresh status from device
+        await emqx_manager.publish("Tracker/to/request", "0")
+        
+        # Return latest status from Firebase
+        status = await firebase_manager.get_data("device/status/current")
+        
+        if status:
+            # Add human-readable time
+            last_activity = status.get("last_activity")
+            if last_activity:
+                try:
+                    dt = datetime.fromisoformat(last_activity)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    status["last_activity_human"] = humanize.naturaltime(datetime.now(timezone.utc) - dt)
+                except:
+                    status["last_activity_human"] = "--"
+            
+            return status
+        else:
+            return {"message": "No status data available"}
+    except Exception as e:
+        logger.error(f"Error getting device status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/device/location")
+async def get_device_location():
+    """Get current device location"""
+    try:
+        # Request fresh location from device
+        await emqx_manager.publish("Tracker/to/request", "1")
+        
+        # Return latest location from Firebase
+        location = await firebase_manager.get_data("device/location/current")
+        
+        if location:
+            # Add human-readable age
+            for age_field in ["gps_age", "lbs_age"]:
+                age_value = location.get(age_field)
+                if age_value:
+                    try:
+                        dt = datetime.fromisoformat(age_value)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        location[f"{age_field}_human"] = humanize.naturaltime(datetime.now(timezone.utc) - dt)
+                    except:
+                        location[f"{age_field}_human"] = "--"
+            
+            return location
+        else:
+            return {"message": "No location data available"}
+    except Exception as e:
+        logger.error(f"Error getting device location: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/device/location_history")
+async def get_device_location_history(limit: int = 100):
+    """Get device location history"""
+    try:
+        history = await firebase_manager.get_data("device/location/history")
+        if history:
+            # Convert dict to list and sort by timestamp
+            locations = list(history.values())
+            locations.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            return locations[:limit]
+        return []
+    except Exception as e:
+        logger.error(f"Error getting location history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/led")
+async def set_led_config(ledconfig: LedConfig):
+    """Set LED configuration"""
+    try:
+        config_dict = ledconfig.dict(exclude_none=True)
+        success = await emqx_manager.publish("Tracker/to/set/led_config", config_dict)
+        
+        if success:
+            await firebase_manager.update_data("device/config/led", config_dict)
+            return {"success": True, "message": "LED configuration updated"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update LED configuration")
+    except Exception as e:
+        logger.error(f"Error setting LED config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/settings")
+async def update_device_settings(settings: DeviceSettings):
+    """Update device settings"""
+    try:
+        settings_dict = settings.dict(exclude_none=True)
+        success = await emqx_manager.publish("Tracker/to/set/config", settings_dict)
+        
+        if success:
+            await firebase_manager.update_data("device/config/settings", settings_dict)
+            return {"success": True, "message": "Device settings updated"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update device settings")
+    except Exception as e:
+        logger.error(f"Error updating device settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/call/{number}")
+async def make_call(number: str):
+    """Make device call a number"""
+    try:
+        success = await emqx_manager.publish("Tracker/to/call", number)
+        if success:
+            return {"success": True, "message": f"Call initiated to {number}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to initiate call")
+    except Exception as e:
+        logger.error(f"Error making call: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/sms")
+async def send_sms(sms: SmsMessage):
+    """Send SMS via device"""
+    try:
+        success = await emqx_manager.publish("Tracker/to/sms/send", sms.dict())
+        if success:
+            await firebase_manager.push_data("device/sms/sent", {
+                **sms.dict(),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+            return {"success": True, "message": f"SMS sent to {sms.number}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send SMS")
+    except Exception as e:
+        logger.error(f"Error sending SMS: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/buzzer")
+async def control_buzzer(enabled: bool):
+    """Control device buzzer"""
+    try:
+        success = await emqx_manager.publish("Tracker/to/scream", enabled)
+        if success:
+            return {"success": True, "message": f"Buzzer {'enabled' if enabled else 'disabled'}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to control buzzer")
+    except Exception as e:
+        logger.error(f"Error controlling buzzer: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/vibrate")
+async def control_vibrator(enabled: bool):
+    """Control device vibrator"""
+    try:
+        success = await emqx_manager.publish("Tracker/to/vibrate", enabled)
+        if success:
+            return {"success": True, "message": f"Vibrator {'enabled' if enabled else 'disabled'}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to control vibrator")
+    except Exception as e:
+        logger.error(f"Error controlling vibrator: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/device/contacts")
+async def update_device_contacts(contacts: Contacts):
+    """Update device contacts"""
+    try:
+        contacts_dict = contacts.dict(exclude_none=True)
+        success = await emqx_manager.publish("Tracker/to/set/contacts", contacts_dict)
+        
+        if success:
+            await firebase_manager.update_data("device/contacts", contacts_dict)
+            return {"success": True, "message": "Device contacts updated"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update device contacts")
+    except Exception as e:
+        logger.error(f"Error updating device contacts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/push/register")
+async def register_push_token(token_data: PushTokenRegister):
+    """Register device push notification token"""
+    try:
+        await firebase_manager.update_data(
+            f"push_tokens/{token_data.userId}/{token_data.deviceId}",
+            {
+                "token": token_data.token,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        )
+        return {"success": True, "message": "Push token registered"}
+    except Exception as e:
+        logger.error(f"Error registering push token: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to register push token")
+
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -759,32 +627,14 @@ app.add_middleware(
 async def startup_event():
     """Initialize services on startup"""
     try:
-        # Connect to database
-        await db_manager.connect()
+        # Test Firebase connection
+        test_ref = db.reference("_test")
+        test_ref.set({"startup": datetime.now(timezone.utc).isoformat()})
+        test_ref.delete()
         
-        # Set MQTT callbacks
-        mqtt_manager.set_callbacks(
-            status_cb=handle_status_update,
-            location_cb=handle_location_update,
-            sms_cb=handle_sms,
-            call_cb=handle_call_received,
-            led_config_cb=handle_led_config,
-            config_cb=handle_config,
-            notification_cb=handle_notification
-        )
-
-        mqtt_manager.set_event_loop(asyncio.get_running_loop())
-
-        #mqtt_manager.last_msg = await db_manager.get_mqtt_status()
-        
-        # Connect to MQTT broker
-        success = await mqtt_manager.connect()
-        if success:
-            logger.info("MQTT connection established on startup")
-        else:
-            logger.warning("Failed to establish MQTT connection on startup")
-            
         logger.info("GPS Tracker API started successfully")
+        logger.info("Firebase Realtime Database connected")
+        logger.info("Ready to receive webhooks from EMQX")
         
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
@@ -793,14 +643,4 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    try:
-        # Disconnect MQTT
-        mqtt_manager.disconnect()
-        
-        # Disconnect database
-        await db_manager.disconnect()
-        
-        logger.info("GPS Tracker API shutdown completed")
-        
-    except Exception as e:
-        logger.error(f"Error during shutdown: {str(e)}")
+    logger.info("GPS Tracker API shutdown completed")
