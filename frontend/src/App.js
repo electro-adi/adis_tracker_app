@@ -14,7 +14,26 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { v4 as uuidv4 } from 'uuid';
 
-const WS_URL  = process.env.REACT_APP_BACKEND_URL;
+import { initializeApp } from "firebase/app";
+import { getDatabase } from "firebase/database";
+
+import { ref, onValue } from "firebase/database";
+import { db } from "./firebase";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBQMMU8S1KWDNceb-GUi79QlOOFrKhXPzo",
+  authDomain: "aditracker-6ac11.firebaseapp.com",
+  databaseURL: "https://aditracker-6ac11-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "aditracker-6ac11",
+  storageBucket: "aditracker-6ac11.firebasestorage.app",
+  messagingSenderId: "318988643925",
+  appId: "1:318988643925:web:28fbfd44b7320d74b06edc",
+  measurementId: "G-WPQ6HJDKY4"
+};
+
+const app = initializeApp(firebaseConfig);
+export const db = getDatabase(app);
+
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -27,7 +46,6 @@ if (!deviceId) {
 function App() {
 
   const [activeTab, setActiveTab] = useState('location');
-  const [websocket, setWebsocket] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const { toast } = useToast();
 
@@ -77,172 +95,22 @@ function App() {
     };
     configureStatusBar();
   }, []);
-  
 
-  //---------------------------------------------- WebSocket connection for real-time updates
-
+  //---------------------------------------------- MQTT status listener
   useEffect(() => {
-    const connectWebSocket = () => {
-      try {
-        const ws = new WebSocket(`${WS_URL}/ws/notifications`);
-        
-        ws.onopen = () => {
-          console.log('WebSocket connected');
-          setConnectionStatus('connected');
-          setWebsocket(ws);
-          
-          // Send heartbeat every 30 seconds
-          const heartbeat = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'heartbeat' }));
-            }
-          }, 30000);
-          
-          ws.heartbeatInterval = heartbeat;
-        };
+    const statusRef = ref(db, "tracker/mqttstatus");
 
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-
-            if (data.type === "notification") {
-              handleNotification({
-                title: data.data?.title || data.type,
-                message: data.data?.message || JSON.stringify(data.data),
-                notification_type: data.type
-              });
-            }
-            else if (data.type === "status_update") {
-              console.log("Dispatching status_update:", JSON.stringify(data.data));
-              window.dispatchEvent(new CustomEvent("status_update", { detail: data.data }));
-            }
-            else if (data.type === "location_update") {
-              window.dispatchEvent(new CustomEvent("location_update", { detail: data.data }));
-            }
-            else if (data.type === "sms_update") {
-              const from = data.data?.from || "Unknown number";
-              const content = data.data?.message || "--";
-
-              handleNotification({
-                title: `SMS from ${from}`,
-                message: content,
-                notification_type: data.type
-              });
-            }
-            else if (data.type === "call_update") {
-              const caller = data.data?.caller || "Unknown number";
-
-              handleNotification({
-                title: `Incoming call from ${caller}`,
-                message: "Tap to view details.",
-                notification_type: data.type
-              });
-            }
-            else if (data.type === "led_config_update") {
-              window.dispatchEvent(new CustomEvent("led_config_update", { detail: data.data }));
-            }
-            else if (data.type === "config_update") {
-              window.dispatchEvent(new CustomEvent("config_update", { detail: data.data }));
-            }
-            else if (data.type === "contacts_update") {
-              window.dispatchEvent(new CustomEvent("contacts_update", { detail: data.data }));
-            }
-            else if (data.type === "heartbeat") {
-              console.log("Heartbeat..");
-            }
-            else
-            {
-              console.log('Unknown WS message type:', JSON.stringify(data));
-            }
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-          }
-        };
-
-
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-          setConnectionStatus('disconnected');
-          setWebsocket(null);
-          
-          // Clear heartbeat interval
-          if (ws.heartbeatInterval) {
-            clearInterval(ws.heartbeatInterval);
-          }
-          
-          // Attempt to reconnect after 5 seconds
-          setTimeout(connectWebSocket, 5000);
-        };
-
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          setConnectionStatus('error');
-        };
-
-      } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
-        setConnectionStatus('error');
-        // Retry connection after 5 seconds
-        setTimeout(connectWebSocket, 5000);
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setMqttStatus({
+          ...mqtt_status,
+          ...data,
+        });
       }
-    };
+    });
 
-    // Initial connection
-    connectWebSocket();
-
-    // Cleanup on unmount
-    return () => {
-      if (websocket) {
-        if (websocket.heartbeatInterval) {
-          clearInterval(websocket.heartbeatInterval);
-        }
-        websocket.close();
-      }
-    };
-  }, []);
-
-  //---------------------------------------------- Request mqtt status every 5 seconds
-  useEffect(() => {
-    const get_mqtt_status = async () => {
-      try {
-        const response = await fetch(`${API}/mqtt/status`);
-        if (response.ok) {
-          const data = await response.json();
-          setMqttStatus(data);
-        }
-      } catch (error) {
-        console.error('Failed to get mqtt status', error);
-      }
-    };
-
-    get_mqtt_status();
-    
-    const interval = setInterval(get_mqtt_status, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-
-  //---------------------------------------------- Send stayawake message every 35 seconds
-  useEffect(() => {
-    const device_stayawake = async () => {
-    try {
-      const response = await fetch(`${API}/device/mode/0`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      console.error('Failed to send stayawake message', error);
-    }
-    };
-
-    device_stayawake();
-
-    const interval = setInterval(device_stayawake, 35000);
-
-    return () => clearInterval(interval);
+    return () => unsubscribe(); // cleanup
   }, []);
 
   //---------------------------------------------- Setup firebase notification functionality
@@ -295,21 +163,22 @@ function App() {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'location':
-        return <LocationTab />;
+        //return <LocationTab />;
       case 'status':
-        return <StatusTab />;
+        //return <StatusTab />;
       case 'phone':
-        return <PhoneTab />;
+        //return <PhoneTab />;
       case 'led':
-        return <LedTab />;
+        //return <LedTab />;
       case 'remote':
-        return <IRTab />;
+        //return <IRTab />;
       case 'settings':
-        return <SettingsTab />;
+        //return <SettingsTab />;
       case 'cmd':
-        return <CMDTab />;
+        //return <CMDTab />;
       default:
-        return <LocationTab />;
+        //return <LocationTab />;
+        return <CMDTab />;
     }
   };
 

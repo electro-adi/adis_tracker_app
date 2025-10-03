@@ -15,8 +15,8 @@ from pydantic import BaseModel
 
 # Import models
 from models import (
-    DeviceStatus, GpsLocation, Contacts, SmsMessage, LedConfig, 
-    DeviceSettings, Notification, PushTokenRegister
+    DeviceStatus, GpsLocation, CallStatus, LedConfig, DeviceConfig,
+    Contacts, SmsMessage, Notification, PushTokenRegister
 )
 
 # Firebase initialization
@@ -35,7 +35,7 @@ EMQX_API_KEY = os.getenv("EMQX_API_KEY")
 EMQX_SECRET_KEY = os.getenv("EMQX_SECRET_KEY")
 
 # Create the main app
-app = FastAPI(title="GPS Tracker Control API", version="2.0.0")
+app = FastAPI(title="GPS Tracker Control API", version="6.9.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -215,15 +215,14 @@ async def send_notification(notification: Notification, user_id: str = "default_
 #--------------------------------------------------------------------------- 
 # Webhook endpoints for EMQX HTTP connector
 @api_router.post("/webhook/mqtt")
-async def webhook_mqtt(request: Request):
+async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
     """Catch all MQTT messages from EMQX connector"""
     try:
         body = await request.json()
 
         topic = body.get("topic")
         payload_raw = body.get("payload")
-
-        # Payload is usually a string; if it's JSON, parse it
+        
         try:
             payload = json.loads(payload_raw)
         except Exception:
@@ -231,17 +230,47 @@ async def webhook_mqtt(request: Request):
 
         logger.info(f"MQTT Message → Topic: {topic}, Payload: {payload}")
 
-        # Example: route messages depending on topic
+        # Route based on topic
         if topic.endswith("/status"):
-            # process status payload
-            ...
+            status_obj = DeviceStatus(**payload)
+            return await webhook_status(status_obj, background_tasks)
+
         elif topic.endswith("/location"):
-            # process location payload
-            ...
-        elif topic.endswith("/sms"):
-            ...
-        elif topic.endswith("/call"):
-            ...
+            loc_obj = GpsLocation(**payload)
+            return await webhook_location(loc_obj, background_tasks)
+
+        elif topic.endswith("/callstatus"):
+            cals_obj = CallStatus(**payload)
+            return await webhook_callstatus(cals_obj, background_tasks)
+    
+        elif topic.endswith("/led_config"):
+            ledconf_obj = LedConfig(**payload)
+            return await webhook_ledconfig(ledconf_obj, background_tasks)
+    
+        elif topic.endswith("/config"):
+            conf_obj = DeviceConfig(**payload)
+            return await webhook_deviceconfig(conf_obj, background_tasks)
+    
+        elif topic.endswith("/contacts"):
+            ctns_obj = Contacts(**payload)
+            return await webhook_contacts(ctns_obj, background_tasks)
+        
+        elif topic.endswith("/sms/stored"):
+            ssms_obj = SmsMessage(**payload)
+            return await webhook_storedsms(ssms_obj, background_tasks)
+        
+        elif topic.endswith("/sms/received"):
+            nsms_obj = SmsMessage(**payload)
+            return await webhook_newsms(nsms_obj, background_tasks)
+        
+        elif topic.endswith("/events/connection"):
+            if isinstance(payload, dict):
+                return await webhook_connection(payload, background_tasks)
+        
+        elif topic.endswith("/events/disconnection"):
+            if isinstance(payload, dict):
+                return await webhook_disconnection(payload, background_tasks)
+
         else:
             logger.warning(f"Unhandled topic: {topic}")
 
@@ -249,8 +278,7 @@ async def webhook_mqtt(request: Request):
     except Exception as e:
         logger.error(f"Error processing MQTT webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/webhook/status")
+    
 async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks):
     """Handle device status updates from EMQX webhook"""
     try:
@@ -283,7 +311,6 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         logger.error(f"Error handling status webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.post("/webhook/location")
 async def webhook_location(location: GpsLocation, background_tasks: BackgroundTasks):
     """Handle GPS location updates from EMQX webhook"""
     try:
@@ -299,7 +326,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         
         # Handle invalid GPS coordinates
         if location.gps_lat == 0.0 and location.gps_lon == 0.0:
-            last_good = await firebase_manager.get_data("device/location/last_good_gps")
+            last_good = await firebase_manager.get_data("tracker/location/latest")
             if last_good:
                 location_dict.update({
                     "gps_lat": last_good.get("gps_lat", 0.0),
@@ -311,11 +338,10 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 })
         else:
             # Save as last good GPS
-            await firebase_manager.update_data("device/location/last_good_gps", location_dict)
+            await firebase_manager.update_data("tracker/location/latest", location_dict)
         
         # Save to Firebase
-        await firebase_manager.update_data("device/location/current", location_dict)
-        await firebase_manager.push_data("device/location/history", location_dict)
+        await firebase_manager.push_data("tracker/location/history", location_dict)
         
         # Send notification
         notification = Notification(
@@ -332,67 +358,175 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         logger.error(f"Error handling location webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.post("/webhook/sms")
-async def webhook_sms(sms: SmsMessage, background_tasks: BackgroundTasks):
-    """Handle SMS messages from EMQX webhook"""
+async def webhook_callstatus(callstatus: CallStatus, background_tasks: BackgroundTasks):
+    """Handle CallStatus messages from EMQX webhook"""
     try:
-        sms_dict = sms.dict()
-        sms_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        callstatus_dict = callstatus.dict()
+        callstatus_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("device/sms/latest", sms_dict)
-        await firebase_manager.push_data("device/sms/history", sms_dict)
+        await firebase_manager.update_data("tracker/callstatus", callstatus_dict)
+        
+        # Send notification
+        if callstatus.status == 2:  # Incoming call
+            notification = Notification(
+                title="Incoming Call",
+                message=f"Device receiving call from: {callstatus.number}",
+                type="call",
+                data=callstatus_dict
+            )
+            background_tasks.add_task(send_notification, notification)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling CallStatus webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+async def webhook_ledconfig(ledconfig: LedConfig, background_tasks: BackgroundTasks):
+    """Handle LedConfig messages from EMQX webhook"""
+    try:
+        ledconfig_dict = ledconfig.dict()
+        ledconfig_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("tracker/callstatus", ledconfig_dict)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling LedConfig webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def webhook_deviceconfig(deviceconfig: DeviceConfig, background_tasks: BackgroundTasks):
+    """Handle deviceconfig messages from EMQX webhook"""
+    try:
+        deviceconfig_dict = deviceconfig.dict()
+        deviceconfig_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("tracker/deviceconfig", deviceconfig_dict)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling deviceconfig webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def webhook_contacts(contacts: Contacts, background_tasks: BackgroundTasks):
+    """Handle contacts messages from EMQX webhook"""
+    try:
+        contacts_dict = contacts.dict()
+        contacts_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("tracker/contacts", contacts_dict)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling contacts webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def webhook_storedsms(storedsms: SmsMessage, background_tasks: BackgroundTasks):
+    """Handle Stored SMS messages from EMQX webhook"""
+    try:
+        storedsms_dict = storedsms.dict()
+        storedsms_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("tracker/storedsms", storedsms_dict)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error handling Stored SMS webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+async def webhook_newsms(newsms: SmsMessage, background_tasks: BackgroundTasks):
+    """Handle New SMS messages from EMQX webhook"""
+    try:
+        newsms_dict = newsms.dict()
+        newsms_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # Save to Firebase
+        await firebase_manager.update_data("tracker/newsms", newsms_dict)
         
         # Send notification
         notification = Notification(
             title="SMS Received",
-            message=f"From {sms.number}: {sms.message[:50]}...",
+            message=f"From {newsms.number}: {newsms.message[:50]}...",
             type="sms",
-            data=sms_dict
+            data=newsms_dict
         )
         
         background_tasks.add_task(send_notification, notification)
         
         return {"success": True}
     except Exception as e:
-        logger.error(f"Error handling SMS webhook: {str(e)}")
+        logger.error(f"Error handling New SMS webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/webhook/call")
-async def webhook_call(data: dict, background_tasks: BackgroundTasks):
-    """Handle incoming call notifications from EMQX webhook"""
+    
+async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
+    """Handle connection messages from EMQX webhook"""
     try:
-        caller = data.get("number", "Unknown")
-        status = data.get("status", 0)
-        
-        call_data = {
-            "caller": caller,
-            "status": status,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        
-        # Save to Firebase
-        await firebase_manager.update_data("device/call/latest", call_data)
-        
-        if status == 2:  # Incoming call
+        clientid = data.get("clientid", "")
+
+        if clientid.startswith("Tracker"):
+            await firebase_manager.update_data(
+                f"Tracker/connection",
+                {
+                    "connected": True,
+                    "last_connected": datetime.now(timezone.utc).isoformat()
+                }
+            )
+
+            # Send notification
             notification = Notification(
-                title="Incoming Call",
-                message=f"Device receiving call from: {caller}",
-                type="call",
-                data=call_data
+                title="Tracker Connected",
+                message=f"Device {clientid} just connected",
+                type="system",
+                data=data
             )
             background_tasks.add_task(send_notification, notification)
-        
+
         return {"success": True}
+
     except Exception as e:
-        logger.error(f"Error handling call webhook: {str(e)}")
+        logger.error(f"Error handling connection webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
+    """Handle disconnection messages from EMQX webhook"""
+    try:
+        clientid = data.get("clientid", "")
+
+        if clientid.startswith("Tracker"):
+            # Update Firebase state
+            await firebase_manager.update_data(
+                f"Tracker/connection",
+                {
+                    "connected": False,
+                    "last_disconnected": datetime.now(timezone.utc).isoformat()
+                }
+            )
+
+            # Send notification
+            notification = Notification(
+                title="Tracker Disconnected",
+                message=f"Device {clientid} just disconnected",
+                type="system",
+                data=data
+            )
+            background_tasks.add_task(send_notification, notification)
+
+        return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Error handling disconnection webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 #--------------------------------------------------------------------------- 
 # API Endpoints
 @api_router.get("/")
 async def root():
-    return {"message": "GPS Tracker Control API", "version": "2.0.0"}
+    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
 @api_router.get("/health")
 async def health_check():
@@ -507,7 +641,7 @@ async def set_led_config(ledconfig: LedConfig):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/device/settings")
-async def update_device_settings(settings: DeviceSettings):
+async def update_device_settings(settings: DeviceConfig):
     """Update device settings"""
     try:
         settings_dict = settings.dict(exclude_none=True)
@@ -633,8 +767,6 @@ async def startup_event():
         test_ref.delete()
         
         logger.info("GPS Tracker API started successfully")
-        logger.info("Firebase Realtime Database connected")
-        logger.info("Ready to receive webhooks from EMQX")
         
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")

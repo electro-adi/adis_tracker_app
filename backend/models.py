@@ -20,10 +20,7 @@ class DeviceStatus(BaseModel):
     stored_sms: int
     prd_eps: Optional[bool] = None
     last_activity_human: Optional[str] = None
-
-    model_config = {
-        "validate_by_name": True
-    }
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class GpsLocation(BaseModel):
     send_reason: int
@@ -39,28 +36,12 @@ class GpsLocation(BaseModel):
     gps_age: Optional[str] = None  # Store as ISO string
     lbs_age_human: Optional[str] = None
     gps_age_human: Optional[str] = None
-
-class Contacts(BaseModel):
-    nam1: str
-    num1: str
-    nam2: str
-    num2: str
-    nam3: str
-    num3: str
-    nam4: str
-    num4: str
-    nam5: str
-    num5: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class CallStatus(BaseModel):
     status: int = Field(ge=0, le=3)
     number: Optional[str] = None
-
-class SmsMessage(BaseModel):
-    number: str
-    message: str
-    time_sent: Optional[str] = None
-    time_sent_human: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class LedConfig(BaseModel):
     red: int = Field(ge=0, le=255)
@@ -70,8 +51,9 @@ class LedConfig(BaseModel):
     led_boot_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_call_ani: Optional[int] = Field(default=None, ge=0, le=10)
     led_noti_ani: Optional[int] = Field(default=None, ge=0, le=10)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-class DeviceSettings(BaseModel):
+class DeviceConfig(BaseModel):
     callmode: Optional[int] = Field(default=None, ge=0, le=2)
     gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
     bootanimation: Optional[bool] = None
@@ -87,6 +69,27 @@ class DeviceSettings(BaseModel):
     prd_wakeup_time: Optional[int] = Field(default=None, ge=5, le=28800)
     prd_sms_intvrl: Optional[int] = Field(default=None, ge=0, le=10)
     prd_mqtt_intvrl: Optional[int] = Field(default=None, ge=0, le=10)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class Contacts(BaseModel):
+    nam1: str
+    num1: str
+    nam2: str
+    num2: str
+    nam3: str
+    num3: str
+    nam4: str
+    num4: str
+    nam5: str
+    num5: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class SmsMessage(BaseModel):
+    number: str
+    message: str
+    time_sent: Optional[str] = None
+    time_sent_human: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Notification(BaseModel):
     title: str
