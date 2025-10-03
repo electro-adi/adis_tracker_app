@@ -178,19 +178,7 @@ async def send_notification(notification: Notification, user_id: str = "default_
     """Send notification via Firebase and push notifications"""
     # Save to Firebase for real-time updates
     await firebase_manager.update_data(
-        f"notifications/{user_id}/latest",
-        {
-            "title": notification.title,
-            "message": notification.message,
-            "type": notification.type,
-            "data": notification.data or {},
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
-    
-    # Also push to notification history
-    await firebase_manager.push_data(
-        f"notifications/{user_id}/history",
+        f"Notifications",
         {
             "title": notification.title,
             "message": notification.message,
@@ -286,8 +274,8 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         status_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("device/status/current", status_dict)
-        await firebase_manager.push_data("device/status/history", status_dict)
+        await firebase_manager.update_data("Tracker/status/latest", status_dict)
+        await firebase_manager.push_data("Tracker/status/history", status_dict)
         
         # Send notification
         reason_map = {
@@ -326,7 +314,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         
         # Handle invalid GPS coordinates
         if location.gps_lat == 0.0 and location.gps_lon == 0.0:
-            last_good = await firebase_manager.get_data("tracker/location/latest")
+            last_good = await firebase_manager.get_data("Tracker/location/latest")
             if last_good:
                 location_dict.update({
                     "gps_lat": last_good.get("gps_lat", 0.0),
@@ -338,10 +326,10 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 })
         else:
             # Save as last good GPS
-            await firebase_manager.update_data("tracker/location/latest", location_dict)
+            await firebase_manager.update_data("Tracker/location/latest", location_dict)
         
         # Save to Firebase
-        await firebase_manager.push_data("tracker/location/history", location_dict)
+        await firebase_manager.push_data("Tracker/location/history", location_dict)
         
         # Send notification
         notification = Notification(
@@ -365,7 +353,7 @@ async def webhook_callstatus(callstatus: CallStatus, background_tasks: Backgroun
         callstatus_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("tracker/callstatus", callstatus_dict)
+        await firebase_manager.update_data("Tracker/callstatus", callstatus_dict)
         
         # Send notification
         if callstatus.status == 2:  # Incoming call
@@ -389,7 +377,7 @@ async def webhook_ledconfig(ledconfig: LedConfig, background_tasks: BackgroundTa
         ledconfig_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("tracker/callstatus", ledconfig_dict)
+        await firebase_manager.update_data("Tracker/ledconfig", ledconfig_dict)
         
         return {"success": True}
     except Exception as e:
@@ -403,7 +391,7 @@ async def webhook_deviceconfig(deviceconfig: DeviceConfig, background_tasks: Bac
         deviceconfig_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("tracker/deviceconfig", deviceconfig_dict)
+        await firebase_manager.update_data("Tracker/deviceconfig", deviceconfig_dict)
         
         return {"success": True}
     except Exception as e:
@@ -417,7 +405,7 @@ async def webhook_contacts(contacts: Contacts, background_tasks: BackgroundTasks
         contacts_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("tracker/contacts", contacts_dict)
+        await firebase_manager.update_data("Tracker/contacts", contacts_dict)
         
         return {"success": True}
     except Exception as e:
@@ -431,7 +419,7 @@ async def webhook_storedsms(storedsms: SmsMessage, background_tasks: BackgroundT
         storedsms_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("tracker/storedsms", storedsms_dict)
+        await firebase_manager.update_data("Tracker/storedsms", storedsms_dict)
         
         return {"success": True}
     except Exception as e:
@@ -445,7 +433,7 @@ async def webhook_newsms(newsms: SmsMessage, background_tasks: BackgroundTasks):
         newsms_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Save to Firebase
-        await firebase_manager.update_data("tracker/newsms", newsms_dict)
+        await firebase_manager.update_data("Tracker/newsms", newsms_dict)
         
         # Send notification
         notification = Notification(
