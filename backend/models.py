@@ -19,7 +19,6 @@ class DeviceStatus(BaseModel):
     espnow_state: int
     stored_sms: int
     prd_eps: Optional[bool] = None
-    last_activity_human: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class GpsLocation(BaseModel):
@@ -32,11 +31,8 @@ class GpsLocation(BaseModel):
     alt: float
     speed: float
     course: float
-    lbs_age: Optional[str] = None  # Store as ISO string
-    gps_age: Optional[str] = None  # Store as ISO string
-    lbs_age_human: Optional[str] = None
-    gps_age_human: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    gps_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    lbs_timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class CallStatus(BaseModel):
     status: int = Field(ge=0, le=3)

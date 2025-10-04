@@ -98,7 +98,7 @@ function App() {
 
   //---------------------------------------------- MQTT status listener
   useEffect(() => {
-    const statusRef = ref(db, "tracker/mqttstatus");
+    const statusRef = ref(db, "Tracker/MQTT");
 
     const unsubscribe = onValue(statusRef, (snapshot) => {
       const data = snapshot.val();

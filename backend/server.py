@@ -218,6 +218,15 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
 
         logger.info(f"MQTT Message → Topic: {topic}, Payload: {payload}")
 
+
+        if "Tracker/from/" in topic:
+            await firebase_manager.update_data(
+                f"Tracker/MQTT",
+                {
+                    "last_message": datetime.now(timezone.utc).isoformat()
+                }
+            )
+
         # Route based on topic
         if topic.endswith("/status"):
             status_obj = DeviceStatus(**payload)
@@ -306,11 +315,9 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         
         # Update age timestamps
         if location.gps_lat and location.gps_lon:
-            location_dict["gps_age"] = datetime.now(timezone.utc).isoformat()
+            location_dict["gps_timestamp"] = datetime.now(timezone.utc).isoformat()
         if location.lbs_lat and location.lbs_lon:
-            location_dict["lbs_age"] = datetime.now(timezone.utc).isoformat()
-        
-        location_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
+            location_dict["lbs_timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Handle invalid GPS coordinates
         if location.gps_lat == 0.0 and location.gps_lon == 0.0:
@@ -457,7 +464,7 @@ async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
 
         if clientid.startswith("Tracker"):
             await firebase_manager.update_data(
-                f"Tracker/connection",
+                f"Tracker/MQTT",
                 {
                     "connected": True,
                     "last_connected": datetime.now(timezone.utc).isoformat()
@@ -487,7 +494,7 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
         if clientid.startswith("Tracker"):
             # Update Firebase state
             await firebase_manager.update_data(
-                f"Tracker/connection",
+                f"Tracker/MQTT",
                 {
                     "connected": False,
                     "last_disconnected": datetime.now(timezone.utc).isoformat()
@@ -509,233 +516,8 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
         logger.error(f"Error handling disconnection webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-#--------------------------------------------------------------------------- 
-# API Endpoints
-@api_router.get("/")
-async def root():
-    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
-
-@api_router.get("/health")
-async def health_check():
-    firebase_connected = firebase_admin._apps.get('[DEFAULT]') is not None
-    return {
-        "status": "healthy",
-        "firebase_connected": firebase_connected,
-        "emqx_configured": bool(EMQX_API_KEY)
-    }
-
-@api_router.post("/device/mode/{mode}")
-async def set_device_mode(mode: int):
-    """Set device mode (0-7)"""
-    if mode < 0 or mode > 7:
-        raise HTTPException(status_code=400, detail="Mode must be between 0 and 7")
-    
-    success = await emqx_manager.publish("Tracker/to/mode", str(mode))
-    if success:
-        await firebase_manager.update_data("device/mode", {"value": mode, "timestamp": datetime.now(timezone.utc).isoformat()})
-        return {"success": True, "message": f"Device mode set to {mode}"}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to set device mode")
-
-@api_router.get("/device/status")
-async def get_device_status():
-    """Get current device status"""
-    try:
-        # Request fresh status from device
-        await emqx_manager.publish("Tracker/to/request", "0")
-        
-        # Return latest status from Firebase
-        status = await firebase_manager.get_data("device/status/current")
-        
-        if status:
-            # Add human-readable time
-            last_activity = status.get("last_activity")
-            if last_activity:
-                try:
-                    dt = datetime.fromisoformat(last_activity)
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    status["last_activity_human"] = humanize.naturaltime(datetime.now(timezone.utc) - dt)
-                except:
-                    status["last_activity_human"] = "--"
-            
-            return status
-        else:
-            return {"message": "No status data available"}
-    except Exception as e:
-        logger.error(f"Error getting device status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/device/location")
-async def get_device_location():
-    """Get current device location"""
-    try:
-        # Request fresh location from device
-        await emqx_manager.publish("Tracker/to/request", "1")
-        
-        # Return latest location from Firebase
-        location = await firebase_manager.get_data("device/location/current")
-        
-        if location:
-            # Add human-readable age
-            for age_field in ["gps_age", "lbs_age"]:
-                age_value = location.get(age_field)
-                if age_value:
-                    try:
-                        dt = datetime.fromisoformat(age_value)
-                        if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=timezone.utc)
-                        location[f"{age_field}_human"] = humanize.naturaltime(datetime.now(timezone.utc) - dt)
-                    except:
-                        location[f"{age_field}_human"] = "--"
-            
-            return location
-        else:
-            return {"message": "No location data available"}
-    except Exception as e:
-        logger.error(f"Error getting device location: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/device/location_history")
-async def get_device_location_history(limit: int = 100):
-    """Get device location history"""
-    try:
-        history = await firebase_manager.get_data("device/location/history")
-        if history:
-            # Convert dict to list and sort by timestamp
-            locations = list(history.values())
-            locations.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-            return locations[:limit]
-        return []
-    except Exception as e:
-        logger.error(f"Error getting location history: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/led")
-async def set_led_config(ledconfig: LedConfig):
-    """Set LED configuration"""
-    try:
-        config_dict = ledconfig.dict(exclude_none=True)
-        success = await emqx_manager.publish("Tracker/to/set/led_config", config_dict)
-        
-        if success:
-            await firebase_manager.update_data("device/config/led", config_dict)
-            return {"success": True, "message": "LED configuration updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update LED configuration")
-    except Exception as e:
-        logger.error(f"Error setting LED config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/settings")
-async def update_device_settings(settings: DeviceConfig):
-    """Update device settings"""
-    try:
-        settings_dict = settings.dict(exclude_none=True)
-        success = await emqx_manager.publish("Tracker/to/set/config", settings_dict)
-        
-        if success:
-            await firebase_manager.update_data("device/config/settings", settings_dict)
-            return {"success": True, "message": "Device settings updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update device settings")
-    except Exception as e:
-        logger.error(f"Error updating device settings: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/call/{number}")
-async def make_call(number: str):
-    """Make device call a number"""
-    try:
-        success = await emqx_manager.publish("Tracker/to/call", number)
-        if success:
-            return {"success": True, "message": f"Call initiated to {number}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to initiate call")
-    except Exception as e:
-        logger.error(f"Error making call: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/sms")
-async def send_sms(sms: SmsMessage):
-    """Send SMS via device"""
-    try:
-        success = await emqx_manager.publish("Tracker/to/sms/send", sms.dict())
-        if success:
-            await firebase_manager.push_data("device/sms/sent", {
-                **sms.dict(),
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
-            return {"success": True, "message": f"SMS sent to {sms.number}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to send SMS")
-    except Exception as e:
-        logger.error(f"Error sending SMS: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/buzzer")
-async def control_buzzer(enabled: bool):
-    """Control device buzzer"""
-    try:
-        success = await emqx_manager.publish("Tracker/to/scream", enabled)
-        if success:
-            return {"success": True, "message": f"Buzzer {'enabled' if enabled else 'disabled'}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to control buzzer")
-    except Exception as e:
-        logger.error(f"Error controlling buzzer: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/vibrate")
-async def control_vibrator(enabled: bool):
-    """Control device vibrator"""
-    try:
-        success = await emqx_manager.publish("Tracker/to/vibrate", enabled)
-        if success:
-            return {"success": True, "message": f"Vibrator {'enabled' if enabled else 'disabled'}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to control vibrator")
-    except Exception as e:
-        logger.error(f"Error controlling vibrator: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/device/contacts")
-async def update_device_contacts(contacts: Contacts):
-    """Update device contacts"""
-    try:
-        contacts_dict = contacts.dict(exclude_none=True)
-        success = await emqx_manager.publish("Tracker/to/set/contacts", contacts_dict)
-        
-        if success:
-            await firebase_manager.update_data("device/contacts", contacts_dict)
-            return {"success": True, "message": "Device contacts updated"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update device contacts")
-    except Exception as e:
-        logger.error(f"Error updating device contacts: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/push/register")
-async def register_push_token(token_data: PushTokenRegister):
-    """Register device push notification token"""
-    try:
-        await firebase_manager.update_data(
-            f"push_tokens/{token_data.userId}/{token_data.deviceId}",
-            {
-                "token": token_data.token,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-        )
-        return {"success": True, "message": "Push token registered"}
-    except Exception as e:
-        logger.error(f"Error registering push token: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to register push token")
-
-# Include the router in the main app
 app.include_router(api_router)
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -755,6 +537,14 @@ async def startup_event():
         test_ref.delete()
         
         logger.info("GPS Tracker API started successfully")
+
+        await firebase_manager.update_data(
+            f"Backend",
+            {
+                "online": True,
+                "last_online": datetime.now(timezone.utc).isoformat()
+            }
+        )
         
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
@@ -763,4 +553,13 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
+
+    await firebase_manager.update_data(
+        f"Backend",
+        {
+            "online": False,
+            "last_offline": datetime.now(timezone.utc).isoformat()
+        }
+    )
+
     logger.info("GPS Tracker API shutdown completed")
