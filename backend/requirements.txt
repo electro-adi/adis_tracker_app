@@ -5,6 +5,5 @@ pydantic>=2.6.4
 email-validator>=2.2.0
 tzdata>=2024.2
 requests>=2.31.0
-humanize
 firebase-admin>=7.0.0
 cryptography>=42.0.8

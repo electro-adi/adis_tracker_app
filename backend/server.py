@@ -2,7 +2,6 @@ from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 import os
-import threading
 import json
 import requests
 import logging
@@ -139,22 +138,24 @@ emqx_manager = EMQXManager()
 #--------------------------------------------------------------------------- 
 # Commands from frontend
 def handle_command(event):
-    data = event.data
-    if not data or not isinstance(data, dict):
+    if event.event_type == "put" and event.path == "/":
         return
-
-    for key, cmd in data.items():
-        if cmd.get("pending") is True:
-            command = cmd.get("command", "")
-            if command == "get_status":
-                emqx_manager.publish("Tracker/to/request", "0")
-                
-            firebase_manager.update_data(f"Tracker/command/{key}", {"pending": False})
+    
+    data = event.data
+    if not isinstance(data, dict) or not data.get("pending"):
+        return
+    
+    command = data.get("command", "")
+    if command == "get_status":
+        emqx_manager.publish("Tracker/to/request", "0")
+    
+    # Extract key from path
+    key = event.path.strip("/")
+    firebase_manager.update_data(f"Tracker/command/{key}", {"pending": False})
 
 def start_listener():
     ref = db.reference("Tracker/command")
-    thread = threading.Thread(target=lambda: ref.listen(handle_command), daemon=True)
-    thread.start()
+    ref.listen(handle_command)
 
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
@@ -551,7 +552,7 @@ async def startup_event():
         )
 
         start_listener()
-        
+
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
 
