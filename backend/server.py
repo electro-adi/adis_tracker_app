@@ -2,12 +2,13 @@ from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 import os
+import threading
 import json
+import requests
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
-import humanize
 import firebase_admin
 from firebase_admin import messaging, credentials, exceptions, db
 import requests
@@ -135,6 +136,30 @@ class EMQXManager:
             return False
 
 emqx_manager = EMQXManager()
+
+#--------------------------------------------------------------------------- 
+# Commands from frontend
+async def handle_command(event):
+    data = event.data
+    if not data or not isinstance(data, dict):
+        return
+
+    for key, cmd in data.items():
+        if cmd.get("pending") is True:
+            command = cmd.get("command", "")
+            if command == "get_status":
+                await emqx_manager.publish("Tracker/to/request", "0")
+
+            # Add more command cases here
+            # elif command == "reboot": await publish("Tracker/to/reboot", "1")
+            # elif command == "locate": await publish("Tracker/to/gps", "1")
+
+            db.reference(f"Tracker/command/{key}/pending").set(False)
+
+def start_listener():
+    ref = db.reference("Tracker/command")
+    thread = threading.Thread(target=lambda: ref.listen(handle_command), daemon=True)
+    thread.start()
 
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
@@ -495,6 +520,7 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
         logger.error(f"Error handling disconnection webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @api_router.get("/")
 async def root():
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
@@ -528,6 +554,8 @@ async def startup_event():
                 "last_online": datetime.now(timezone.utc).isoformat()
             }
         )
+
+        start_listener()
         
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")

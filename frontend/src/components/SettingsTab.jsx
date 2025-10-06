@@ -3,7 +3,6 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Input } from './ui/input';
-import { Badge } from './ui/badge';
 import { 
   Settings, 
   Volume2, 
@@ -13,13 +12,11 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
-  Wifi,
   Save
 } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { ref, onValue, update, set } from 'firebase/database';
+import { db } from '../firebase';
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
@@ -44,35 +41,41 @@ const SettingsTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const handler = (e) => {
-      const newData = e.detail;
-      setSettings(newData);
-    };
+    const commandRef = ref(db, 'Tracker/commands');
+    set(commandRef, {
+      command: 'get_config',
+      data1: ' ',
+      data2: ' ',
+      timestamp: new Date().toISOString(),
+      pending: true
+    });
 
-    window.addEventListener("config_update", handler);
-
-    return () => {
-      window.removeEventListener("config_update", handler);
-    };
-  }, []);
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const response = await fetch(`${API}/device/get_settings`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.bootanimation !== undefined) {
-          setSettings(data);
-        }
+    const configRef = ref(db, 'Tracker/deviceconfig');
+    const unsubConfig = onValue(configRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.bootanimation !== undefined) {
+        setSettings({
+          callmode: data.callmode !== undefined ? data.callmode : 2,
+          gpsmode: data.gpsmode !== undefined ? data.gpsmode : 0,
+          bootanimation: data.bootanimation !== undefined ? data.bootanimation : true,
+          enablebuzzer: data.enablebuzzer !== undefined ? data.enablebuzzer : true,
+          enablehaptics: data.enablehaptics !== undefined ? data.enablehaptics : true,
+          bootsms: data.bootsms !== undefined ? data.bootsms : false,
+          noti_sound: data.noti_sound !== undefined ? data.noti_sound : true,
+          noti_ppp: data.noti_ppp !== undefined ? data.noti_ppp : true,
+          ringtone: data.ringtone !== undefined ? data.ringtone : 1,
+          sms_thru_mqtt: data.sms_thru_mqtt !== undefined ? data.sms_thru_mqtt : true,
+          DS_call_mode: data.DS_call_mode !== undefined ? data.DS_call_mode : 3,
+          prd_wakeup: data.prd_wakeup !== undefined ? data.prd_wakeup : false,
+          prd_wakeup_time: data.prd_wakeup_time !== undefined ? data.prd_wakeup_time : 120,
+          prd_sms_intvrl: data.prd_sms_intvrl !== undefined ? data.prd_sms_intvrl : 0,
+          prd_mqtt_intvrl: data.prd_mqtt_intvrl !== undefined ? data.prd_mqtt_intvrl : 0
+        });
       }
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
-  };
+    });
+
+    return () => unsubConfig();
+  }, []);
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -81,22 +84,25 @@ const SettingsTab = () => {
   const saveSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API}/device/settings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(settings)
+      const configRef = ref(db, 'Tracker/deviceconfig');
+      await update(configRef, {
+        ...settings,
+        timestamp: new Date().toISOString()
       });
 
-      if (response.ok) {
-        toast({
-          title: "Settings Saved",
-          description: "Device settings have been updated successfully.",
-        });
-      } else {
-        throw new Error('Failed to save settings.');
-      }
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'set_config',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+
+      toast({
+        title: "Settings Saved",
+        description: "Device settings have been updated successfully.",
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -110,6 +116,8 @@ const SettingsTab = () => {
 
   const resetToDefaults = () => {
     setSettings({
+      callmode: 2,
+      gpsmode: 0,
       bootanimation: true,
       enablebuzzer: true,
       enablehaptics: true,
@@ -117,11 +125,12 @@ const SettingsTab = () => {
       noti_sound: true,
       noti_ppp: true,
       ringtone: 1,
+      sms_thru_mqtt: true,
+      DS_call_mode: 3,
       prd_wakeup: false,
-      prd_wakeup_time: 300000,
-      callmode: 2,
-      gpsmode: 0,
-      DS_call_mode: 3
+      prd_wakeup_time: 120,
+      prd_sms_intvrl: 0,
+      prd_mqtt_intvrl: 0
     });
     toast({
       title: "Settings Reset",
@@ -132,20 +141,19 @@ const SettingsTab = () => {
   const UpdateMode = async (mode) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API}/device/mode/${mode}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'mode',
+        data1: mode,
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
       });
-      if (response.ok) {
-        toast({
-          title: "Mode Updated",
-          description: "Device mode have been updated successfully.",
-        });
-      } else {
-        throw new Error('Failed to update mode.');
-      }
+
+      toast({
+        title: "Mode Updated",
+        description: "Device mode command sent successfully.",
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -227,33 +235,33 @@ const SettingsTab = () => {
         <div className="flex gap-2">
           <Button
             onClick={resetToDefaults}
-            variant="outline" // This CVA variant provides base outline styles
+            variant="outline"
             size="sm"
             className={`
-              group // For icon animation
-              border-amber-500/70 text-amber-400 // Warning/caution color scheme
-              hover:border-amber-500 hover:bg-amber-500/10 hover:text-amber-300 // Subtle hover
-              active:bg-amber-500/20 active:scale-[0.98] // Active state
+              group
+              border-amber-500/70 text-amber-400
+              hover:border-amber-500 hover:bg-amber-500/10 hover:text-amber-300
+              active:bg-amber-500/20 active:scale-[0.98]
               focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-950
               transition-all duration-200 ease-out
               disabled:opacity-50
             `}
           >
-            <RotateCcw className="w-4 h-4 mr-2 transition-transform duration-300 group-hover:rotate-[-90deg]" /> {/* Icon rotates on hover */}
+            <RotateCcw className="w-4 h-4 mr-2 transition-transform duration-300 group-hover:rotate-[-90deg]" />
             Reset
           </Button>
           <Button
             onClick={saveSettings}
             disabled={loading}
             className={`
-              relative group // For icon animation
-              bg-gradient-to-r from-emerald-500 to-green-600 // Green gradient for "success"/"save"
+              relative group
+              bg-gradient-to-r from-emerald-500 to-green-600
               text-white font-semibold
-              px-5 py-2.5 // Consistent padding with the "Request Location" button if desired
+              px-5 py-2.5
               rounded-lg
-              shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-green-700 // Darken gradient slightly on hover
+              shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-green-700
               focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-gray-950
-              active:scale-95 active:shadow-inner active:from-emerald-600 active:to-green-700 // Pressed state
+              active:scale-95 active:shadow-inner active:from-emerald-600 active:to-green-700
               transition-all duration-300 ease-out
               disabled:opacity-60 disabled:cursor-not-allowed
             `}
@@ -261,7 +269,6 @@ const SettingsTab = () => {
             <span className="relative z-10 flex items-center justify-center">
               {loading ? (
                 <>
-                  {/* Bouncing dots spinner */}
                   <div className="flex items-center justify-center space-x-1 mr-2.5">
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
@@ -271,7 +278,7 @@ const SettingsTab = () => {
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2 transform transition-transform duration-200 group-hover:scale-110" /> {/* Icon scales up on hover */}
+                  <Save className="w-4 h-4 mr-2 transform transition-transform duration-200 group-hover:scale-110" />
                   Save Settings
                 </>
               )}
@@ -449,10 +456,8 @@ const SettingsTab = () => {
                 onCheckedChange={(checked) => updateSetting('prd_wakeup', checked)}
               />
             </div>
-
             {settings.prd_wakeup && (
               <div className="space-y-4">
-                {/* Wakeup interval slider */}
                 <div className="space-y-2">
                   <label className="text-sm text-gray-400">Wakeup Interval (minutes)</label>
                   <Input
@@ -468,11 +473,10 @@ const SettingsTab = () => {
                       ? `${settings.prd_wakeup_time} minutes`
                       : settings.prd_wakeup_time % 60 === 0
                       ? `${settings.prd_wakeup_time / 60} hours`
-                      : `${Math.floor(settings.prd_wakeup_time / 60)}h ${settings.prd_wakeup_time % 60}m`}
+                      : `${Math.floor(settings.prd_wakeup_time / 60)}h ${settings.prd_wakeup_time % 60}m`} 
                   </p>
                 </div>
 
-                {/* SMS interval slider */}
                 <div className="space-y-2">
                   <label className="text-sm text-gray-400">SMS Location Update Interval</label>
                   <input
@@ -493,7 +497,6 @@ const SettingsTab = () => {
                   </p>
                 </div>
 
-                {/* MQTT interval slider */}
                 <div className="space-y-2">
                   <label className="text-sm text-gray-400">MQTT Location Update Interval</label>
                   <input

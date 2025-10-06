@@ -168,7 +168,7 @@ useEffect(() => {
   const heartbeat = async () => {
     try 
     {
-      const response = await fetch(`${BACKEND_URL}/api`, {
+      const response = await fetch(`${BACKEND_URL}/api/`, {
         method: 'GET',
         cache: 'no-store',
       });
@@ -199,11 +199,11 @@ useEffect(() => {
       case 'phone':
         return <PhoneTab />;
       case 'led':
-        //return <LedTab />;
+        return <LedTab />;
       case 'remote':
-        //return <IRTab />;
+        return <IRTab />;
       case 'settings':
-        //return <SettingsTab />;
+        return <SettingsTab />;
       case 'cmd':
         return <CMDTab />;
       default:

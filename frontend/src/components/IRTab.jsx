@@ -3,9 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Shield } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { ref, set } from 'firebase/database';
+import { db } from '../firebase';
 
 const IRTab = () => {
   const { toast } = useToast();
@@ -14,20 +13,19 @@ const IRTab = () => {
   const SendIRCmd = async (cmd) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API}/device/irsend/${cmd}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'send_ir',
+        data1: cmd,
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
       });
-      if (response.ok) {
-        toast({
-          title: "Command Sent",
-          description: `IR command ${cmd} has been sent successfully.`,
-        });
-      } else {
-        throw new Error('Failed to send command.');
-      }
+
+      toast({
+        title: "Command Sent",
+        description: `IR command ${cmd} has been sent successfully.`,
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -49,12 +47,10 @@ const IRTab = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">IR Commands</h1>
       </div>
 
-      {/* Commands */}
       <div className="grid grid-cols-1 gap-6">
         <Card className="bg-gray-800 border border-gray-700 rounded-2xl shadow-md">
           <CardHeader>

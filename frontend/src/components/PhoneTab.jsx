@@ -6,24 +6,24 @@ import { Textarea } from "./ui/textarea";
 import {
   Phone,
   MessageSquare,
-  Send,
-  PhoneCall,
   Users,
   Edit,
+  Check,
+  X,
 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import { ref, onValue, set, push, update } from 'firebase/database';
+import { ref, onValue, set, update } from 'firebase/database';
 import { db } from '../firebase';
 
 const PhoneTab = () => {
   const { toast } = useToast();
 
   const [contacts, setContacts] = useState([
-    { id: 1, name: "--", number: "--", editing: false },
-    { id: 2, name: "--", number: "--", editing: false },
-    { id: 3, name: "--", number: "--", editing: false },
-    { id: 4, name: "--", number: "--", editing: false },
-    { id: 5, name: "--", number: "--", editing: false },
+    { id: 1, name: "", number: "", editing: false },
+    { id: 2, name: "", number: "", editing: false },
+    { id: 3, name: "", number: "", editing: false },
+    { id: 4, name: "", number: "", editing: false },
+    { id: 5, name: "", number: "", editing: false },
   ]);
 
   const [status, setStatus] = useState({
@@ -31,9 +31,9 @@ const PhoneTab = () => {
   });
 
   const [sms_message, setSMS] = useState({
-    number: "--",
-    message: "--",
-    time_sent_human: "--"
+    number: "",
+    message: "",
+    time_sent_human: ""
   });
 
   const [loading, setLoading] = useState({ call: false, sms: false, contacts: false });
@@ -61,7 +61,7 @@ const PhoneTab = () => {
 
   useEffect(() => {
     const commandRef = ref(db, 'Tracker/commands');
-    push(commandRef, {
+    set(commandRef, {
       command: 'get_contacts',
       data1: ' ',
       data2: ' ',
@@ -75,8 +75,8 @@ const PhoneTab = () => {
       if (data) {
         const updatedContacts = contacts.map((c, idx) => ({
           ...c,
-          name: data[`nam${idx + 1}`] || "--",
-          number: data[`num${idx + 1}`] || "--",
+          name: data[`nam${idx + 1}`] || "",
+          number: data[`num${idx + 1}`] || "",
         }));
         setContacts(updatedContacts);
       }
@@ -102,54 +102,106 @@ const PhoneTab = () => {
     setLoading((prev) => ({ ...prev, sms: true }));
     try {
       const commandRef = ref(db, 'Tracker/commands');
-      await push(commandRef, {
+      await set(commandRef, {
         command: 'get_sms',
         data1: index,
         data2: ' ',
         timestamp: new Date().toISOString(),
         pending: true
       });
-
+      
       const smsRef = ref(db, 'Tracker/storedsms');
       const unsubSMS = onValue(smsRef, (snapshot) => {
         const data = snapshot.val();
         if (data && data.index === index) {
           setSMS({
-            number: data.number || "--",
-            message: data.message || "--",
+            number: data.number,
+            message: data.message,
             time_sent_human: getTimeAgo(data.time_sent),
           });
           setShowSMSDialog(true);
           unsubSMS();
         }
       });
+      toast({
+        title: "Request Sent",
+        description: "SMS retrieval request sent successfully.",
+      });
     } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send SMS retrieval request.",
+        variant: "destructive",
+      });
       console.error("Failed to get sms:", error);
     } finally {
       setLoading((prev) => ({ ...prev, sms: false }));
     }
   };
 
+  const validateContacts = () => {
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
+      const hasName = contact.name.trim() !== "";
+      const hasNumber = contact.number.trim() !== "";
+
+      if (hasName && !hasNumber) {
+        toast({
+          title: "Validation Error",
+          description: `Contact ${i + 1}: Name provided but phone number is missing.`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (!hasName && hasNumber) {
+        toast({
+          title: "Validation Error",
+          description: `Contact ${i + 1}: Phone number provided but name is missing.`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (hasNumber) {
+        const cleanNumber = contact.number.replace(/\s+/g, '');
+        if (!/^\d{10}$/.test(cleanNumber)) {
+          toast({
+            title: "Validation Error",
+            description: `Contact ${i + 1}: Phone number must be exactly 10 digits with no letters.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
   const saveContacts = async () => {
+    if (!validateContacts()) return;
+
     setLoading((prev) => ({ ...prev, contacts: true }));
     try {
       const payload = {};
       contacts.forEach((c, idx) => {
-        payload[`nam${idx + 1}`] = c.name;
-        payload[`num${idx + 1}`] = c.number;
+        payload[`nam${idx + 1}`] = c.name.trim() || "";
+        payload[`num${idx + 1}`] = c.number.trim() || "";
       });
 
       const contactsRef = ref(db, 'Tracker/contacts');
       await update(contactsRef, payload);
 
       const commandRef = ref(db, 'Tracker/commands');
-      await push(commandRef, {
+      await set(commandRef, {
         command: 'set_contacts',
         data1: ' ',
         data2: ' ',
         timestamp: new Date().toISOString(),
         pending: true
       });
+
+      setContacts((prev) => prev.map((c) => ({ ...c, editing: false })));
 
       toast({
         title: "Contacts Updated",
@@ -179,7 +231,7 @@ const PhoneTab = () => {
     setLoading((prev) => ({ ...prev, call: true }));
     try {
       const commandRef = ref(db, 'Tracker/commands');
-      await push(commandRef, {
+      await set(commandRef, {
         command: 'make_call',
         data1: callNumber,
         data2: ' ',
@@ -216,7 +268,7 @@ const PhoneTab = () => {
     setLoading((prev) => ({ ...prev, sms: true }));
     try {
       const commandRef = ref(db, 'Tracker/commands');
-      await push(commandRef, {
+      await set(commandRef, {
         command: 'send_sms',
         data1: smsNumber,
         data2: smsMessage,
@@ -241,17 +293,39 @@ const PhoneTab = () => {
     }
   };
 
-  const selectContact = (number, type) => {
-    if (type === "call") setCallNumber(number);
-    if (type === "sms") setSmsNumber(number);
+  const selectContact = (contact, type) => {
+    if (!contact.name || !contact.number) return;
+    if (type === "call") setCallNumber(contact.number);
+    if (type === "sms") setSmsNumber(contact.number);
   };
 
   const toggleEdit = (id) => {
     setContacts((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, editing: !c.editing } : { ...c, editing: false }
+        c.id === id ? { ...c, editing: !c.editing } : c
       )
     );
+  };
+
+  const cancelEdit = (id) => {
+    const contactsRef = ref(db, 'Tracker/contacts');
+    onValue(contactsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setContacts((prev) =>
+          prev.map((c, idx) =>
+            c.id === id
+              ? {
+                  ...c,
+                  name: data[`nam${idx + 1}`] || "",
+                  number: data[`num${idx + 1}`] || "",
+                  editing: false,
+                }
+              : c
+          )
+        );
+      }
+    }, { onlyOnce: true });
   };
 
   const updateContactField = (id, field, value) => {
@@ -289,34 +363,55 @@ const PhoneTab = () => {
                         onChange={(e) =>
                           updateContactField(contact.id, "name", e.target.value)
                         }
-                        className="bg-gray-600 text-white"
-                        placeholder="Name"
+                        className="bg-gray-600 text-white border-gray-500 focus:border-blue-400"
+                        placeholder="Enter name"
                       />
                       <Input
                         value={contact.number}
                         onChange={(e) =>
                           updateContactField(contact.id, "number", e.target.value)
                         }
-                        className="bg-gray-600 text-white"
-                        placeholder="Number"
+                        className="bg-gray-600 text-white border-gray-500 focus:border-blue-400"
+                        placeholder="Enter 10-digit number"
+                        maxLength={10}
                       />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleEdit(contact.id)}
+                        className="border-green-600 text-green-400 hover:bg-green-600 hover:text-white"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => cancelEdit(contact.id)}
+                        className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex-1">
-                      <p className="text-white font-medium">{contact.name}</p>
-                      <p className="text-gray-400 text-sm font-mono">
-                        {contact.number}
-                      </p>
-                    </div>
+                    <>
+                      <div className="flex-1">
+                        <p className="text-white font-medium">
+                          {contact.name || <span className="text-gray-500 italic">Empty</span>}
+                        </p>
+                        <p className="text-gray-400 text-sm font-mono">
+                          {contact.number || <span className="text-gray-600 italic">No number</span>}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleEdit(contact.id)}
+                        className="border-gray-600 text-gray-300 hover:bg-gray-600 ml-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => toggleEdit(contact.id)}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-600 ml-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
                 </div>
               ))}
             </div>
@@ -359,12 +454,12 @@ const PhoneTab = () => {
             <div className="space-y-2">
               <label className="text-sm text-gray-400">Quick Contacts</label>
               <div className="flex flex-wrap gap-2">
-                {contacts.map((contact) => (
+                {contacts.filter(c => c.name && c.number).map((contact) => (
                   <Button
                     key={contact.id}
                     variant="outline"
                     size="sm"
-                    onClick={() => selectContact(contact.number, "call")}
+                    onClick={() => selectContact(contact, "call")}
                     className="border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     {contact.name}
@@ -411,12 +506,12 @@ const PhoneTab = () => {
             <div className="space-y-2">
               <label className="text-sm text-gray-400">Quick Contacts</label>
               <div className="flex flex-wrap gap-2">
-                {contacts.map((contact) => (
+                {contacts.filter(c => c.name && c.number).map((contact) => (
                   <Button
                     key={contact.id}
                     variant="outline"
                     size="sm"
-                    onClick={() => selectContact(contact.number, "sms")}
+                    onClick={() => selectContact(contact, "sms")}
                     className="border-gray-600 text-gray-300 hover:bg-gray-700"
                   >
                     {contact.name}

@@ -3,11 +3,10 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { Badge } from './ui/badge';
-import { Lightbulb, Palette, Settings, Eye } from 'lucide-react';
+import { Lightbulb, Palette, Settings, Eye, Database } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { ref, onValue, set, update } from 'firebase/database';
+import { db } from '../firebase';
 
 const LedTab = () => {
   const [ledSettings, setLedSettings] = useState({
@@ -26,63 +25,34 @@ const LedTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const handler = (e) => {
-      const newData = e.detail;
-
-      setLedSettings({
-        red: newData.red ?? 0,
-        green: newData.green ?? 0,
-        blue: newData.blue ?? 0,
-        enableled: newData.enableled ?? true,
-      });
-
-      setAnimationSettings({
-        led_boot_ani: newData.led_boot_ani ?? 4,
-        led_call_ani: newData.led_call_ani ?? 6,
-        led_noti_ani: newData.led_noti_ani ?? 5,
-      });
-    };
-
-    window.addEventListener("led_config_update", handler);
-    return () => window.removeEventListener("led_config_update", handler);
-  }, []);
-
-  useEffect(() => {
-    loadDeviceStatus();
-  }, []);
-
-  const loadDeviceStatus = async () => {
-    try {
-      const response = await fetch(`${API}/device/get_led_config`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.red !== undefined) {
-          setLedSettings({
-            red: data.red || 0,
-            green: data.green || 0,
-            blue: data.blue || 0,
-            enableled: data.enableled || true
-          });
-          setAnimationSettings({
-            led_boot_ani: data.led_boot_ani || 4,
-            led_call_ani: data.led_call_ani || 6,
-            led_noti_ani: data.led_noti_ani || 5
-          });
-          
-          const hex = rgbToHex(data.red || 0, data.green || 0, data.blue || 0);
-          setPreviewColor(hex);
-        }
+    const ledConfigRef = ref(db, 'Tracker/ledconfig');
+    const unsubLedConfig = onValue(ledConfigRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setLedSettings({
+          red: data.red || 0,
+          green: data.green || 0,
+          blue: data.blue || 0,
+          enableled: data.enableled !== undefined ? data.enableled : true
+        });
+        setAnimationSettings({
+          led_boot_ani: data.led_boot_ani || 4,
+          led_call_ani: data.led_call_ani || 6,
+          led_noti_ani: data.led_noti_ani || 5
+        });
+        
+        const hex = rgbToHex(data.red || 0, data.green || 0, data.blue || 0);
+        setPreviewColor(hex);
       }
-    } catch (error) {
-      console.error('Failed to load device status:', error);
-    }
-  };
+    });
+
+    return () => unsubLedConfig();
+  }, []);
 
   const updateLedColor = (color, value) => {
     const newSettings = { ...ledSettings, [color]: value[0] };
     setLedSettings(newSettings);
     
-    // Update preview color
     const hex = rgbToHex(newSettings.red, newSettings.green, newSettings.blue);
     setPreviewColor(hex);
   };
@@ -112,25 +82,26 @@ const LedTab = () => {
   const applyLedSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API}/device/led`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...ledSettings,
-          ...animationSettings
-        })
+      const ledConfigRef = ref(db, 'Tracker/ledconfig');
+      await update(ledConfigRef, {
+        ...ledSettings,
+        ...animationSettings,
+        timestamp: new Date().toISOString()
       });
 
-      if (response.ok) {
-        toast({
-          title: "LED Settings Updated",
-          description: "LED configuration has been applied to the device.",
-        });
-      } else {
-        throw new Error('Failed to update LED settings');
-      }
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'set_ledconfig',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+
+      toast({
+        title: "LED Settings Updated",
+        description: "LED configuration has been applied to the device.",
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -146,26 +117,27 @@ const LedTab = () => {
     const newEnabled = !ledSettings.enableled;
     setLedSettings(prev => ({ ...prev, enableled: newEnabled }));
     try {
-      const response = await fetch(`${API}/device/led`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...ledSettings,
-          enableled: newEnabled,
-          ...animationSettings
-        })
+      const ledConfigRef = ref(db, 'Tracker/ledconfig');
+      await update(ledConfigRef, {
+        ...ledSettings,
+        enableled: newEnabled,
+        ...animationSettings,
+        timestamp: new Date().toISOString()
       });
 
-      if (response.ok) {
-        toast({
-          title: newEnabled ? "LED Enabled" : "LED Disabled",
-          description: `LED functionality has been ${newEnabled ? 'enabled' : 'disabled'}.`,
-        });
-      } else {
-        throw new Error('Failed to toggle LED state');
-      }
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'set_ledconfig',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+
+      toast({
+        title: newEnabled ? "LED Enabled" : "LED Disabled",
+        description: `LED functionality has been ${newEnabled ? 'enabled' : 'disabled'}.`,
+      });
     } catch (error) {
       toast({
         title: "Error",
