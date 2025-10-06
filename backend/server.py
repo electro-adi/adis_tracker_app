@@ -151,10 +151,10 @@ def handle_command(event):
     
     # Extract key from path
     key = event.path.strip("/")
-    firebase_manager.update_data(f"Tracker/command/{key}", {"pending": False})
+    firebase_manager.update_data(f"Tracker/commands/{key}", {"pending": False})
 
 def start_listener():
-    ref = db.reference("Tracker/command")
+    ref = db.reference("Tracker/commands")
     ref.listen(handle_command)
 
 #--------------------------------------------------------------------------- 
