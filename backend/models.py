@@ -92,8 +92,3 @@ class Notification(BaseModel):
     message: str
     type: str  # 'status', 'location', 'sms', 'call', 'system'
     data: Optional[dict] = None
-
-class PushTokenRegister(BaseModel):
-    token: str
-    deviceId: str
-    userId: str

@@ -14,10 +14,9 @@ from firebase_admin import messaging, credentials, exceptions, db
 import requests
 from pydantic import BaseModel
 
-# Import models
 from models import (
-    DeviceStatus, GpsLocation, CallStatus, LedConfig, DeviceConfig,
-    Contacts, SmsMessage, Notification, PushTokenRegister
+    DeviceStatus, GpsLocation, CallStatus, LedConfig, 
+    DeviceConfig, Contacts, SmsMessage, Notification
 )
 
 # Firebase initialization
@@ -139,7 +138,7 @@ emqx_manager = EMQXManager()
 
 #--------------------------------------------------------------------------- 
 # Commands from frontend
-async def handle_command(event):
+def handle_command(event):
     data = event.data
     if not data or not isinstance(data, dict):
         return
@@ -148,13 +147,9 @@ async def handle_command(event):
         if cmd.get("pending") is True:
             command = cmd.get("command", "")
             if command == "get_status":
-                await emqx_manager.publish("Tracker/to/request", "0")
-
-            # Add more command cases here
-            # elif command == "reboot": await publish("Tracker/to/reboot", "1")
-            # elif command == "locate": await publish("Tracker/to/gps", "1")
-
-            db.reference(f"Tracker/command/{key}/pending").set(False)
+                emqx_manager.publish("Tracker/to/request", "0")
+                
+            firebase_manager.update_data(f"Tracker/command/{key}", {"pending": False})
 
 def start_listener():
     ref = db.reference("Tracker/command")
