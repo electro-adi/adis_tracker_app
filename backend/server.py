@@ -48,7 +48,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 #--------------------------------------------------------------------------- 
-# Firebase Realtime Database Helper Functions
 class FirebaseManager:
     @staticmethod
     def get_ref(path: str):
@@ -101,7 +100,6 @@ class FirebaseManager:
 firebase_manager = FirebaseManager()
 
 #--------------------------------------------------------------------------- 
-# EMQX HTTP API Helper
 class EMQXManager:
     @staticmethod
     async def publish(topic: str, payload: Any) -> bool:
@@ -139,66 +137,53 @@ class EMQXManager:
 emqx_manager = EMQXManager()
 
 #--------------------------------------------------------------------------- 
-# Push Notification Helper
-def send_push_notification(token: str, title: str, body: str, data: dict = None):
-    """Send push notification to a device token"""
-    if not token:
-        logger.warning("Attempted to send push notification to empty token")
-        return {"success": False, "error": "Empty token"}
-
-    safe_data = {}
-    if data:
-        for k, v in data.items():
-            if isinstance(v, (dict, list)):
-                safe_data[k] = json.dumps(v)
-            else:
-                safe_data[k] = str(v)
-
-    message = messaging.Message(
-        notification=messaging.Notification(
-            title=title,
-            body=body
-        ),
-        token=token,
-        data=safe_data
-    )
-    
-    try:
-        response = messaging.send(message)
-        logger.info(f"FCM push successful. Response ID: {response}")
-        return {"success": True, "response": response}
-    except exceptions.FirebaseError as e:
-        logger.error(f"FCM push failed: {e.code} - {e.message}")
-        return {"success": False, "error": f"{e.code} - {e.message}"}
-    except Exception as e:
-        logger.exception(f"Unexpected error sending FCM push")
-        return {"success": False, "error": str(e)}
-
 async def send_notification(notification: Notification, user_id: str = "default_user"):
-    """Send notification via Firebase and push notifications"""
-    # Save to Firebase for real-time updates
-    await firebase_manager.update_data(
-        f"Notifications",
-        {
-            "title": notification.title,
-            "message": notification.message,
-            "type": notification.type,
-            "data": notification.data or {},
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    )
-    
-    # Send push notifications
-    tokens = await firebase_manager.get_data(f"push_tokens/{user_id}")
-    if tokens:
+    """Save and send a push notification to Firebase + FCM"""
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    try:
+        await firebase_manager.update_data(
+            f"Notifications",
+            {
+                "title": notification.title,
+                "message": notification.message,
+                "type": notification.type,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to save notification to Firebase: {e}")
+
+    try:
+        tokens = await firebase_manager.get_data(f"PushToken/{user_id}")
+        if not tokens:
+            logger.warning("No push tokens found for user")
+            return
+
         for device_id, token_data in tokens.items():
-            if token_data and "token" in token_data:
-                send_push_notification(
-                    token=token_data["token"],
+            token = token_data.get("token")
+            if not token:
+                continue
+
+            msg = messaging.Message(
+                notification=messaging.Notification(
                     title=notification.title,
                     body=notification.message,
-                    data=notification.data or {}
-                )
+                ),
+                token=token
+            )
+
+            try:
+                response = messaging.send(msg)
+                logger.info(f"Push sent to {device_id}, FCM response: {response}")
+            except exceptions.FirebaseError as e:
+                logger.error(f"FCM push failed for {device_id}: {e.code} - {e.message}")
+            except Exception as e:
+                logger.error(f"Unexpected FCM push error for {device_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"Error fetching tokens or sending push: {e}")
 
 #--------------------------------------------------------------------------- 
 # Webhook endpoints for EMQX HTTP connector
@@ -297,8 +282,7 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         notification = Notification(
             title="Device Status Updated",
             message=f"{reason_message} - Battery: {status.bat_percent}%",
-            type="status",
-            data=status_dict
+            type="status"
         )
         
         background_tasks.add_task(send_notification, notification)
@@ -342,8 +326,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         notification = Notification(
             title="Location Updated",
             message=f"New GPS coordinates: {location.gps_lat:.6f}, {location.gps_lon:.6f}",
-            type="location",
-            data=location_dict
+            type="location"
         )
         
         background_tasks.add_task(send_notification, notification)
@@ -367,8 +350,7 @@ async def webhook_callstatus(callstatus: CallStatus, background_tasks: Backgroun
             notification = Notification(
                 title="Incoming Call",
                 message=f"Device receiving call from: {callstatus.number}",
-                type="call",
-                data=callstatus_dict
+                type="call"
             )
             background_tasks.add_task(send_notification, notification)
         
@@ -446,8 +428,7 @@ async def webhook_newsms(newsms: SmsMessage, background_tasks: BackgroundTasks):
         notification = Notification(
             title="SMS Received",
             message=f"From {newsms.number}: {newsms.message[:50]}...",
-            type="sms",
-            data=newsms_dict
+            type="sms"
         )
         
         background_tasks.add_task(send_notification, notification)
@@ -475,8 +456,7 @@ async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
             notification = Notification(
                 title="Tracker Connected",
                 message=f"Device {clientid} just connected",
-                type="system",
-                data=data
+                type="system"
             )
             background_tasks.add_task(send_notification, notification)
 
@@ -505,8 +485,7 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
             notification = Notification(
                 title="Tracker Disconnected",
                 message=f"Device {clientid} just disconnected",
-                type="system",
-                data=data
+                type="system"
             )
             background_tasks.add_task(send_notification, notification)
 
@@ -515,6 +494,10 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Error handling disconnection webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/")
+async def root():
+    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
 app.include_router(api_router)
 

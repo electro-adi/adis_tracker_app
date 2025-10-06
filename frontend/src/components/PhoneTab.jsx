@@ -12,9 +12,8 @@ import {
   Edit,
 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { ref, onValue, set, push, update } from 'firebase/database';
+import { db } from '../firebase';
 
 const PhoneTab = () => {
   const { toast } = useToast();
@@ -28,30 +27,14 @@ const PhoneTab = () => {
   ]);
 
   const [status, setStatus] = useState({
-      send_reason: 0,
-      screen_on: false,
-      last_activity: 0,
-      bat_voltage: 0,
-      bat_percent: 0,
-      gsm_rssi: 0,
-      wifi_enabled: false,
-      wifi_rssi: 0,
-      wifi: "",
-      in_call: false,
-      locked: false,
-      light_level: 0,
-      uptime: "00:00:00",
-      espnow_state: 0,
-      stored_sms: 0,
-      prd_eps: false,
-      last_activity_human: "N/A"
-    });
+    stored_sms: 0,
+  });
 
-    const [sms_message, setSMS] = useState({
-      number: "--",
-      message: "--",
-      time_sent_human: "--"
-    });
+  const [sms_message, setSMS] = useState({
+    number: "--",
+    message: "--",
+    time_sent_human: "--"
+  });
 
   const [loading, setLoading] = useState({ call: false, sms: false, contacts: false });
   const [callNumber, setCallNumber] = useState("");
@@ -60,67 +43,86 @@ const PhoneTab = () => {
   const [smsIndex, setSmsIndex] = useState("");
   const [showSMSDialog, setShowSMSDialog] = useState(false);
 
+  const getTimeAgo = (isoString) => {
+    if (!isoString) return '--';
+    const now = new Date();
+    const past = new Date(isoString);
+    const diffMs = now - past;
+    const diffSec = Math.floor(diffMs / 1000);
+    
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d ago`;
+  };
+
   useEffect(() => {
-    const handler = (e) => {
-      const newData = e.detail;
-      setContacts(newData);
-    };
+    const commandRef = ref(db, 'Tracker/commands');
+    push(commandRef, {
+      command: 'get_contacts',
+      data1: ' ',
+      data2: ' ',
+      timestamp: new Date().toISOString(),
+      pending: true
+    });
 
-    window.addEventListener("contacts_update", handler);
-
-    return () => {
-      window.removeEventListener("contacts_update", handler);
-    };
-  }, []);
-
-  //---------------------------------------------- Load contacts
-  useEffect(() => {
-    loadContacts();
-    loadDeviceStatus();
-  }, []);
-
-  const loadContacts = async () => {
-    try {
-      const response = await fetch(`${API}/device/get_contacts`);
-      if (response.ok) {
-        const data = await response.json();
-
-        // normalize API data into fixed 5 contacts
+    const contactsRef = ref(db, 'Tracker/contacts');
+    const unsubContacts = onValue(contactsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
         const updatedContacts = contacts.map((c, idx) => ({
           ...c,
-          name: data[`nam${idx + 1}`] ?? "--",
-          number: data[`num${idx + 1}`] ?? "--",
+          name: data[`nam${idx + 1}`] || "--",
+          number: data[`num${idx + 1}`] || "--",
         }));
         setContacts(updatedContacts);
       }
-    } catch (error) {
-      console.error("Failed to load contacts:", error);
-    }
-  };
+    });
 
-  const loadDeviceStatus = async () => {
-    try {
-      const response = await fetch(`${API}/device/status_nomqtt`);
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
+    const statusRef = ref(db, 'Tracker/status/latest');
+    const unsubStatus = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setStatus({
+          stored_sms: data.stored_sms || 0,
+        });
       }
-    } catch (error) {
-      console.error('Failed to load device status:', error);
-    }
-  };
+    });
+
+    return () => {
+      unsubContacts();
+      unsubStatus();
+    };
+  }, []);
 
   const getSMS = async (index) => {
     setLoading((prev) => ({ ...prev, sms: true }));
     try {
-      const response = await fetch(`${API}/device/get_sms/${index}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.message) {
-          setSMS(data);
-          setShowSMSDialog(true);   // show popup when sms is retrieved
+      const commandRef = ref(db, 'Tracker/commands');
+      await push(commandRef, {
+        command: 'get_sms',
+        data1: index,
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+
+      const smsRef = ref(db, 'Tracker/storedsms');
+      const unsubSMS = onValue(smsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.index === index) {
+          setSMS({
+            number: data.number || "--",
+            message: data.message || "--",
+            time_sent_human: getTimeAgo(data.time_sent),
+          });
+          setShowSMSDialog(true);
+          unsubSMS();
         }
-      }
+      });
     } catch (error) {
       console.error("Failed to get sms:", error);
     } finally {
@@ -137,23 +139,22 @@ const PhoneTab = () => {
         payload[`num${idx + 1}`] = c.number;
       });
 
-      const response = await fetch(`${API}/device/set_contacts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      const contactsRef = ref(db, 'Tracker/contacts');
+      await update(contactsRef, payload);
+
+      const commandRef = ref(db, 'Tracker/commands');
+      await push(commandRef, {
+        command: 'set_contacts',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
       });
 
-      if (response.ok) {
-        toast({
-          title: "Contacts Updated",
-          description: "Contacts have been updated successfully.",
-        });
-        loadContacts();
-      } else {
-        throw new Error("Failed to update contacts.");
-      }
+      toast({
+        title: "Contacts Updated",
+        description: "Contacts have been updated successfully.",
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -177,20 +178,20 @@ const PhoneTab = () => {
 
     setLoading((prev) => ({ ...prev, call: true }));
     try {
-      const response = await fetch(
-        `${API}/device/call/${encodeURIComponent(callNumber)}`,
-        { method: "POST" }
-      );
+      const commandRef = ref(db, 'Tracker/commands');
+      await push(commandRef, {
+        command: 'make_call',
+        data1: callNumber,
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
 
-      if (response.ok) {
-        toast({
-          title: "Call Initiated",
-          description: `Calling ${callNumber}...`,
-        });
-        setCallNumber("");
-      } else {
-        throw new Error("Failed to initiate call");
-      }
+      toast({
+        title: "Call Initiated",
+        description: `Calling ${callNumber}...`,
+      });
+      setCallNumber("");
     } catch (error) {
       toast({
         title: "Call Failed",
@@ -214,24 +215,21 @@ const PhoneTab = () => {
 
     setLoading((prev) => ({ ...prev, sms: true }));
     try {
-      const response = await fetch(`${API}/device/sms`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ number: smsNumber, sms: smsMessage }),
+      const commandRef = ref(db, 'Tracker/commands');
+      await push(commandRef, {
+        command: 'send_sms',
+        data1: smsNumber,
+        data2: smsMessage,
+        timestamp: new Date().toISOString(),
+        pending: true
       });
 
-      if (response.ok) {
-        toast({
-          title: "SMS Sent",
-          description: `Message sent to ${smsNumber}`,
-        });
-        setSmsNumber("");
-        setSmsMessage("");
-      } else {
-        throw new Error("Failed to send SMS");
-      }
+      toast({
+        title: "SMS Sent",
+        description: `Message sent to ${smsNumber}`,
+      });
+      setSmsNumber("");
+      setSmsMessage("");
     } catch (error) {
       toast({
         title: "SMS Failed",
@@ -473,7 +471,7 @@ const PhoneTab = () => {
       {showSMSDialog && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-gray-900 rounded-xl shadow-xl p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold text-white mb-4">📩 SMS Details</h2>
+            <h2 className="text-xl font-bold text-white mb-4">SMS Details</h2>
             <div className="space-y-2">
               <p className="text-gray-300"><span className="font-semibold">From:</span> {sms_message.number}</p>
               <p className="text-gray-300"><span className="font-semibold">Time:</span> {sms_message.time_sent_human}</p>

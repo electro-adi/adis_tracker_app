@@ -13,15 +13,15 @@ import {
   Clock,
 } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { ref, onValue, set } from 'firebase/database';
+import { db } from "../firebase";
 
 const StatusTab = () => {
   const [status, setStatus] = useState({
     send_reason: 0,
     screen_on: false,
     last_activity: 0,
+    last_activity_human: "--",
     bat_voltage: 0,
     bat_percent: 0,
     gsm_rssi: 0,
@@ -35,10 +35,9 @@ const StatusTab = () => {
     espnow_state: 0,
     stored_sms: 0,
     prd_eps: false,
-    last_activity_human: "N/A"
   });
 
-    const sendReasonMap = {
+  const sendReasonMap = {
     0: "Boot",
     1: "Request",
     2: "Request (Sleep)",
@@ -50,55 +49,82 @@ const StatusTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    console.log("status.jsx mounted, attaching listener");
-
-    const handler = (e) => {
-      console.log("Received status_update:", e.detail);
-      setStatus({ ...e.detail });
-    };
-
-    window.addEventListener("status_update", handler);
-    return () => {
-      console.log("status.jsx unmounted, removing listener");
-      window.removeEventListener("status_update", handler);
-    };
-  }, []);
-
-  useEffect(() => {
-    loadDeviceStatus();
-  }, []);
-
-  const loadDeviceStatus = async () => {
-    try {
-      const response = await fetch(`${API}/device/status_nomqtt`);
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
-      }
-    } catch (error) {
-      console.error('Failed to load device status:', error);
-    }
+  const getTimeAgo = (isoString) => {
+    if (!isoString) return '--';
+    const now = new Date();
+    const past = new Date(isoString);
+    const diffMs = now - past;
+    const diffSec = Math.floor(diffMs / 1000);
+    
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d ago`;
   };
+
+  useEffect(() => {
+    const statusRef = ref(db, 'Tracker/status/latest');
+    const unsubStatus = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setStatus({
+          send_reason: data.send_reason || 0,
+          screen_on: data.screen_on || false,
+          last_activity: data.last_activity || 0,
+          last_activity_human: getTimeAgo(data.last_activity),
+          bat_voltage: data.bat_voltage || 0,
+          bat_percent: data.bat_percent || 0,
+          gsm_rssi: data.gsm_rssi || 0,
+          wifi_enabled: data.wifi_enabled || false,
+          wifi_rssi: data.wifi_rssi || 0,
+          wifi: data.wifi || "",
+          in_call: data.in_call || false,
+          locked: data.locked || false,
+          light_level: data.light_level || 0,
+          uptime: data.uptime || "00:00:00",
+          espnow_state: data.espnow_state || 0,
+          stored_sms: data.stored_sms || 0,
+          prd_eps: data.prd_eps || false,
+        });
+      }
+    });
+
+    const updateInterval = setInterval(() => {
+      setStatus(prev => ({
+        ...prev,
+        last_activity_human: getTimeAgo(prev.last_activity),
+      }));
+    }, 30000);
+
+    return () => {
+      unsubStatus();
+      clearInterval(updateInterval);
+    };
+  }, []);
 
   const refreshStatus = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API}/device/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
-        toast({
-          title: "Status Updated",
-          description: "Device status has been refreshed.",
-        });
-      } else {
-        throw new Error('Failed to fetch status');
-      }
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'get_status',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+      
+      toast({
+        title: "Status Updated",
+        description: "Device status refresh requested.",
+      });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to refresh status.",
+        description: "Failed to request status refresh.",
         variant: "destructive",
       });
     } finally {
@@ -127,16 +153,16 @@ const StatusTab = () => {
           disabled={loading}
           variant="outline"
           className={`
-            border-gray-600 text-gray-300          // Your desired base colors for this instance
-            hover:bg-gray-700 hover:text-gray-200  // Your desired hover for this instance
-            active:bg-gray-800                     // Darker when pressed (example)
-            focus:bg-transparent                   // CRUCIAL: Ensure background is transparent on focus
-            focus:text-gray-300                    // Ensure text color is correct on focus
-            focus:border-gray-600                  // Ensure border color is correct on focus
+            border-gray-600 text-gray-300
+            hover:bg-gray-700 hover:text-gray-200
+            active:bg-gray-800
+            focus:bg-transparent
+            focus:text-gray-300
+            focus:border-gray-600
             focus-visible:ring-1 
-            focus-visible:ring-blue-500            // More explicit ring color, or use your theme's 'ring' color
+            focus-visible:ring-blue-500
             focus-visible:ring-offset-2
-            focus-visible:ring-offset-gray-950     // Offset based on your page bg
+            focus-visible:ring-offset-gray-950
             disabled:opacity-50
           `}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />

@@ -6,8 +6,9 @@ import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon } from 'luc
 import { useToast } from '../hooks/use-toast';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { ref, onValue, set } from "firebase/database";
+import { db } from "../firebase";
 
-// Colored marker icons
 const blueIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
@@ -56,12 +57,7 @@ const FitBoundsToMarkers = ({ gps, lbs, hasFit }) => {
   return null;
 };
 
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
 const LocationTab = () => {
-
   const hasFit = React.useRef(false); 
 
   const [locationData, setLocationData] = useState({
@@ -74,13 +70,11 @@ const LocationTab = () => {
     alt: 0.0,
     speed: 0.0,
     course: 0.0,
-    lbs_age: "--",
-    gps_age: "--",
+    gps_age_human: "--",
     lbs_age_human: "--",
-    gps_age_human: "--"
   });
 
-    const sendReasonMap = {
+  const sendReasonMap = {
     0: "Boot",
     1: "Request",
     2: "Request (Sleep)",
@@ -95,68 +89,96 @@ const LocationTab = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
 
-  useEffect(() => {
-    const handler = (e) => {
-      const newData = e.detail;
-      setLocationData(newData);
-    };
+  const getTimeAgo = (isoString) => {
+    if (!isoString) return '--';
+    const now = new Date();
+    const past = new Date(isoString);
+    const diffMs = now - past;
+    const diffSec = Math.floor(diffMs / 1000);
+    
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d ago`;
+  };
 
-    window.addEventListener("location_update", handler);
+  useEffect(() => {
+    const locationRef = ref(db, 'Tracker/Location/latest');
+    const unsubLocation = onValue(locationRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        hasFit.current = false;
+        setLocationData({
+          send_reason: data.send_reason || 0,
+          gps_lat: data.gps_lat || 49.9180204,
+          gps_lon: data.gps_lon || 19.937429,
+          lbs_lat: data.lbs_lat || 49.9208907,
+          lbs_lon: data.lbs_lon || 19.9448864,
+          sats: data.sats || 0,
+          alt: data.alt || 0.0,
+          speed: data.speed || 0.0,
+          course: data.course || 0.0,
+          gps_age_human: getTimeAgo(data.gps_timestamp),
+          lbs_age_human: getTimeAgo(data.lbs_timestamp),
+        });
+      }
+    });
+
+    const updateInterval = setInterval(() => {
+      setLocationData(prev => ({
+        ...prev,
+        gps_age_human: getTimeAgo(prev.gps_timestamp),
+        lbs_age_human: getTimeAgo(prev.lbs_timestamp),
+      }));
+    }, 30000);
 
     return () => {
-      window.removeEventListener("location_update", handler);
+      unsubLocation();
+      clearInterval(updateInterval);
     };
   }, []);
 
   useEffect(() => {
-    loadlocation();
-  }, []);
-  
-  const loadlocation = async () => {
-    try {
-      const response = await fetch(`${API}/device/location_nomqtt`);
-      if (response.ok) {
-        const data = await response.json();
-        hasFit.current = false;
-        setLocationData(data);
-      }
-    } catch (error) {
-      console.error('Failed to load location:', error);
-    }
-  };
+    if (!showHistory) return;
 
-  const loadHistory = async () => {
-    try {
-      const response = await fetch(`${API}/device/location_history?limit=50`);
-      if (response.ok) {
-        const data = await response.json();
-        setHistoryData(data);
+    const historyRef = ref(db, 'Tracker/Location/history');
+    const unsubHistory = onValue(historyRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const historyArray = Object.values(data)
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 50);
+        setHistoryData(historyArray);
       }
-    } catch (error) {
-      console.error("Failed to load history:", error);
-    }
-  };
+    });
+
+    return () => unsubHistory();
+  }, [showHistory]);
 
   const requestLocation = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API}/device/location`);
-      if (response.ok) {
-        const data = await response.json();
-        hasFit.current = false;
-        setLocationData(data);
-        toast({
-          title: "Location Updated",
-          description: "Request Sent for new location data.",
-        });
-      } else {
-        throw new Error('Failed to get location');
-      }
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'get_location',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+      
+      toast({
+        title: "Location Updated",
+        description: "Request sent for new location data.",
+      });
     } catch (error) {
       console.error('Location request failed:', error);
       toast({
         title: "Error",
-        description: "Failed to get location data.",
+        description: "Failed to send location request.",
         variant: "destructive",
       });
     } finally {
@@ -177,16 +199,16 @@ const LocationTab = () => {
           onClick={requestLocation}
           disabled={loading}
           className={`
-            relative group // For pseudo-elements if needed, and for grouping states
-            bg-gradient-to-br from-sky-500 to-blue-600 // Softer gradient
+            relative group
+            bg-gradient-to-br from-sky-500 to-blue-600
             text-white font-semibold
-            px-5 py-2.5 // Slightly more padding for a beefier feel
+            px-5 py-2.5
             rounded-lg
-            overflow-hidden // Important for ::before/::after pseudo-elements if used for shimmer
-            transition-all duration-300 ease-out // Smooth transitions for hover/active
-            shadow-md hover:shadow-lg // Subtle shadow, more pronounced on hover
+            overflow-hidden
+            transition-all duration-300 ease-out
+            shadow-md hover:shadow-lg
             focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-gray-950
-            active:scale-95 active:shadow-inner // Scale down and inner shadow when pressed
+            active:scale-95 active:shadow-inner
             disabled:opacity-60 disabled:cursor-not-allowed
           `}
         >   
@@ -198,7 +220,7 @@ const LocationTab = () => {
               </>
             ) : (
               <>
-                <MapPin className="w-4 h-4 mr-2 group-hover:animate-pulse" /> {/* Pulse icon on hover */}
+                <MapPin className="w-4 h-4 mr-2 group-hover:animate-pulse" />
                 Request Location
               </>
             )}
@@ -206,7 +228,6 @@ const LocationTab = () => {
         </Button>
       </div>
 
-      {/* Map Container */}
       <Card className="bg-gray-800 border-gray-700">
         <CardContent className="p-0">
           <div className="h-96 bg-gray-700 rounded-lg relative overflow-hidden">
@@ -221,14 +242,12 @@ const LocationTab = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
 
-              {/* Auto fit to both markers */}
               <FitBoundsToMarkers
                 gps={[locationData.gps_lat, locationData.gps_lon]}
                 lbs={[locationData.lbs_lat, locationData.lbs_lon]}
                 hasFit={hasFit} 
               />
 
-              {/* GPS Marker - Blue */}
               <Marker
                 position={[locationData.gps_lat, locationData.gps_lon]}
                 icon={blueIcon}
@@ -246,7 +265,6 @@ const LocationTab = () => {
                 </Popup>
               </Marker>
 
-              {/* LBS Marker - Green */}
               <Marker
                 position={[locationData.lbs_lat, locationData.lbs_lon]}
                 icon={greenIcon}
@@ -262,10 +280,8 @@ const LocationTab = () => {
                 </Popup>
               </Marker>
 
-              {/* History points & polylines */}
               {showHistory && historyData.length > 0 && (
                 <>
-                  {/* GPS history markers */}
                   {historyData.map((point, idx) => (
                     <Marker
                       key={`gps-${idx}`}
@@ -285,13 +301,11 @@ const LocationTab = () => {
                     </Marker>
                   ))}
 
-                  {/* Blue polyline for GPS history */}
                   <Polyline
                     positions={historyData.map(p => [p.gps_lat, p.gps_lon])}
                     color="blue"
                   />
 
-                  {/* LBS history markers */}
                   {historyData.map((point, idx) => (
                     <Marker
                       key={`lbs-${idx}`}
@@ -310,7 +324,6 @@ const LocationTab = () => {
                     </Marker>
                   ))}
 
-                  {/* Green polyline for LBS history */}
                   <Polyline
                     positions={historyData.map(p => [p.lbs_lat, p.lbs_lon])}
                     color="green"
@@ -320,7 +333,6 @@ const LocationTab = () => {
 
             </MapContainer>
             
-            {/* Overlay Controls */}
             <div className="absolute top-4 right-4 z-5 flex items-center space-x-2">
               <Button
                 onClick={openInGoogleMaps}
@@ -332,10 +344,7 @@ const LocationTab = () => {
               </Button>
 
               <Button
-                onClick={() => {
-                  if (!showHistory) loadHistory();
-                  setShowHistory(!showHistory);
-                }}
+                onClick={() => setShowHistory(!showHistory)}
                 size="sm"
                 className="bg-gray-900/80 hover:bg-gray-900 text-white"
               >
@@ -346,8 +355,6 @@ const LocationTab = () => {
         </CardContent>
       </Card>
 
-
-      {/* Location Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
