@@ -155,9 +155,21 @@ def handle_command(event):
     
     asyncio.run_coroutine_threadsafe(execute_command(data), loop)
 
+def handle_frontend_status(event):
+    data = event.data
+    
+    if data is False:
+        asyncio.run_coroutine_threadsafe(
+            emqx_manager.publish("Tracker/to/app_offline", "1"),
+            loop
+        )
+
 def start_listener():
-    ref = db.reference("Tracker/commands")
-    ref.listen(handle_command)
+    ref_commands = db.reference("Tracker/commands")
+    ref_commands.listen(handle_command)
+    
+    ref_frontend = db.reference("Tracker/frontend/online")
+    ref_frontend.listen(handle_frontend_status)
 
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
@@ -518,7 +530,6 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
         logger.error(f"Error handling disconnection webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @api_router.get("/")
 async def root():
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
@@ -543,15 +554,18 @@ async def startup_event():
         test_ref = db.reference("_test")
         test_ref.set({"startup": datetime.now(timezone.utc).isoformat()})
         test_ref.delete()
-        
+
         logger.info("GPS Tracker API started successfully")
-        await firebase_manager.update_data(
-            f"Backend",
+
+        result = await firebase_manager.update_data(
+            "Backend",
             {
                 "online": True,
                 "last_online": datetime.now(timezone.utc).isoformat()
             }
         )
+        logger.info(f"Firebase update result: {result}")
+
         start_listener()
         
     except Exception as e:
@@ -562,12 +576,13 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
 
-    await firebase_manager.update_data(
-        f"Backend",
+    result = await firebase_manager.update_data(
+        "Backend",
         {
             "online": False,
             "last_offline": datetime.now(timezone.utc).isoformat()
         }
     )
+    logger.info(f"Firebase update result: {result}")
 
     logger.info("GPS Tracker API shutdown completed")

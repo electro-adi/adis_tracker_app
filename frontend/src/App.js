@@ -96,7 +96,7 @@ function App() {
 
         set(presenceRef, {
           online: true,
-          last_online: serverTimestamp(),
+          last_online: new Date().toISOString(),
         });
       }
     });
