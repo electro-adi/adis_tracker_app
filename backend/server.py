@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 import os
 import json
+import asyncio
 import requests
 import logging
 from pathlib import Path
@@ -145,7 +146,8 @@ def handle_command(event):
     
     command = data.get("command", "")
     if command == "get_status":
-        emqx_manager.publish("Tracker/to/request", "0")
+        # Schedule async task in event loop
+        asyncio.create_task(emqx_manager.publish("Tracker/to/request", "0"))
     
     firebase_manager.update_data("Tracker/commands", {"pending": False})
 

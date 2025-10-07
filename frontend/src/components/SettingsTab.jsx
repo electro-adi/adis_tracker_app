@@ -110,8 +110,46 @@ const SettingsTab = () => {
     return ` (Every ${formatWakeupTime(totalMinutes)})`;
   };
 
+  // Convert minutes to logarithmic scale position (0-100)
+  const minutesToSlider = (minutes) => {
+    const minLog = Math.log(5);
+    const maxLog = Math.log(28800);
+    const scale = 100 / (maxLog - minLog);
+    return (Math.log(minutes) - minLog) * scale;
+  };
+
+  // Convert slider position (0-100) to minutes using logarithmic scale
+  const sliderToMinutes = (position) => {
+    const minLog = Math.log(5);
+    const maxLog = Math.log(28800);
+    const scale = (maxLog - minLog) / 100;
+    let minutes = Math.round(Math.exp(minLog + position * scale));
+    
+    if (minutes <= 60) {
+      // Below 1 hour: snap to 5-minute intervals
+      minutes = Math.round(minutes / 5) * 5;
+    } else if (minutes <= 1440) {
+      // Below 1 day: snap to 30-minute intervals
+      minutes = Math.round(minutes / 30) * 30;
+    } else if (minutes <= 10080) {
+      // Below 1 week: snap to 6-hour (360 min) intervals
+      minutes = Math.round(minutes / 360) * 360;
+    } else {
+      // Above 1 week: snap to 1-day (1440 min) intervals
+      minutes = Math.round(minutes / 1440) * 1440;
+    }
+    
+    return Math.max(5, Math.min(28800, minutes));
+  };
+
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleWakeupSliderChange = (e) => {
+    const sliderValue = parseInt(e.target.value);
+    const minutes = sliderToMinutes(sliderValue);
+    updateSetting('prd_wakeup_time', minutes);
   };
 
   const saveSettings = async () => {
@@ -495,11 +533,11 @@ const SettingsTab = () => {
                   <label className="text-sm text-gray-400">Wakeup Interval</label>
                   <input
                     type="range"
-                    min="5"
-                    max="28800"
-                    step="1"
-                    value={settings.prd_wakeup_time}
-                    onChange={(e) => updateSetting('prd_wakeup_time', parseInt(e.target.value))}
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={minutesToSlider(settings.prd_wakeup_time)}
+                    onChange={handleWakeupSliderChange}
                     className="w-full accent-green-500"
                     style={{ appearance: 'auto' }}
                   />

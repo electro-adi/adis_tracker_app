@@ -13,7 +13,7 @@ import { useToast } from "./hooks/use-toast";
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { v4 as uuidv4 } from 'uuid';
-import { ref, onValue, set } from "firebase/database";
+import { getDatabase, ref, onValue, onDisconnect, set, serverTimestamp } from "firebase/database";
 import { db } from "./firebase";
 
 let deviceId = localStorage.getItem('deviceId');
@@ -80,6 +80,28 @@ function App() {
       unsubLastMsg();
       clearInterval(updateInterval);
     };
+  }, []);
+
+  useEffect(() => {
+    const dbRef = getDatabase();
+    const connectedRef = ref(dbRef, ".info/connected");
+    const presenceRef = ref(dbRef, `Frontend`);
+
+    const unsubscribe = onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        onDisconnect(presenceRef).set({
+          online: false,
+          last_offline: serverTimestamp(),
+        });
+
+        set(presenceRef, {
+          online: true,
+          last_online: serverTimestamp(),
+        });
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleNotification = (notificationData) => {
