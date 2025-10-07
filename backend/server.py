@@ -142,8 +142,56 @@ emqx_manager = EMQXManager()
 # Commands from frontend
 async def execute_command(command_data):
     command = command_data.get("command", "")
+    data1 = command_data.get("data1", "")
+    data2 = command_data.get("data2", "")
+
     if command == "get_status":
         await emqx_manager.publish("Tracker/to/request", "0")
+
+    elif command == "get_location":
+        await emqx_manager.publish("Tracker/to/request", "1")
+
+    elif command == "get_contacts":
+        await emqx_manager.publish("Tracker/to/request", "5")
+
+    elif command == "set_contacts":
+        #send the contacts json from realtime database as payload to Tracker/to/set/contacts
+        contacts = await firebase_manager.get_data("Tracker/contacts")
+        await emqx_manager.publish("Tracker/to/set/contacts", contacts)
+
+    elif command == "make_call":
+        #send data1 as payload to Tracker/to/call
+        await emqx_manager.publish("Tracker/to/call", data1)
+
+    elif command == "send_sms":
+        #send data1 and data2 in sms model json to Tracker/to/sms/send
+        sms = SmsMessage(
+            number=data1,
+            message=data2
+        )
+        await emqx_manager.publish("Tracker/to/sms/send", sms)
+
+    elif command == "get_sms":
+        #send data1 as payload to Tracker/to/sms/get
+        await emqx_manager.publish("Tracker/to/sms/get", data1)
+
+    elif command == "set_ledconfig":
+        #send the ledconfig json from realtime database as payload to Tracker/to/set/led_config
+        ledconfig = await firebase_manager.get_data("Tracker/ledconfig")
+        await emqx_manager.publish("Tracker/to/set/led_config", ledconfig)
+
+    elif command == "send_ir":
+        #send data1 as payload to Tracker/to/irsend
+        await emqx_manager.publish("Tracker/to/irsend", data1)
+
+    elif command == "set_config":
+        #send the deviceconfig json from realtime database as payload to Tracker/to/set/config
+        deviceconfig = await firebase_manager.get_data("Tracker/deviceconfig")
+        await emqx_manager.publish("Tracker/to/set/config", deviceconfig)
+
+    elif command == "mode":
+        #send data1 as payload to Tracker/to/mode
+        await emqx_manager.publish("Tracker/to/mode", data1)
     
     await firebase_manager.update_data("Tracker/commands", {"pending": False})
 
@@ -532,6 +580,8 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
 
 @api_router.get("/")
 async def root():
+    await emqx_manager.publish("Tracker/to/mode", "0")
+
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
 app.include_router(api_router)
@@ -548,13 +598,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     global loop
-    loop = asyncio.get_running_loop()
-    
     try:
-        test_ref = db.reference("_test")
-        test_ref.set({"startup": datetime.now(timezone.utc).isoformat()})
-        test_ref.delete()
-
         logger.info("GPS Tracker API started successfully")
 
         result = await firebase_manager.update_data(
@@ -565,6 +609,8 @@ async def startup_event():
             }
         )
         logger.info(f"Firebase update result: {result}")
+
+        loop = asyncio.get_running_loop()
 
         start_listener()
         
