@@ -77,6 +77,39 @@ const SettingsTab = () => {
     return () => unsubConfig();
   }, []);
 
+  const formatWakeupTime = (minutes) => {
+    if (minutes < 60) {
+      return `${minutes} minutes`;
+    }
+    
+    const totalHours = minutes / 60;
+    const days = Math.floor(totalHours / 24);
+    const hours = Math.floor(totalHours % 24);
+    const remainingMinutes = minutes % 60;
+
+    if (days > 0) {
+      if (hours === 0 && remainingMinutes === 0) {
+        return `${days} ${days === 1 ? 'day' : 'days'}`;
+      } else if (remainingMinutes === 0) {
+        return `${days}d ${hours}h`;
+      } else {
+        return `${days}d ${hours}h ${remainingMinutes}m`;
+      }
+    } else {
+      if (remainingMinutes === 0) {
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+      } else {
+        return `${hours}h ${remainingMinutes}m`;
+      }
+    }
+  };
+
+  const getIntervalTime = (wakeups) => {
+    if (wakeups === 0) return "";
+    const totalMinutes = settings.prd_wakeup_time * wakeups;
+    return ` (Every ${formatWakeupTime(totalMinutes)})`;
+  };
+
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
@@ -459,21 +492,19 @@ const SettingsTab = () => {
             {settings.prd_wakeup && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-400">Wakeup Interval (minutes)</label>
-                  <Input
+                  <label className="text-sm text-gray-400">Wakeup Interval</label>
+                  <input
                     type="range"
                     min="5"
                     max="28800"
                     step="1"
                     value={settings.prd_wakeup_time}
                     onChange={(e) => updateSetting('prd_wakeup_time', parseInt(e.target.value))}
-                    className="w-full accent-green-500"/>
+                    className="w-full accent-green-500"
+                    style={{ appearance: 'auto' }}
+                  />
                   <p className="text-xs text-gray-500">
-                    {settings.prd_wakeup_time < 60
-                      ? `${settings.prd_wakeup_time} minutes`
-                      : settings.prd_wakeup_time % 60 === 0
-                      ? `${settings.prd_wakeup_time / 60} hours`
-                      : `${Math.floor(settings.prd_wakeup_time / 60)}h ${settings.prd_wakeup_time % 60}m`} 
+                    {formatWakeupTime(settings.prd_wakeup_time)}
                   </p>
                 </div>
 
@@ -493,7 +524,7 @@ const SettingsTab = () => {
                       ? "Do not send"
                       : settings.prd_sms_intvrl === 1
                       ? "Send everytime"
-                      : `Send every ${settings.prd_sms_intvrl} wakeups`}
+                      : `Send every ${settings.prd_sms_intvrl} wakeups${getIntervalTime(settings.prd_sms_intvrl)}`}
                   </p>
                 </div>
 
@@ -513,7 +544,7 @@ const SettingsTab = () => {
                       ? "Do not send"
                       : settings.prd_mqtt_intvrl === 1
                       ? "Send everytime"
-                      : `Send every ${settings.prd_mqtt_intvrl} wakeups`}
+                      : `Send every ${settings.prd_mqtt_intvrl} wakeups${getIntervalTime(settings.prd_mqtt_intvrl)}`}
                   </p>
                 </div>
               </div>

