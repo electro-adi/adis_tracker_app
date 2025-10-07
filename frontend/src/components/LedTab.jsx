@@ -25,6 +25,17 @@ const LedTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    const commandRef = ref(db, 'Tracker/commands');
+    set(commandRef, {
+      command: 'get_ledconfig',
+      data1: ' ',
+      data2: ' ',
+      timestamp: new Date().toISOString(),
+      pending: true
+    });
+  }, []);
+
+  useEffect(() => {
     const ledConfigRef = ref(db, 'Tracker/ledconfig');
     const unsubLedConfig = onValue(ledConfigRef, (snapshot) => {
       const data = snapshot.val();

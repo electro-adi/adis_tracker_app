@@ -175,6 +175,9 @@ async def execute_command(command_data):
         #send data1 as payload to Tracker/to/sms/get
         await emqx_manager.publish("Tracker/to/sms/get", data1)
 
+    elif command == "get_ledconfig":
+        await emqx_manager.publish("Tracker/to/request", "3")
+
     elif command == "set_ledconfig":
         #send the ledconfig json from realtime database as payload to Tracker/to/set/led_config
         ledconfig = await firebase_manager.get_data("Tracker/ledconfig")
@@ -183,6 +186,9 @@ async def execute_command(command_data):
     elif command == "send_ir":
         #send data1 as payload to Tracker/to/irsend
         await emqx_manager.publish("Tracker/to/irsend", data1)
+    
+    elif command == "get_config":
+        await emqx_manager.publish("Tracker/to/request", "4")
 
     elif command == "set_config":
         #send the deviceconfig json from realtime database as payload to Tracker/to/set/config
@@ -216,7 +222,7 @@ def start_listener():
     ref_commands = db.reference("Tracker/commands")
     ref_commands.listen(handle_command)
     
-    ref_frontend = db.reference("Tracker/frontend/online")
+    ref_frontend = db.reference("Frontend/online")
     ref_frontend.listen(handle_frontend_status)
 
 #--------------------------------------------------------------------------- 
@@ -597,18 +603,19 @@ app.add_middleware(
 # Startup event
 @app.on_event("startup")
 async def startup_event():
+
+    await firebase_manager.update_data(
+        "Backend",
+        {
+            "online": True,
+            "last_online": datetime.now(timezone.utc).isoformat()
+        }
+    )
+
     global loop
+
     try:
         logger.info("GPS Tracker API started successfully")
-
-        result = await firebase_manager.update_data(
-            "Backend",
-            {
-                "online": True,
-                "last_online": datetime.now(timezone.utc).isoformat()
-            }
-        )
-        logger.info(f"Firebase update result: {result}")
 
         loop = asyncio.get_running_loop()
 
@@ -622,13 +629,12 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
 
-    result = await firebase_manager.update_data(
+    await firebase_manager.update_data(
         "Backend",
         {
             "online": False,
             "last_offline": datetime.now(timezone.utc).isoformat()
         }
     )
-    logger.info(f"Firebase update result: {result}")
 
     logger.info("GPS Tracker API shutdown completed")

@@ -91,12 +91,12 @@ function App() {
       if (snap.val() === true) {
         onDisconnect(presenceRef).set({
           online: false,
-          last_offline: serverTimestamp(),
+          last_offline: new Date().toISOString()
         });
 
         set(presenceRef, {
           online: true,
-          last_online: new Date().toISOString(),
+          last_online: new Date().toISOString()
         });
       }
     });
