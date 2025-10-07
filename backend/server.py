@@ -140,20 +140,20 @@ emqx_manager = EMQXManager()
 
 #--------------------------------------------------------------------------- 
 # Commands from frontend
+async def execute_command(command_data):
+    command = command_data.get("command", "")
+    if command == "get_status":
+        await emqx_manager.publish("Tracker/to/request", "0")
+    
+    await firebase_manager.update_data("Tracker/commands", {"pending": False})
+
 def handle_command(event):
     data = event.data
     
     if not isinstance(data, dict) or not data.get("pending"):
         return
     
-    command = data.get("command", "")
-    if command == "get_status":
-        asyncio.run_coroutine_threadsafe(
-            emqx_manager.publish("Tracker/to/request", "0"),
-            loop
-        )
-    
-    firebase_manager.update_data("Tracker/commands", {"pending": False})
+    asyncio.run_coroutine_threadsafe(execute_command(data), loop)
 
 def start_listener():
     ref = db.reference("Tracker/commands")
