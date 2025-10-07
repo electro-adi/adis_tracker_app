@@ -14,6 +14,8 @@ from firebase_admin import messaging, credentials, exceptions, db
 import requests
 from pydantic import BaseModel
 
+loop = None
+
 from models import (
     DeviceStatus, GpsLocation, CallStatus, LedConfig, 
     DeviceConfig, Contacts, SmsMessage, Notification
@@ -146,8 +148,10 @@ def handle_command(event):
     
     command = data.get("command", "")
     if command == "get_status":
-        # Schedule async task in event loop
-        asyncio.create_task(emqx_manager.publish("Tracker/to/request", "0"))
+        asyncio.run_coroutine_threadsafe(
+            emqx_manager.publish("Tracker/to/request", "0"),
+            loop
+        )
     
     firebase_manager.update_data("Tracker/commands", {"pending": False})
 
@@ -532,15 +536,15 @@ app.add_middleware(
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Initialize services on startup"""
+    global loop
+    loop = asyncio.get_running_loop()
+    
     try:
-        # Test Firebase connection
         test_ref = db.reference("_test")
         test_ref.set({"startup": datetime.now(timezone.utc).isoformat()})
         test_ref.delete()
         
         logger.info("GPS Tracker API started successfully")
-
         await firebase_manager.update_data(
             f"Backend",
             {
@@ -548,9 +552,8 @@ async def startup_event():
                 "last_online": datetime.now(timezone.utc).isoformat()
             }
         )
-
         start_listener()
-
+        
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
 
