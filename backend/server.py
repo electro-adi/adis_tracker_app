@@ -586,6 +586,17 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
 
 @api_router.get("/")
 async def root():
+
+    data = await firebase_manager.get_data("Backend/online")
+    if data is False:
+        await firebase_manager.update_data(
+            "Backend",
+            {
+                "online": True,
+                "last_online": datetime.now(timezone.utc).isoformat()
+            }
+        )
+
     await emqx_manager.publish("Tracker/to/mode", "0")
 
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
@@ -603,17 +614,7 @@ app.add_middleware(
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-
-    await firebase_manager.update_data(
-        "Backend",
-        {
-            "online": True,
-            "last_online": datetime.now(timezone.utc).isoformat()
-        }
-    )
-
     global loop
-
     try:
         logger.info("GPS Tracker API started successfully")
 
