@@ -27,7 +27,7 @@ const BACKEND_URL = 'https://adis-tracker-app.onrender.com';
 function App() {
   const [activeTab, setActiveTab] = useState('location');
   const { toast } = useToast();
-  const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [serverConnected, setServerConncted] = useState(false);
   const [trackerConnected, setTrackerConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState('--');
 
@@ -51,7 +51,7 @@ function App() {
     const backendRef = ref(db, 'Backend/online');
     const unsubBackend = onValue(backendRef, (snapshot) => {
       const isOnline = snapshot.val();
-      setConnectionStatus(isOnline ? 'connected' : 'error');
+      setServerConncted(!!isOnline);
     });
 
     const trackerRef = ref(db, 'Tracker/MQTT/connected');
@@ -190,7 +190,7 @@ useEffect(() => {
   const heartbeat = async () => {
     try 
     {
-      const response = await fetch(`${BACKEND_URL}/api/`, {
+      const response = await fetch(`${BACKEND_URL}/api/heartbeat`, {
         method: 'GET',
         cache: 'no-store',
       });
@@ -205,12 +205,10 @@ useEffect(() => {
 
   heartbeat();
 
-  const interval = setInterval(heartbeat, 45_000);
+  const interval = setInterval(heartbeat, 60_000);
 
   return () => clearInterval(interval);
 }, []);
-
-
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -241,13 +239,13 @@ useEffect(() => {
             <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
             <div className="flex flex-col items-end text-right"> 
               <div className="flex items-center gap-1.5">
-                <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]' : 'bg-yellow-400 animate-pulse'}`}> </div>
-                <span className={`text-sm font-medium ${ connectionStatus === 'connected' ? 'text-green-400' : connectionStatus === 'error' ? 'text-red-400' : 'text-yellow-300'}`}>
-                  {connectionStatus === 'connected' ? 'Server Online' : connectionStatus === 'error' ? 'Server Error' : 'Server Connecting'}
+                <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ serverConnected ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'}`}> </div>
+                <span className={`text-sm font-medium ${ serverConnected ? 'text-green-400' : 'text-red-400'}`}>
+                  {serverConnected ? 'Server Online' : 'Server Offline'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 mt-1.5">
-              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ trackerConnected ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'}`}> </div>
+              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ trackerConnected ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'}`}> </div>
                 <span
                   className={`text-sm font-medium ${ trackerConnected ? 'text-green-400' : 'text-red-400'}`}> 
                   {trackerConnected ? 'Device Connected' : 'Device Disconnected'}

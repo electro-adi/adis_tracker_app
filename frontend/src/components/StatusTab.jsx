@@ -20,6 +20,8 @@ const StatusTab = () => {
   const [status, setStatus] = useState({
     send_reason: 0,
     screen_on: false,
+    sleep_mode: false,
+    currently_active: false,
     last_activity: 0,
     last_activity_human: "--",
     bat_voltage: 0,
@@ -35,6 +37,7 @@ const StatusTab = () => {
     espnow_state: 0,
     stored_sms: 0,
     prd_eps: false,
+    timestamp: ""
   });
 
   const sendReasonMap = {
@@ -73,6 +76,8 @@ const StatusTab = () => {
         setStatus({
           send_reason: data.send_reason || 0,
           screen_on: data.screen_on || false,
+          sleep_mode: data.sleep_mode || false,
+          currently_active: data.currently_active || false,
           last_activity: data.last_activity || 0,
           last_activity_human: getTimeAgo(data.last_activity),
           bat_voltage: data.bat_voltage || 0,
@@ -88,6 +93,7 @@ const StatusTab = () => {
           espnow_state: data.espnow_state || 0,
           stored_sms: data.stored_sms || 0,
           prd_eps: data.prd_eps || false,
+          timestamp: data.timestamp || ""
         });
       }
     });
@@ -148,27 +154,31 @@ const StatusTab = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Device Status</h1>
-        <Button 
-          onClick={refreshStatus} 
-          disabled={loading}
-          variant="outline"
-          className={`
-            border-gray-600 text-gray-300
-            hover:bg-gray-700 hover:text-gray-200
-            active:bg-gray-800
-            focus:bg-transparent
-            focus:text-gray-300
-            focus:border-gray-600
-            focus-visible:ring-1 
-            focus-visible:ring-blue-500
-            focus-visible:ring-offset-2
-            focus-visible:ring-offset-gray-950
-            disabled:opacity-50
-          `}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-400">{getTimeAgo(status.timestamp)}</span>
+          <Button 
+            onClick={refreshStatus} 
+            disabled={loading}
+            variant="outline"
+            className={`
+              border-gray-600 text-gray-300
+              hover:bg-gray-700 hover:text-gray-200
+              active:bg-gray-800
+              focus:bg-transparent
+              focus:text-gray-300
+              focus:border-gray-600
+              focus-visible:ring-1 
+              focus-visible:ring-blue-500
+              focus-visible:ring-offset-2
+              focus-visible:ring-offset-gray-950
+              disabled:opacity-50
+            `}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
+
 
       {/* Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -179,16 +189,7 @@ const StatusTab = () => {
                 <Smartphone className="w-5 h-5 mr-2 text-blue-400" />
                 Device
               </div>
-                <Badge
-                  variant={
-                    [0, 1, 3].includes(status.send_reason) ? "default" : "destructive"
-                  }
-                  className={
-                    [0, 1, 3].includes(status.send_reason) ? "bg-green-600" : "bg-red-600"
-                  }
-                >
-                  {[0, 1, 3].includes(status.send_reason) ? "Awake" : "Asleep"}
-                </Badge>
+              {status.currently_active ? (<Badge className="bg-green-600 animate-pulse-slow text-white">Active</Badge> ) : (<Badge className="bg-gray-500 text-white">Asleep</Badge>)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">

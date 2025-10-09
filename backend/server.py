@@ -157,6 +157,8 @@ async def execute_command(command_data):
     elif command == "set_contacts":
         #send the contacts json from realtime database as payload to Tracker/to/set/contacts
         contacts = await firebase_manager.get_data("Tracker/contacts")
+        if "timestamp" in contacts:
+            del contacts["timestamp"]
         await emqx_manager.publish("Tracker/to/set/contacts", contacts)
 
     elif command == "make_call":
@@ -165,10 +167,10 @@ async def execute_command(command_data):
 
     elif command == "send_sms":
         #send data1 and data2 in sms model json to Tracker/to/sms/send
-        sms = SmsMessage(
-            number=data1,
-            message=data2
-        )
+        sms = {
+            "number": data1,
+            "message": data2
+        }
         await emqx_manager.publish("Tracker/to/sms/send", sms)
 
     elif command == "get_sms":
@@ -181,6 +183,8 @@ async def execute_command(command_data):
     elif command == "set_ledconfig":
         #send the ledconfig json from realtime database as payload to Tracker/to/set/led_config
         ledconfig = await firebase_manager.get_data("Tracker/ledconfig")
+        if "timestamp" in ledconfig:
+            del ledconfig["timestamp"]
         await emqx_manager.publish("Tracker/to/set/led_config", ledconfig)
 
     elif command == "send_ir":
@@ -193,6 +197,8 @@ async def execute_command(command_data):
     elif command == "set_config":
         #send the deviceconfig json from realtime database as payload to Tracker/to/set/config
         deviceconfig = await firebase_manager.get_data("Tracker/deviceconfig")
+        if "timestamp" in deviceconfig:
+            del deviceconfig["timestamp"]
         await emqx_manager.publish("Tracker/to/set/config", deviceconfig)
 
     elif command == "mode":
@@ -210,9 +216,11 @@ def handle_command(event):
     asyncio.run_coroutine_threadsafe(execute_command(data), loop)
 
 def handle_frontend_status(event):
-    data = event.data
-    
-    if data is False:
+    app_online = event.data
+
+    currently_active = firebase_manager.get_data("Tracker/status/latest/currently_active")
+ 
+    if app_online is False and currently_active is True:
         asyncio.run_coroutine_threadsafe(
             emqx_manager.publish("Tracker/to/app_offline", "1"),
             loop
@@ -586,7 +594,10 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
 
 @api_router.get("/")
 async def root():
+    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
+@api_router.get("/heartbeat")
+async def heartbeat():
     data = await firebase_manager.get_data("Backend/online")
     if data is False:
         await firebase_manager.update_data(
@@ -600,6 +611,7 @@ async def root():
     await emqx_manager.publish("Tracker/to/mode", "0")
 
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
+
 
 app.include_router(api_router)
 

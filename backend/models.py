@@ -5,6 +5,8 @@ from datetime import datetime
 class DeviceStatus(BaseModel):
     send_reason: int
     screen_on: bool
+    sleep_mode: bool
+    currently_active: bool
     last_activity: str
     bat_voltage: float
     bat_percent: int
