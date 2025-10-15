@@ -204,7 +204,15 @@ async def execute_command(command_data):
     elif command == "mode":
         #send data1 as payload to Tracker/to/mode
         await emqx_manager.publish("Tracker/to/mode", data1)
+
+    elif command == "mode_espnow":
+        #send data1 as payload to Tracker/to/espnow/mode
+        await emqx_manager.publish("Tracker/to/espnow/mode", data1)
     
+    elif command == "send_espnow":
+        #send data1 as payload to Tracker/to/espnow/send
+        await emqx_manager.publish("Tracker/to/espnow/send", data1)
+
     await firebase_manager.update_data("Tracker/commands", {"pending": False})
 
 def handle_command(event):
@@ -218,8 +226,12 @@ def handle_command(event):
 def handle_frontend_status(event):
     app_online = event.data
 
-    currently_active = firebase_manager.get_data("Tracker/status/latest/currently_active")
- 
+    future = asyncio.run_coroutine_threadsafe(
+        firebase_manager.get_data("Tracker/status/latest/currently_active"),
+        loop
+    )
+    currently_active = future.result()
+
     if app_online is False and currently_active is True:
         asyncio.run_coroutine_threadsafe(
             emqx_manager.publish("Tracker/to/app_offline", "1"),
@@ -253,7 +265,7 @@ async def send_notification(notification: Notification, user_id: str = "default_
         logger.error(f"Failed to save notification to Firebase: {e}")
 
     try:
-        tokens = await firebase_manager.get_data(f"PushToken/{user_id}")
+        tokens = await firebase_manager.get_data(f"PushTokens/{user_id}")
         if not tokens:
             logger.warning("No push tokens found for user")
             return
@@ -341,7 +353,11 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
         elif topic.endswith("/sms/received"):
             nsms_obj = SmsMessage(**payload)
             return await webhook_newsms(nsms_obj, background_tasks)
-        
+
+        elif topic.endswith("/espnow/received"):
+            if isinstance(payload, str):
+                return await webhook_espnow(payload, background_tasks)
+
         elif topic.endswith("/events/connection"):
             if isinstance(payload, dict):
                 return await webhook_connection(payload, background_tasks)
@@ -534,7 +550,33 @@ async def webhook_newsms(newsms: SmsMessage, background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Error handling New SMS webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+async def webhook_espnow(data: str, background_tasks: BackgroundTasks):
+    """Handle messages from espnow"""
+    try:
+        # Update Firebase state
+        await firebase_manager.push_data(
+            f"Tracker/espnow/received",
+            {
+                "msg": data,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+
+        # Send notification
+        notification = Notification(
+            title="ESP-NOW Message!",
+            message=data,
+            type="system"
+        )
+        background_tasks.add_task(send_notification, notification)
+
+        return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Error handling disconnection webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))  
+
 async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
     """Handle connection messages from EMQX webhook"""
     try:

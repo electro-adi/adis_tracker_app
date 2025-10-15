@@ -5,6 +5,7 @@ import LocationTab from "./components/LocationTab";
 import StatusTab from "./components/StatusTab";
 import PhoneTab from "./components/PhoneTab";
 import LedTab from "./components/LedTab";
+import EspNowTAB from "./components/EspNow";
 import IRTab from "./components/IRTab";
 import SettingsTab from "./components/SettingsTab";
 import CMDTab from "./components/CMDTab";
@@ -220,6 +221,8 @@ useEffect(() => {
         return <PhoneTab />;
       case 'led':
         return <LedTab />;
+      case 'espnow':
+        return <EspNowTAB />;
       case 'remote':
         return <IRTab />;
       case 'settings':
