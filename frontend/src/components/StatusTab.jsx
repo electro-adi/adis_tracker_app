@@ -162,15 +162,7 @@ const StatusTab = () => {
             variant="outline"
             className={`
               border-gray-600 text-gray-300
-              hover:bg-gray-700 hover:text-gray-200
-              active:bg-gray-800
-              focus:bg-transparent
-              focus:text-gray-300
-              focus:border-gray-600
-              focus-visible:ring-1 
-              focus-visible:ring-blue-500
-              focus-visible:ring-offset-2
-              focus-visible:ring-offset-gray-950
+              active:bg-gray-800 active:text-gray-200
               disabled:opacity-50
             `}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />

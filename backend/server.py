@@ -221,6 +221,8 @@ def handle_command(event):
     if not isinstance(data, dict) or not data.get("pending"):
         return
     
+    logger.info("Command Detected!")
+    
     asyncio.run_coroutine_threadsafe(execute_command(data), loop)
 
 def handle_frontend_status(event):
@@ -269,6 +271,9 @@ async def send_notification(notification: Notification, user_id: str = "default_
         if not tokens:
             logger.warning("No push tokens found for user")
             return
+        
+        if isinstance(tokens, str):
+            tokens = {"default": {"token": tokens}}
 
         for device_id, token_data in tokens.items():
             token = token_data.get("token")

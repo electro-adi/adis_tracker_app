@@ -53,13 +53,13 @@ const CMDTab = () => {
               <div
                 key={i}
                 onClick={() => copyToClipboard(c.cmd)}
-                className="p-4 bg-gray-900 rounded-xl border border-gray-700 hover:bg-gray-700 cursor-pointer transition group"
+                className="p-4 bg-gray-900 rounded-xl border border-gray-700 active:bg-gray-700 cursor-pointer transition group"
               >
                 <div className="flex justify-between items-center">
                   <code className="text-green-400 font-mono text-sm break-all">
                     {c.cmd}
                   </code>
-                  <Copy className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition" />
+                  <Copy className="w-4 h-4 text-gray-400" />
                 </div>
                 <p className="text-xs text-gray-400 mt-2">{c.desc}</p>
               </div>

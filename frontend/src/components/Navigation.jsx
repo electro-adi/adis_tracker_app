@@ -16,14 +16,14 @@ const Navigation = ({ activeTab, setActiveTab }) => {
   return (
     <nav className="bg-gray-900 border-b border-gray-700">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-center space-x-1">
+        <div className="flex justify-center space-x-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-gray-800 ${
+                className={`flex flex-col items-center px-3 py-3 text-sm font-medium transition-all duration-200 hover:bg-gray-800 ${
                   activeTab === item.id
                     ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-800'
                     : 'text-gray-300 hover:text-white'

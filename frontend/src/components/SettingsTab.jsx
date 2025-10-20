@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
-import { Input } from './ui/input';
 import { 
   Settings, 
   Volume2, 

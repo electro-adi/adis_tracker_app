@@ -62,16 +62,17 @@ const IRTab = () => {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {stored_commands.map((cmd) => (
-                <Button
+                <div
                   key={cmd.value}
                   onClick={() => SendIRCmd(cmd.value)}
-                  disabled={loading}
-                  className="h-16 text-base font-medium 
-                             bg-gray-700 hover:bg-gray-600 text-white 
-                             rounded-xl shadow-sm transition-all"
+                  className="p-4 bg-gray-900 rounded-xl border border-gray-700 active:bg-gray-700 cursor-pointer transition group"
                 >
-                  {cmd.name}
-                </Button>
+                  <div className="flex justify-between items-center">
+                    <div className="text-white">
+                      {cmd.name}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </CardContent>

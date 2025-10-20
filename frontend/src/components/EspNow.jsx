@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,8 +12,18 @@ const EspNowTab = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [currentMode, setCurrentMode] = useState(0);
+  const [bootMode, setBootMode] = useState(0);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '';
@@ -40,35 +50,49 @@ const EspNowTab = () => {
       }
     });
 
-    const receivedRef = ref(db, 'Tracker/espnow/received');
-    const unsubReceived = onValue(receivedRef, (snapshot) => {
+    const configRef = ref(db, 'Tracker/deviceconfig');
+    const unsubConfig = onValue(configRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
-        const receivedMsgs = Object.values(data).map(item => ({
+      if (data && data.espnow_boot_m !== undefined) {
+        setBootMode(data.espnow_boot_m);
+      }
+    });
+
+    const receivedRef = ref(db, 'Tracker/espnow/received');
+    const sentRef = ref(db, 'Tracker/espnow/sent');
+
+    const updateMessages = () => {
+      onValue(receivedRef, (receivedSnapshot) => {
+        const receivedData = receivedSnapshot.val();
+        const receivedMsgs = receivedData ? Object.values(receivedData).map(item => ({
           ...item,
           type: 'received'
-        }));
-        
-        const sentRef = ref(db, 'Tracker/espnow/sent');
+        })) : [];
+
         onValue(sentRef, (sentSnapshot) => {
           const sentData = sentSnapshot.val();
           const sentMsgs = sentData ? Object.values(sentData).map(item => ({
             ...item,
             type: 'sent'
           })) : [];
-          
+
           const allMessages = [...receivedMsgs, ...sentMsgs].sort((a, b) => 
             new Date(a.timestamp) - new Date(b.timestamp)
           );
-          
+
           setMessages(allMessages);
         }, { onlyOnce: true });
-      }
-    });
+      }, { onlyOnce: true });
+    };
+
+    const unsubReceived = onValue(receivedRef, updateMessages);
+    const unsubSent = onValue(sentRef, updateMessages);
 
     return () => {
       unsubStatus();
+      unsubConfig();
       unsubReceived();
+      unsubSent();
     };
   }, []);
 
@@ -76,7 +100,7 @@ const EspNowTab = () => {
     if (!cmd.trim()) {
       toast({
         title: "Error",
-        description: "Message cannot be empty",
+        description: "Command cannot be empty",
         variant: "destructive",
       });
       return;
@@ -101,13 +125,13 @@ const EspNowTab = () => {
 
       setMessage('');
       toast({
-        title: "Message Sent",
-        description: "ESP-NOW message has been sent successfully.",
+        title: "Command Sent",
+        description: "ESP-NOW command has been sent successfully.",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send ESP-NOW message.",
+        description: "Failed to send ESP-NOW command.",
         variant: "destructive",
       });
     } finally {
@@ -177,8 +201,8 @@ const EspNowTab = () => {
 
   const EspnowModes = [
     { value: 0, name: 'OFF' },
-    { value: 1, name: 'Normal Mode' },
-    { value: 2, name: 'Long Range Mode' }
+    { value: 1, name: 'Normal' },
+    { value: 2, name: 'Long Range' }
   ];
 
   const getModeColor = (mode) => {
@@ -190,13 +214,18 @@ const EspNowTab = () => {
     }
   };
 
+  const getModeText = (mode) => {
+    if (mode === 0) return 'Inactive';
+    return `${EspnowModes[mode].name} Active`;
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-white">ESP-NOW</h1>
           <Badge className={`${getModeColor(currentMode)} text-white`}>
-            {EspnowModes[currentMode].name} Active
+            {getModeText(currentMode)}
           </Badge>
         </div>
       </div>
@@ -210,8 +239,8 @@ const EspNowTab = () => {
               Set ESP-NOW Mode
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
               {EspnowModes.map((mode) => (
                 <Button
                   key={mode.value}
@@ -220,7 +249,7 @@ const EspNowTab = () => {
                   onClick={() => SetEspnowMode(mode.value)}
                   disabled={loading}
                   className={currentMode === mode.value 
-                    ? `${getModeColor(mode.value)} hover:opacity-90` 
+                    ? "bg-blue-600 hover:bg-blue-700" 
                     : "border-gray-600 text-gray-300 hover:bg-gray-700"
                   }
                 >
@@ -239,16 +268,19 @@ const EspNowTab = () => {
               Set ESP-NOW Boot Mode
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
               {EspnowModes.map((mode) => (
                 <Button
                   key={mode.value}
-                  variant="outline"
+                  variant={bootMode === mode.value ? "default" : "outline"}
                   size="sm"
                   onClick={() => SetBootEspnowMode(mode.value)}
                   disabled={loading}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  className={bootMode === mode.value 
+                    ? "bg-blue-600 hover:bg-blue-700" 
+                    : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                  }
                 >
                   {mode.name}
                 </Button>
@@ -258,9 +290,9 @@ const EspNowTab = () => {
         </Card>
       </div>
 
-      {/* Terminal-style Chat */}
-      <Card className="bg-gray-900 border-gray-700">
-        <CardHeader className="border-b border-gray-700">
+      {/* Terminal */}
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
           <CardTitle className="text-white flex items-center">
             <Terminal className="w-5 h-5 mr-2 text-green-400" />
             ESP-NOW Terminal
@@ -271,7 +303,7 @@ const EspNowTab = () => {
           <div className="h-96 overflow-y-auto p-4 space-y-3 bg-black/30 font-mono text-sm">
             {messages.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
-                No messages yet. Start a conversation!
+                No command history yet
               </div>
             ) : (
               messages.map((msg, idx) => (
@@ -296,10 +328,11 @@ const EspNowTab = () => {
                 </div>
               ))
             )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Message Input */}
-          <div className="p-4 border-t border-gray-700 bg-gray-800">
+          {/* Command Input */}
+          <div className="p-4 border-t border-gray-700">
             <div className="flex gap-2">
               <Input
                 value={message}
@@ -309,8 +342,8 @@ const EspNowTab = () => {
                     SendEspnowCmd(message);
                   }
                 }}
-                placeholder="Type a message..."
-                className="flex-1 bg-gray-900 border-gray-600 text-white placeholder-gray-500 font-mono"
+                placeholder="Enter command..."
+                className="flex-1 bg-gray-700 border-gray-600 text-white placeholder-gray-500 font-mono"
                 disabled={loading}
               />
               <Button

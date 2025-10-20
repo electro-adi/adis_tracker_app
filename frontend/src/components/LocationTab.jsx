@@ -337,7 +337,7 @@ const LocationTab = () => {
               <Button
                 onClick={openInGoogleMaps}
                 size="sm"
-                className="bg-gray-900/80 hover:bg-gray-900 text-white backdrop-blur-sm"
+                className="bg-gray-900/80 active:bg-gray-900 text-white backdrop-blur-sm"
               >
                 <NavigationIcon className="w-4 h-4 mr-2" />
                 Open in Maps
@@ -346,7 +346,7 @@ const LocationTab = () => {
               <Button
                 onClick={() => setShowHistory(!showHistory)}
                 size="sm"
-                className="bg-gray-900/80 hover:bg-gray-900 text-white"
+                className="bg-gray-900/80 active:bg-gray-900 text-white"
               >
                 {showHistory ? "Hide History" : "View History"}
               </Button>
