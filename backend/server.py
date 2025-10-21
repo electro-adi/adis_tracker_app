@@ -250,19 +250,19 @@ def start_listener():
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
     """Save and send a push notification to Firebase + FCM"""
+    
     timestamp = datetime.now(timezone.utc).isoformat()
 
     try:
         await firebase_manager.update_data(
-            f"Notifications",
+            "Notifications",
             {
                 "title": notification.title,
                 "message": notification.message,
                 "type": notification.type,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": timestamp
             }
         )
-
     except Exception as e:
         logger.error(f"Failed to save notification to Firebase: {e}")
 
@@ -271,33 +271,32 @@ async def send_notification(notification: Notification, user_id: str = "default_
         if not tokens:
             logger.warning("No push tokens found for user")
             return
-        
-        if isinstance(tokens, str):
-            tokens = {"default": {"token": tokens}}
 
-        for device_id, token_data in tokens.items():
-            token = token_data.get("token")
-            if not token:
-                continue
+        if not isinstance(tokens, dict) or "token" not in tokens:
+            logger.error(f"Invalid token structure: {tokens}")
+            return
 
-            msg = messaging.Message(
-                notification=messaging.Notification(
-                    title=notification.title,
-                    body=notification.message,
-                ),
-                token=token
-            )
+        token = tokens["token"]
 
-            try:
-                response = messaging.send(msg)
-                logger.info(f"Push sent to {device_id}, FCM response: {response}")
-            except exceptions.FirebaseError as e:
-                logger.error(f"FCM push failed for {device_id}: {e.code} - {e.message}")
-            except Exception as e:
-                logger.error(f"Unexpected FCM push error for {device_id}: {e}")
+        msg = messaging.Message(
+            notification=messaging.Notification(
+                title=notification.title,
+                body=notification.message,
+            ),
+            token=token
+        )
+
+        try:
+            response = messaging.send(msg)
+            logger.info(f"Push sent to {user_id}, FCM response: {response}")
+        except exceptions.FirebaseError as e:
+            logger.error(f"FCM push failed: {e.code} - {e.message}")
+        except Exception as e:
+            logger.error(f"Unexpected FCM push error: {e}")
 
     except Exception as e:
         logger.error(f"Error fetching tokens or sending push: {e}")
+
 
 #--------------------------------------------------------------------------- 
 # Webhook endpoints for EMQX HTTP connector
@@ -414,24 +413,24 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
     """Handle GPS location updates from EMQX webhook"""
     try:
         location_dict = location.dict()
-        
+
         # Update age timestamps
-        if location.gps_lat and location.gps_lon:
+        if location.gps_lat != 0 and location.gps_lon != 0:
             location_dict["gps_timestamp"] = datetime.now(timezone.utc).isoformat()
-        if location.lbs_lat and location.lbs_lon:
+        if location.lbs_lat != 0 and location.lbs_lon != 0:
             location_dict["lbs_timestamp"] = datetime.now(timezone.utc).isoformat()
         
         # Handle invalid GPS coordinates
-        if location.gps_lat == 0.0 and location.gps_lon == 0.0:
-            last_good = await firebase_manager.get_data("Tracker/location/latest")
-            if last_good:
+        if location.gps_lat == 0 and location.gps_lon == 0:
+            last_location = await firebase_manager.get_data("Tracker/location/latest")
+            if last_location:
                 location_dict.update({
-                    "gps_lat": last_good.get("gps_lat", 0.0),
-                    "gps_lon": last_good.get("gps_lon", 0.0),
-                    "alt": last_good.get("alt", 0.0),
-                    "speed": last_good.get("speed", 0.0),
-                    "course": last_good.get("course", 0.0),
-                    "sats": last_good.get("sats", 0)
+                    "gps_lat": last_location.get("gps_lat", 0.0),
+                    "gps_lon": last_location.get("gps_lon", 0.0),
+                    "alt": last_location.get("alt", 0.0),
+                    "speed": last_location.get("speed", 0.0),
+                    "course": last_location.get("course", 0.0),
+                    "sats": last_location.get("sats", 0)
                 })
         else:
             # Save as last good GPS

@@ -9,6 +9,7 @@ const CMDTab = () => {
   const commands = [
     { cmd: "SET_PSWD=[password];", desc: "Set the password (primary contact only)" },
     { cmd: "PSWD=[password],", desc: "Prefix before any command to get admin access" },
+    { cmd: "LOCK=[0/1]", desc: "Lock or unlock the device (admin access)" },
     { cmd: "REBOOT", desc: "Reboot ESP32 (admin access)" },
     { cmd: "STATUS", desc: "Get current status and location (admin access)" },
     { cmd: "STATUS_TO=[NUMBER];", desc: "Send status to a specific number (admin access)" },
@@ -35,7 +36,7 @@ const CMDTab = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">SMS Commands</h1>
       </div>

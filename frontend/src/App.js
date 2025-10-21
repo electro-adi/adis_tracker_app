@@ -30,11 +30,12 @@ function App() {
   const { toast } = useToast();
   const [serverConnected, setServerConncted] = useState(false);
   const [trackerConnected, setTrackerConnected] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState('--');
+  const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
-    const now = new Date();
+    const now = currentTime;
     const past = new Date(isoString);
     const diffMs = now - past;
     const diffSec = Math.floor(diffMs / 1000);
@@ -47,6 +48,19 @@ function App() {
     const diffDay = Math.floor(diffHr / 24);
     return `${diffDay}d ago`;
   };
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      * { 
+        -webkit-user-drag: none !important;
+        user-drag: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => document.head.removeChild(style);
+  }, []);
 
   useEffect(() => {
     const backendRef = ref(db, 'Backend/online');
@@ -64,22 +78,18 @@ function App() {
     const lastMsgRef = ref(db, 'Tracker/MQTT/last_message');
     const unsubLastMsg = onValue(lastMsgRef, (snapshot) => {
       const timestamp = snapshot.val();
-      setLastUpdate(getTimeAgo(timestamp));
+      setLastUpdateTimestamp(timestamp);
     });
 
-    const updateInterval = setInterval(() => {
-      const lastMsgRef = ref(db, 'Tracker/MQTT/last_message');
-      onValue(lastMsgRef, (snapshot) => {
-        const timestamp = snapshot.val();
-        setLastUpdate(getTimeAgo(timestamp));
-      }, { onlyOnce: true });
-    }, 30000);
+    const timeInterval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
 
     return () => {
       unsubBackend();
       unsubTracker();
       unsubLastMsg();
-      clearInterval(updateInterval);
+      clearInterval(timeInterval);
     };
   }, []);
 
@@ -255,7 +265,7 @@ useEffect(() => {
                 </span>
               </div>
               <span className="text-xs text-gray-400 mt-0.5 opacity-90">
-                Last update: {lastUpdate}
+                Last update: {getTimeAgo(lastUpdateTimestamp)}
               </span>
             </div>
           </div>

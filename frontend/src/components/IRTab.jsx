@@ -46,7 +46,7 @@ const IRTab = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">IR Commands</h1>
       </div>

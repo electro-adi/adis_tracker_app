@@ -37,6 +37,7 @@ const StatusTab = () => {
     espnow_state: 0,
     stored_sms: 0,
     prd_eps: false,
+    gps_fix: false,
     timestamp: ""
   });
 
@@ -52,9 +53,11 @@ const StatusTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
-    const now = new Date();
+    const now = currentTime;
     const past = new Date(isoString);
     const diffMs = now - past;
     const diffSec = Math.floor(diffMs / 1000);
@@ -79,7 +82,7 @@ const StatusTab = () => {
           sleep_mode: data.sleep_mode || false,
           currently_active: data.currently_active || false,
           last_activity: data.last_activity || 0,
-          last_activity_human: getTimeAgo(data.last_activity),
+          last_activity_human: data.last_activity,
           bat_voltage: data.bat_voltage || 0,
           bat_percent: data.bat_percent || 0,
           gsm_rssi: data.gsm_rssi || 0,
@@ -93,21 +96,19 @@ const StatusTab = () => {
           espnow_state: data.espnow_state || 0,
           stored_sms: data.stored_sms || 0,
           prd_eps: data.prd_eps || false,
+          gps_fix: data.gps_fix || false,
           timestamp: data.timestamp || ""
         });
       }
     });
 
-    const updateInterval = setInterval(() => {
-      setStatus(prev => ({
-        ...prev,
-        last_activity_human: getTimeAgo(prev.last_activity),
-      }));
-    }, 30000);
+    const timeInterval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
 
     return () => {
       unsubStatus();
-      clearInterval(updateInterval);
+      clearInterval(timeInterval);
     };
   }, []);
 
@@ -151,7 +152,7 @@ const StatusTab = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Device Status</h1>
         <div className="flex items-center space-x-2">
@@ -181,7 +182,7 @@ const StatusTab = () => {
                 <Smartphone className="w-5 h-5 mr-2 text-blue-400" />
                 Device
               </div>
-              {status.currently_active ? (<Badge className="bg-green-600 animate-pulse-slow text-white">Active</Badge> ) : (<Badge className="bg-gray-500 text-white">Asleep</Badge>)}
+              {status.sleep_mode ? (<Badge className="bg-green-600 animate-pulse-slow text-white">Active</Badge> ) : (<Badge className="bg-gray-500 text-white">Asleep</Badge>)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -203,6 +204,10 @@ const StatusTab = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
               <span className="text-white">{sendReasonMap[status.send_reason] ?? "--"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">GPS State:</span>
+              <span className="text-white">{status.gps_fix ? 'Fix Found' : 'Fix Not Found'}</span>
             </div>
           </CardContent>
         </Card>
@@ -289,7 +294,7 @@ const StatusTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Last Activity:</span>
-              <span className="text-white">{status.last_activity_human}</span>
+              <span className="text-white">{getTimeAgo(status.last_activity_human)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Light Level:</span>

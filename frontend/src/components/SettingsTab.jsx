@@ -11,7 +11,8 @@ import {
   RotateCcw,
   Shield,
   Smartphone,
-  Save
+  Save,
+  MessageSquareShare
 } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 import { ref, onValue, update, set } from 'firebase/database';
@@ -19,12 +20,12 @@ import { db } from '../firebase';
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
-    callmode: 2,
-    gpsmode: 0,
-    bootanimation: true,
-    enablebuzzer: true,
-    enablehaptics: true,
-    bootsms: false,
+    call_mode: 2,
+    gps_mode: 0,
+    boot_animation: true,
+    enable_buzzer: true,
+    enable_haptics: true,
+    boot_sms: false,
     noti_sound: true,
     noti_ppp: true,
     ringtone: 1,
@@ -52,14 +53,14 @@ const SettingsTab = () => {
     const configRef = ref(db, 'Tracker/deviceconfig');
     const unsubConfig = onValue(configRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && data.bootanimation !== undefined) {
+      if (data && data.boot_animation !== undefined) {
         setSettings({
-          callmode: data.callmode !== undefined ? data.callmode : 2,
-          gpsmode: data.gpsmode !== undefined ? data.gpsmode : 0,
-          bootanimation: data.bootanimation !== undefined ? data.bootanimation : true,
-          enablebuzzer: data.enablebuzzer !== undefined ? data.enablebuzzer : true,
-          enablehaptics: data.enablehaptics !== undefined ? data.enablehaptics : true,
-          bootsms: data.bootsms !== undefined ? data.bootsms : false,
+          call_mode: data.call_mode !== undefined ? data.call_mode : 2,
+          gps_mode: data.gps_mode !== undefined ? data.gps_mode : 0,
+          boot_animation: data.boot_animation !== undefined ? data.boot_animation : true,
+          enable_buzzer: data.enable_buzzer !== undefined ? data.enable_buzzer : true,
+          enable_haptics: data.enable_haptics !== undefined ? data.enable_haptics : true,
+          boot_sms: data.boot_sms !== undefined ? data.boot_sms : false,
           noti_sound: data.noti_sound !== undefined ? data.noti_sound : true,
           noti_ppp: data.noti_ppp !== undefined ? data.noti_ppp : true,
           ringtone: data.ringtone !== undefined ? data.ringtone : 1,
@@ -186,12 +187,12 @@ const SettingsTab = () => {
 
   const resetToDefaults = () => {
     setSettings({
-      callmode: 2,
-      gpsmode: 0,
-      bootanimation: true,
-      enablebuzzer: true,
-      enablehaptics: true,
-      bootsms: false,
+      call_mode: 2,
+      gps_mode: 0,
+      boot_animation: true,
+      enable_buzzer: true,
+      enable_haptics: true,
+      boot_sms: false,
       noti_sound: true,
       noti_ppp: true,
       ringtone: 1,
@@ -299,7 +300,7 @@ const SettingsTab = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Device Settings</h1>
         <div className="flex gap-2">
@@ -373,8 +374,8 @@ const SettingsTab = () => {
                 <span className="text-white">Boot Animation</span>
               </div>
               <Switch
-                checked={settings.bootanimation}
-                onCheckedChange={(checked) => updateSetting('bootanimation', checked)}
+                checked={settings.boot_animation}
+                onCheckedChange={(checked) => updateSetting('boot_animation', checked)}
               />
             </div>
 
@@ -384,8 +385,8 @@ const SettingsTab = () => {
                 <span className="text-white">Boot SMS</span>
               </div>
               <Switch
-                checked={settings.bootsms}
-                onCheckedChange={(checked) => updateSetting('bootsms', checked)}
+                checked={settings.boot_sms}
+                onCheckedChange={(checked) => updateSetting('boot_sms', checked)}
               />
             </div>
 
@@ -395,8 +396,8 @@ const SettingsTab = () => {
                 <span className="text-white">Enable Buzzer</span>
               </div>
               <Switch
-                checked={settings.enablebuzzer}
-                onCheckedChange={(checked) => updateSetting('enablebuzzer', checked)}
+                checked={settings.enable_buzzer}
+                onCheckedChange={(checked) => updateSetting('enable_buzzer', checked)}
               />
             </div>
 
@@ -406,8 +407,19 @@ const SettingsTab = () => {
                 <span className="text-white">Enable Haptics</span>
               </div>
               <Switch
-                checked={settings.enablehaptics}
-                onCheckedChange={(checked) => updateSetting('enablehaptics', checked)}
+                checked={settings.enable_haptics}
+                onCheckedChange={(checked) => updateSetting('enable_haptics', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <MessageSquareShare className="w-4 h-4 text-gray-400" />
+                <span className="text-white">Enable MQTT SMS Alerts</span>
+              </div>
+              <Switch
+                checked={settings.sms_thru_mqtt}
+                onCheckedChange={(checked) => updateSetting('sms_thru_mqtt', checked)}
               />
             </div>
 
@@ -471,10 +483,10 @@ const SettingsTab = () => {
                 {callModes.map((mode) => (
                   <Button
                     key={mode.value}
-                    variant={settings.callmode === mode.value ? "default" : "outline"}
+                    variant={settings.call_mode === mode.value ? "default" : "outline"}
                     size="sm"
-                    onClick={() => updateSetting('callmode', mode.value)}
-                    className={settings.callmode === mode.value 
+                    onClick={() => updateSetting('call_mode', mode.value)}
+                    className={settings.call_mode === mode.value 
                       ? "bg-blue-600 hover:bg-blue-700" 
                       : "border-gray-600 text-gray-300 hover:bg-gray-700"
                     }
@@ -592,10 +604,10 @@ const SettingsTab = () => {
                 {gpsModes.map((mode) => (
                   <Button
                     key={mode.value}
-                    variant={settings.gpsmode === mode.value ? "default" : "outline"}
+                    variant={settings.gps_mode === mode.value ? "default" : "outline"}
                     size="sm"
-                    onClick={() => updateSetting('gpsmode', mode.value)}
-                    className={settings.gpsmode === mode.value 
+                    onClick={() => updateSetting('gps_mode', mode.value)}
+                    className={settings.gps_mode === mode.value 
                       ? "bg-green-600 hover:bg-green-700" 
                       : "border-gray-600 text-gray-300 hover:bg-gray-700"
                     }
