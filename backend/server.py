@@ -13,6 +13,7 @@ import firebase_admin
 from firebase_admin import messaging, credentials, exceptions, db
 import requests
 from pydantic import BaseModel
+from math import radians, sin, cos, sqrt, atan2
 
 loop = None
 
@@ -409,48 +410,83 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         logger.error(f"Error handling status webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def haversine(lat1, lon1, lat2, lon2):
+    """Calculate distance in meters between two lat/lon points."""
+    R = 6371000  # Earth radius in meters
+    phi1, phi2 = radians(lat1), radians(lat2)
+    d_phi = radians(lat2 - lat1)
+    d_lambda = radians(lon2 - lon1)
+
+    a = sin(d_phi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(d_lambda / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c
+
 async def webhook_location(location: GpsLocation, background_tasks: BackgroundTasks):
     """Handle GPS location updates from EMQX webhook"""
     try:
-        location_dict = {
-            k: (v.isoformat() if isinstance(v, datetime) else v)
-            for k, v in location.dict().items()
-        }
+        stored_location = await firebase_manager.get_data("Tracker/location/latest")
+        new_location = location.dict()
 
-        gps_lat = float(location_dict.get("gps_lat", 0))
-        gps_lon = float(location_dict.get("gps_lon", 0))
-        lbs_lat = float(location_dict.get("lbs_lat", 0))
-        lbs_lon = float(location_dict.get("lbs_lon", 0))
+        # if gps fix is available, then update
+        if location.gps_fix:
+            new_location.update({
+                "gps_lat": location.gps_lat,
+                "gps_lon": location.gps_lon,
+                "alt": location.alt,
+                "speed": location.speed,
+                "course": location.course,
+                "sats": location.sats,
+                "gps_timestamp": datetime.now(timezone.utc).isoformat()
+            })
 
-        # Update age timestamps
-        if gps_lat != 0 and gps_lon != 0:
-            location_dict["gps_timestamp"] = datetime.now(timezone.utc).isoformat()
-        if lbs_lat != 0 and lbs_lon != 0:
-            location_dict["lbs_timestamp"] = datetime.now(timezone.utc).isoformat()
-
-        # Handle invalid GPS coordinates
-        if gps_lat == 0 and gps_lon == 0:
-            last_location = await firebase_manager.get_data("Tracker/location/latest")
-            if last_location:
-                location_dict.update({
-                    "gps_lat": last_location.get("gps_lat", 0.0),
-                    "gps_lon": last_location.get("gps_lon", 0.0),
-                    "alt": last_location.get("alt", 0.0),
-                    "speed": last_location.get("speed", 0.0),
-                    "course": last_location.get("course", 0.0),
-                    "sats": last_location.get("sats", 0)
-                })
+        # if not, then take from stored data
         else:
-            # Save as last good GPS
-            await firebase_manager.update_data("Tracker/location/latest", location_dict)
+            new_location.update({
+                "gps_lat": stored_location.get("gps_lat", 0.0),
+                "gps_lon": stored_location.get("gps_lon", 0.0),
+                "alt": stored_location.get("alt", 0.0),
+                "speed": stored_location.get("speed", 0.0),
+                "course": stored_location.get("course", 0.0),
+                "sats": stored_location.get("sats", 0),
+            })
+
+        # if lbs fix is available, then update
+        if location.lbs_fix:
+            new_location.update({
+                "lbs_lat": location.lbs_lat,
+                "lbs_lon": location.lbs_lon,
+                "lbs_timestamp": datetime.now(timezone.utc).isoformat()
+            })
+
+        # if not, then take from stored data    
+        else:
+            new_location.update({
+                "lbs_lat": stored_location.get("lbs_lat", 0.0),
+                "lbs_lon": stored_location.get("lbs_lon", 0.0),
+            })
+
+    
+        # If there is gps fix, then save as latest
+        if location.gps_fix:
+            await firebase_manager.update_data("Tracker/location/latest", new_location)
         
-        # Save to Firebase
-        await firebase_manager.push_data("Tracker/location/history", location_dict)
-        
+         # Calculate distance difference
+        last_lat = float(stored_location.get("gps_lat", 0.0))
+        last_lon = float(stored_location.get("gps_lon", 0.0))
+        new_lat = float(new_location.get("gps_lat", 0.0))
+        new_lon = float(new_location.get("gps_lon", 0.0))
+        distance = haversine(last_lat, last_lon, new_lat, new_lon) if (last_lat and last_lon and new_lat and new_lon) else 0.0
+        new_location["distance_from_last_update"] = distance
+
+        # Only push if moved significantly
+        if distance > 100:
+            await firebase_manager.push_data("Tracker/location/history", new_location)
+
+
         # Send notification
         notification = Notification(
             title="Location Updated",
-            message=f"New GPS coordinates: {gps_lat:.6f}, {gps_lon:.6f}",
+            message=f"New GPS coordinates: {new_lat:.6f}, {new_lon:.6f} ",
             type="location"
         )
         

@@ -33,6 +33,8 @@ class GpsLocation(BaseModel):
     alt: float
     speed: float
     course: float
+    gps_fix: bool
+    lbs_fix: bool
     gps_timestamp: datetime = Field(default_factory=datetime.utcnow)
     lbs_timestamp: datetime = Field(default_factory=datetime.utcnow)
 
