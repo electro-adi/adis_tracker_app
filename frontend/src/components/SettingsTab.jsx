@@ -53,7 +53,7 @@ const SettingsTab = () => {
     const configRef = ref(db, 'Tracker/deviceconfig');
     const unsubConfig = onValue(configRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && data.boot_animation !== undefined) {
+      if (data) {
         setSettings({
           call_mode: data.call_mode !== undefined ? data.call_mode : 2,
           gps_mode: data.gps_mode !== undefined ? data.gps_mode : 0,

@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # IDE and editors
 .idea/
 .vscode/
@@ -33,7 +31,7 @@ dist
 /android
 
 # Environment files (comprehensive coverage)
-
+.env
 *token.json*
 *credentials.json*
 
@@ -77,6 +75,3 @@ agenthub/agents/youtube/db
 
 # Build caches
 .cache/
-
-# Mobile development
-android-sdk/ "frontend/src/firebase.js" 

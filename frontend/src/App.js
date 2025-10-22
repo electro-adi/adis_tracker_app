@@ -23,7 +23,7 @@ if (!deviceId) {
   localStorage.setItem('deviceId', deviceId);
 }
 
-const BACKEND_URL = 'https://adis-tracker-app.onrender.com';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 function App() {
   const [activeTab, setActiveTab] = useState('location');

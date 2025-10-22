@@ -412,16 +412,24 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
 async def webhook_location(location: GpsLocation, background_tasks: BackgroundTasks):
     """Handle GPS location updates from EMQX webhook"""
     try:
-        location_dict = location.dict()
+        location_dict = {
+            k: (v.isoformat() if isinstance(v, datetime) else v)
+            for k, v in location.dict().items()
+        }
+
+        gps_lat = float(location_dict.get("gps_lat", 0))
+        gps_lon = float(location_dict.get("gps_lon", 0))
+        lbs_lat = float(location_dict.get("lbs_lat", 0))
+        lbs_lon = float(location_dict.get("lbs_lon", 0))
 
         # Update age timestamps
-        if location.gps_lat != 0 and location.gps_lon != 0:
+        if gps_lat != 0 and gps_lon != 0:
             location_dict["gps_timestamp"] = datetime.now(timezone.utc).isoformat()
-        if location.lbs_lat != 0 and location.lbs_lon != 0:
+        if lbs_lat != 0 and lbs_lon != 0:
             location_dict["lbs_timestamp"] = datetime.now(timezone.utc).isoformat()
-        
+
         # Handle invalid GPS coordinates
-        if location.gps_lat == 0 and location.gps_lon == 0:
+        if gps_lat == 0 and gps_lon == 0:
             last_location = await firebase_manager.get_data("Tracker/location/latest")
             if last_location:
                 location_dict.update({
@@ -442,7 +450,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         # Send notification
         notification = Notification(
             title="Location Updated",
-            message=f"New GPS coordinates: {location.gps_lat:.6f}, {location.gps_lon:.6f}",
+            message=f"New GPS coordinates: {gps_lat:.6f}, {gps_lon:.6f}",
             type="location"
         )
         
