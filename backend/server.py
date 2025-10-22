@@ -468,6 +468,13 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
     
         # If there is gps fix, then save as latest
         if location.gps_fix:
+
+            # Convert datetime objects before saving
+            new_location = {
+                k: (v.isoformat() if isinstance(v, datetime) else v)
+                for k, v in new_location.items()
+            }
+
             await firebase_manager.update_data("Tracker/location/latest", new_location)
         
          # Calculate distance difference
@@ -480,6 +487,13 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
         # Only push if moved significantly
         if distance > 100:
+            
+            # Convert datetime objects before saving
+            new_location = {
+                k: (v.isoformat() if isinstance(v, datetime) else v)
+                for k, v in new_location.items()
+            }
+
             await firebase_manager.push_data("Tracker/location/history", new_location)
 
 
