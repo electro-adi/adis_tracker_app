@@ -284,6 +284,12 @@ async def send_notification(notification: Notification, user_id: str = "default_
                 title=notification.title,
                 body=notification.message,
             ),
+            android=messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    channel_id=notification.type or "general",
+                    icon="ic_stat_notify"
+                )
+            ),
             token=token
         )
 
@@ -400,7 +406,7 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         notification = Notification(
             title="Device Status Updated",
             message=f"{reason_message} - Battery: {status.bat_percent}%",
-            type="status"
+            type="updates"
         )
         
         background_tasks.add_task(send_notification, notification)
