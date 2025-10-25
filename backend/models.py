@@ -21,6 +21,8 @@ class DeviceStatus(BaseModel):
     espnow_state: int
     stored_sms: int
     prd_eps: Optional[bool] = None
+    gps_fox: bool
+    prd_wakeup_counter: int
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class GpsLocation(BaseModel):
@@ -94,5 +96,6 @@ class SmsMessage(BaseModel):
 class Notification(BaseModel):
     title: str
     message: str
-    type: str  # 'status', 'location', 'sms', 'call', 'system'
+    type: str
     data: Optional[dict] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

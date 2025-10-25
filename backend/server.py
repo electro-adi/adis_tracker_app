@@ -255,7 +255,7 @@ async def send_notification(notification: Notification, user_id: str = "default_
     timestamp = datetime.now(timezone.utc).isoformat()
 
     try:
-        await firebase_manager.update_data(
+        await firebase_manager.push_data(
             "Notifications",
             {
                 "title": notification.title,
@@ -368,6 +368,10 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
         elif topic.endswith("/espnow/received"):
             if isinstance(payload, str):
                 return await webhook_espnow(payload, background_tasks)
+            
+        elif topic.endswith("/notification"):
+            noti_obj = Notification(**payload)
+            return await webhook_notification(noti_obj, background_tasks)
 
         elif topic.endswith("/events/connection"):
             if isinstance(payload, dict):
@@ -390,28 +394,41 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
     try:
         status_dict = status.dict()
         status_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
-        
+
         # Save to Firebase
         await firebase_manager.update_data("Tracker/status/latest", status_dict)
         await firebase_manager.push_data("Tracker/status/history", status_dict)
-        
-        # Send notification
-        reason_map = {
-            (0, 1): "Device is online",
-            (2, 3): "Device woken up",
-            (4,): "Periodic Wake up"
-        }
-        reason_message = next((msg for keys, msg in reason_map.items() if status.send_reason in keys), "Unknown status")
-        
-        notification = Notification(
-            title="Device Status Updated",
-            message=f"{reason_message} - Battery: {status.bat_percent}%",
-            type="updates"
-        )
-        
-        background_tasks.add_task(send_notification, notification)
-        
+
+        # send_reason: 
+        # 0 - boot (non-sleepmode)
+        # 1 - request (non-sleepmode)
+        # 2 - request (sleepmode)
+        # 3 - fix found (non-sleepmode)
+        # 4 - fix found (sleepmode)
+        # 5 - periodic wakeup (sleepmode)
+        # 6 - going to sleep
+
+        if status.send_reason not in (3, 4, 6):
+
+            reason_map = {
+                0: "Tracker Online",
+                1: "Status Requested",
+                2: "Device Woken up",
+                5: "Periodic Wake up"
+            }
+
+            reason_message = reason_map.get(status.send_reason, "Unknown Status")
+
+            notification = Notification(
+                title="Status Update",
+                message=f"{reason_message} - Battery: {status.bat_percent}%",
+                type="status_update"
+            )
+
+            background_tasks.add_task(send_notification, notification)
+
         return {"success": True}
+
     except Exception as e:
         logger.error(f"Error handling status webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -483,34 +500,32 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
             await firebase_manager.update_data("Tracker/location/latest", new_location)
         
-         # Calculate distance difference
-        last_lat = float(stored_location.get("gps_lat", 0.0))
-        last_lon = float(stored_location.get("gps_lon", 0.0))
-        new_lat = float(new_location.get("gps_lat", 0.0))
-        new_lon = float(new_location.get("gps_lon", 0.0))
-        distance = haversine(last_lat, last_lon, new_lat, new_lon) if (last_lat and last_lon and new_lat and new_lon) else 0.0
-        new_location["distance_from_last_update"] = distance
+            # Calculate distance difference
+            last_lat = float(stored_location.get("gps_lat", 0.0))
+            last_lon = float(stored_location.get("gps_lon", 0.0))
+            new_lat = float(new_location.get("gps_lat", 0.0))
+            new_lon = float(new_location.get("gps_lon", 0.0))
+            distance = haversine(last_lat, last_lon, new_lat, new_lon) if (last_lat and last_lon and new_lat and new_lon) else 0.0
+            new_location["distance_from_last_update"] = int(distance)
 
-        # Only push if moved significantly
-        if distance > 100:
-            
-            # Convert datetime objects before saving
+
             new_location = {
                 k: (v.isoformat() if isinstance(v, datetime) else v)
                 for k, v in new_location.items()
             }
-
             await firebase_manager.push_data("Tracker/location/history", new_location)
 
+            # if moved significantly
+            if distance > 100:
 
-        # Send notification
-        notification = Notification(
-            title="Location Updated",
-            message=f"New GPS coordinates: {new_lat:.6f}, {new_lon:.6f} ",
-            type="location"
-        )
-        
-        background_tasks.add_task(send_notification, notification)
+                # Send notification
+                notification = Notification(
+                    title="Location Update",
+                    message=f"Moved by: {distance} meters.",
+                    type="location_update"
+                )
+                
+                background_tasks.add_task(send_notification, notification)
         
         return {"success": True}
     except Exception as e:
@@ -530,8 +545,8 @@ async def webhook_callstatus(callstatus: CallStatus, background_tasks: Backgroun
         if callstatus.status == 2:  # Incoming call
             notification = Notification(
                 title="Incoming Call",
-                message=f"Device receiving call from: {callstatus.number}",
-                type="call"
+                message=f"Tracker receiving call from: {callstatus.number}",
+                type="high_priority"
             )
             background_tasks.add_task(send_notification, notification)
         
@@ -609,7 +624,7 @@ async def webhook_newsms(newsms: SmsMessage, background_tasks: BackgroundTasks):
         notification = Notification(
             title="SMS Received",
             message=f"From {newsms.number}: {newsms.message[:50]}...",
-            type="sms"
+            type="general"
         )
         
         background_tasks.add_task(send_notification, notification)
@@ -622,20 +637,22 @@ async def webhook_newsms(newsms: SmsMessage, background_tasks: BackgroundTasks):
 async def webhook_espnow(data: str, background_tasks: BackgroundTasks):
     """Handle messages from espnow"""
     try:
-        # Update Firebase state
+        # Update Firebase
         await firebase_manager.push_data(
-            f"Tracker/espnow/received",
+            "Tracker/espnow/received",
             {
                 "msg": data,
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
         )
 
+        notif_type = "high_priority" if ("IMPORTANT" in data or "DETECTED" in data) else "general"
+
         # Send notification
         notification = Notification(
             title="ESP-NOW Message!",
             message=data,
-            type="system"
+            type=notif_type
         )
         background_tasks.add_task(send_notification, notification)
 
@@ -643,7 +660,24 @@ async def webhook_espnow(data: str, background_tasks: BackgroundTasks):
 
     except Exception as e:
         logger.error(f"Error handling disconnection webhook: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))  
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def webhook_notification(notification: Notification, background_tasks: BackgroundTasks):
+    """Handle New SMS messages from EMQX webhook"""
+    try:
+        # Send notification
+        notification = Notification(
+            title=notification.title,
+            message=notification.message,
+            type=notification.type
+        )
+        
+        background_tasks.add_task(send_notification, notification)
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error sending notification: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) 
 
 async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
     """Handle connection messages from EMQX webhook"""
@@ -663,7 +697,7 @@ async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
             notification = Notification(
                 title="Tracker Connected",
                 message=f"Device {clientid} just connected",
-                type="system"
+                type="general"
             )
             background_tasks.add_task(send_notification, notification)
 
@@ -692,7 +726,7 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
             notification = Notification(
                 title="Tracker Disconnected",
                 message=f"Device {clientid} just disconnected",
-                type="system"
+                type="high_priority"
             )
             background_tasks.add_task(send_notification, notification)
 
@@ -708,8 +742,8 @@ async def root():
 
 @api_router.get("/heartbeat")
 async def heartbeat():
-    data = await firebase_manager.get_data("Backend/online")
-    if data is False:
+    backend_state = await firebase_manager.get_data("Backend/online")
+    if backend_state is False:
         await firebase_manager.update_data(
             "Backend",
             {
@@ -718,7 +752,9 @@ async def heartbeat():
             }
         )
 
-    await emqx_manager.publish("Tracker/to/mode", "0")
+    wake_tracker = await firebase_manager.get_data("Frontend/wake_tracker")
+    if wake_tracker is True:
+        await emqx_manager.publish("Tracker/to/mode", "0")
 
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
