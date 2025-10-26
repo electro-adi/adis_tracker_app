@@ -214,6 +214,7 @@ async def execute_command(command_data):
         #send data1 as payload to Tracker/to/espnow/send
         await emqx_manager.publish("Tracker/to/espnow/send", data1)
 
+    await firebase_manager.update_data("Preferences", {"do_not_wake_tracker": False})
     await firebase_manager.update_data("Tracker/commands", {"pending": False})
 
 def handle_command(event):
@@ -228,6 +229,13 @@ def handle_command(event):
 
 def handle_frontend_status(event):
     app_online = event.data
+
+    if app_online is False:
+        logger.info("Frontend went offline")
+        asyncio.run_coroutine_threadsafe(
+            firebase_manager.update_data("Preferences", {"do_not_wake_tracker": True}),
+            loop
+        )
 
     future = asyncio.run_coroutine_threadsafe(
         firebase_manager.get_data("Tracker/status/latest/currently_active"),
@@ -755,8 +763,8 @@ async def heartbeat():
             }
         )
 
-    wake_tracker = await firebase_manager.get_data("Preferences/wake_tracker")
-    if wake_tracker is True:
+    do_not_wake_tracker = await firebase_manager.get_data("Preferences/do_not_wake_tracker")
+    if do_not_wake_tracker is True:
         await emqx_manager.publish("Tracker/to/mode", "0")
 
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
