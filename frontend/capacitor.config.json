@@ -1,7 +1,11 @@
 {
   "appId": "com.adi.trackerapp",
   "appName": "Adi's Tracker",
-  "webDir": "build",
+  "webDir": "dist",
+  "assets": {
+    "iconPath": "resources/icon.png",
+    "splashPath": "resources/splash.png"
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 2000,
@@ -12,6 +16,9 @@
     "StatusBar": {
       "overlaysWebView": true,
       "style": "DARK"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
     }
   }
 }

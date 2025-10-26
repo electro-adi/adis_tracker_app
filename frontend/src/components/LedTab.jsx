@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { Lightbulb, Palette, Settings, Eye } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
+import { useToast } from "../hooks/use-toast";
 import { ref, onValue, set, update } from 'firebase/database';
 import { db } from '../firebase';
 

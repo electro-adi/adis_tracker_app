@@ -21,7 +21,7 @@ class DeviceStatus(BaseModel):
     espnow_state: int
     stored_sms: int
     prd_eps: Optional[bool] = None
-    gps_fox: bool
+    gps_fix: bool
     prd_wakeup_counter: int
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 

@@ -515,8 +515,11 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
             }
             await firebase_manager.push_data("Tracker/location/history", new_location)
 
+
+            threshold_distance = await firebase_manager.get_data("Preferences/threshold_distance") or 0
+
             # if moved significantly
-            if distance > 100:
+            if distance > threshold_distance:
 
                 # Send notification
                 notification = Notification(
@@ -752,7 +755,7 @@ async def heartbeat():
             }
         )
 
-    wake_tracker = await firebase_manager.get_data("Frontend/wake_tracker")
+    wake_tracker = await firebase_manager.get_data("Preferences/wake_tracker")
     if wake_tracker is True:
         await emqx_manager.publish("Tracker/to/mode", "0")
 

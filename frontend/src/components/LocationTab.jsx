@@ -3,11 +3,12 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
-import 'leaflet/dist/leaflet.css';
+import { useToast } from "../hooks/use-toast";
 import L from 'leaflet';
-import { ref, onValue, set } from "firebase/database";
+import 'leaflet/dist/leaflet.css';
+import { ref, onValue, set } from 'firebase/database';
 import { db } from "../firebase";
+
 
 const blueIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
@@ -110,7 +111,7 @@ const LocationTab = () => {
   });
 
   useEffect(() => {
-    const locationRef = ref(db, 'Tracker/Location/latest');
+    const locationRef = ref(db, 'Tracker/location/latest');
     const unsubLocation = onValue(locationRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -148,7 +149,7 @@ const LocationTab = () => {
   useEffect(() => {
     if (!showHistory) return;
 
-    const historyRef = ref(db, 'Tracker/Location/history');
+    const historyRef = ref(db, 'Tracker/location/history');
     const unsubHistory = onValue(historyRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -161,39 +162,6 @@ const LocationTab = () => {
 
     return () => unsubHistory();
   }, [showHistory]);
-
-  const requestLocation = async () => {
-    setLoading(true);
-    try {
-      const commandRef = ref(db, 'Tracker/commands');
-      await set(commandRef, {
-        command: 'get_location',
-        data1: ' ',
-        data2: ' ',
-        timestamp: new Date().toISOString(),
-        pending: true
-      });
-      
-      toast({
-        title: "Location Updated",
-        description: "Request sent for new location data.",
-      });
-    } catch (error) {
-      console.error('Location request failed:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send location request.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openInGoogleMaps = () => {
-    const url = `https://www.google.com/maps?q=${locationData.gps_lat},${locationData.gps_lon}`;
-    window.open(url, '_blank');
-  };
 
   useEffect(() => {
     const statusRef = ref(db, 'Tracker/status/latest');
@@ -209,6 +177,38 @@ const LocationTab = () => {
       unsubStatus();
     };
   }, []);
+
+  const requestLocation = async () => {
+    setLoading(true);
+    try {
+      const commandRef = ref(db, 'Tracker/commands');
+      await set(commandRef, {
+        command: 'get_location',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+      
+      toast({
+        title: "Location Updated",
+        description: "Request sent for new location data."
+      });
+    } catch (error) {
+      console.error('Location request failed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send location request."
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openInGoogleMaps = () => {
+    const url = `https://www.google.com/maps?q=${locationData.gps_lat},${locationData.gps_lon}`;
+    window.open(url, '_blank');
+  };
 
   return (
     <div className="p-6 pt-8 space-y-6">
@@ -250,108 +250,97 @@ const LocationTab = () => {
       <Card className="bg-gray-800 border-gray-700">
         <CardContent className="p-0">
           <div className="h-96 bg-gray-700 rounded-lg relative overflow-hidden">
-            <MapContainer
-              center={[locationData.gps_lat, locationData.gps_lon]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-              className="rounded-lg"
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-
-              <FitBoundsToMarkers
-                gps={[locationData.gps_lat, locationData.gps_lon]}
-                lbs={[locationData.lbs_lat, locationData.lbs_lon]}
-                hasFit={hasFit} 
-              />
-
-              <Marker
-                position={[locationData.gps_lat, locationData.gps_lon]}
-                icon={blueIcon}
+            {typeof window !== "undefined" && (
+              <MapContainer
+                center={[locationData.gps_lat, locationData.gps_lon]}
+                zoom={15}
+                style={{ height: "100%", width: "100%" }}
+                className="rounded-lg"
               >
-                <Popup>
-                  <div className="text-center">
-                    <strong>GPS Location</strong><br />
-                    Lat: {locationData.gps_lat}<br />
-                    Lon: {locationData.gps_lon}<br />
-                    Satellites: {locationData.sats ?? "--"}<br />
-                    Speed: {locationData.speed ?? "--"} km/h <br />
-                    Age: {locationData.gps_age_human ?? "--"}<br />
-                    Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
-                  </div>
-                </Popup>
-              </Marker>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
 
-              <Marker
-                position={[locationData.lbs_lat, locationData.lbs_lon]}
-                icon={greenIcon}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <strong>LBS Location</strong><br />
-                    Lat: {locationData.lbs_lat}<br />
-                    Lon: {locationData.lbs_lon}<br />
-                    Age: {locationData.lbs_age_human ?? "--"}<br />
-                    Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
-                  </div>
-                </Popup>
-              </Marker>
+                <FitBoundsToMarkers
+                  gps={[locationData.gps_lat, locationData.gps_lon]}
+                  lbs={[locationData.lbs_lat, locationData.lbs_lon]}
+                  hasFit={hasFit}
+                />
 
-              {showHistory && historyData.length > 0 && (
-                <>
-                  {historyData.map((point, idx) => (
-                    <Marker
-                      key={`gps-${idx}`}
-                      position={[point.gps_lat, point.gps_lon]}
-                      icon={blueDotIcon}
-                    >
-                      <Popup>
-                        <div className="text-center">
-                          <strong>GPS Point {idx + 1}</strong><br />
-                          Lat: {point.gps_lat}<br />
-                          Lon: {point.gps_lon}<br />
-                          Time: {new Date(point.timestamp).toLocaleString()}<br />
-                          Speed: {point.speed ?? "--"} km/h <br />
-                          Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
+                <Marker position={[locationData.gps_lat, locationData.gps_lon]} icon={blueIcon}>
+                  <Popup>
+                    <div className="text-center">
+                      <strong>GPS Location</strong><br />
+                      Lat: {locationData.gps_lat}<br />
+                      Lon: {locationData.gps_lon}<br />
+                      Satellites: {locationData.sats ?? "--"}<br />
+                      Speed: {locationData.speed ?? "--"} km/h <br />
+                      Age: {locationData.gps_age_human ?? "--"}<br />
+                      Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
+                    </div>
+                  </Popup>
+                </Marker>
 
-                  <Polyline
-                    positions={historyData.map(p => [p.gps_lat, p.gps_lon])}
-                    color="blue"
-                  />
+                <Marker position={[locationData.lbs_lat, locationData.lbs_lon]} icon={greenIcon}>
+                  <Popup>
+                    <div className="text-center">
+                      <strong>LBS Location</strong><br />
+                      Lat: {locationData.lbs_lat}<br />
+                      Lon: {locationData.lbs_lon}<br />
+                      Age: {locationData.lbs_age_human ?? "--"}<br />
+                      Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
+                    </div>
+                  </Popup>
+                </Marker>
 
-                  {historyData.map((point, idx) => (
-                    <Marker
-                      key={`lbs-${idx}`}
-                      position={[point.lbs_lat, point.lbs_lon]}
-                      icon={greenDotIcon}
-                    >
-                      <Popup>
-                        <div className="text-center">
-                          <strong>LBS Point {idx + 1}</strong><br />
-                          Lat: {point.lbs_lat}<br />
-                          Lon: {point.lbs_lon}<br />
-                          Time: {new Date(point.timestamp).toLocaleString()} <br />
-                          Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
+                {showHistory && historyData.length > 0 && (
+                  <>
+                    {historyData.map((point, idx) => (
+                      <Marker
+                        key={`gps-${idx}`}
+                        position={[point.gps_lat, point.gps_lon]}
+                        icon={blueDotIcon}
+                      >
+                        <Popup>
+                          <div className="text-center">
+                            <strong>GPS Point {idx + 1}</strong><br />
+                            Lat: {point.gps_lat}<br />
+                            Lon: {point.gps_lon}<br />
+                            Time: {new Date(point.timestamp).toLocaleString()}<br />
+                            Speed: {point.speed ?? "--"} km/h <br />
+                            Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
 
-                  <Polyline
-                    positions={historyData.map(p => [p.lbs_lat, p.lbs_lon])}
-                    color="green"
-                  />
-                </>
-              )}
+                    <Polyline positions={historyData.map(p => [p.gps_lat, p.gps_lon])} color="blue" />
 
-            </MapContainer>
-            
+                    {historyData.map((point, idx) => (
+                      <Marker
+                        key={`lbs-${idx}`}
+                        position={[point.lbs_lat, point.lbs_lon]}
+                        icon={greenDotIcon}
+                      >
+                        <Popup>
+                          <div className="text-center">
+                            <strong>LBS Point {idx + 1}</strong><br />
+                            Lat: {point.lbs_lat}<br />
+                            Lon: {point.lbs_lon}<br />
+                            Time: {new Date(point.timestamp).toLocaleString()}<br />
+                            Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+
+                    <Polyline positions={historyData.map(p => [p.lbs_lat, p.lbs_lon])} color="green" />
+                  </>
+                )}
+              </MapContainer>
+            )}
+
             <div className="absolute top-4 right-4 z-5 flex items-center space-x-2">
               <Button
                 onClick={openInGoogleMaps}

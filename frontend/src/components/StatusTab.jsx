@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Clock,
 } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
+import { useToast } from "../hooks/use-toast";
 import { ref, onValue, set } from 'firebase/database';
 import { db } from "../firebase";
 
@@ -126,13 +126,12 @@ const StatusTab = () => {
       
       toast({
         title: "Status Updated",
-        description: "Device status refresh requested.",
+        description: "Device status refresh requested."
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to request status refresh.",
-        variant: "destructive",
+        description: "Failed to request status refresh."
       });
     } finally {
       setLoading(false);

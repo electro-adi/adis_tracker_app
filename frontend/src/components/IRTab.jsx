@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Button } from './ui/button';
 import { Shield } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
+import { useToast } from "../hooks/use-toast";
 import { ref, set } from 'firebase/database';
 import { db } from '../firebase';
 
