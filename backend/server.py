@@ -471,6 +471,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
         # if gps fix is available, then update
         if location.gps_fix:
+            logger.log("GPS fix found, updating.")
             new_location.update({
                 "gps_lat": location.gps_lat,
                 "gps_lon": location.gps_lon,
@@ -481,44 +482,26 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 "gps_timestamp": datetime.now(timezone.utc).isoformat()
             })
 
-        # if not, then take from stored data
-        else:
-            new_location.update({
-                "gps_lat": stored_location.get("gps_lat", 0.0),
-                "gps_lon": stored_location.get("gps_lon", 0.0),
-                "alt": stored_location.get("alt", 0.0),
-                "speed": stored_location.get("speed", 0.0),
-                "course": stored_location.get("course", 0.0),
-                "sats": stored_location.get("sats", 0),
-            })
-
         # if lbs fix is available, then update
         if location.lbs_fix:
+            logger.log("LBS fix found, updating.")
             new_location.update({
                 "lbs_lat": location.lbs_lat,
                 "lbs_lon": location.lbs_lon,
                 "lbs_timestamp": datetime.now(timezone.utc).isoformat()
             })
 
-        # if not, then take from stored data    
-        else:
-            new_location.update({
-                "lbs_lat": stored_location.get("lbs_lat", 0.0),
-                "lbs_lon": stored_location.get("lbs_lon", 0.0),
-            })
+        # Convert datetime objects before saving
+        new_location = {
+            k: (v.isoformat() if isinstance(v, datetime) else v)
+            for k, v in new_location.items()
+        }
 
-    
+        await firebase_manager.update_data("Tracker/location/latest", new_location)
+        
         # If there is gps fix, then save as latest
         if location.gps_fix:
 
-            # Convert datetime objects before saving
-            new_location = {
-                k: (v.isoformat() if isinstance(v, datetime) else v)
-                for k, v in new_location.items()
-            }
-
-            await firebase_manager.update_data("Tracker/location/latest", new_location)
-        
             # Calculate distance difference
             last_lat = float(stored_location.get("gps_lat", 0.0))
             last_lon = float(stored_location.get("gps_lon", 0.0))
@@ -527,14 +510,8 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
             distance = haversine(last_lat, last_lon, new_lat, new_lon) if (last_lat and last_lon and new_lat and new_lon) else 0.0
             new_location["distance_from_last_update"] = int(distance)
 
-
-            new_location = {
-                k: (v.isoformat() if isinstance(v, datetime) else v)
-                for k, v in new_location.items()
-            }
             await firebase_manager.push_data("Tracker/location/history", new_location)
-
-
+            
             threshold_distance = await firebase_manager.get_data("Preferences/threshold_distance") or 0
 
             # if moved significantly
