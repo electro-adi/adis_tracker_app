@@ -5,11 +5,16 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import {
   Phone,
+  PhoneOutgoing,
   MessageSquare,
+  RefreshCw,
   Users,
   Edit,
   Check,
-  X,
+  Save,
+  MessagesSquare,
+  Send,
+  X
 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { ref, onValue, set, update } from 'firebase/database';
@@ -37,6 +42,7 @@ const PhoneTab = () => {
   });
 
   const [loading, setLoading] = useState({ call: false, sms: false, contacts: false });
+  const [loading2, setLoading2] = useState(false);
   const [callNumber, setCallNumber] = useState("");
   const [smsNumber, setSmsNumber] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
@@ -58,16 +64,34 @@ const PhoneTab = () => {
     return `${diffDay}d ago`;
   };
 
-  useEffect(() => {
-    const commandRef = ref(db, 'Tracker/commands');
-    set(commandRef, {
-      command: 'get_contacts',
-      data1: ' ',
-      data2: ' ',
-      timestamp: new Date().toISOString(),
-      pending: true
-    });
+  const refreshContacts = async () => {
+    setLoading2(true);
+    try {
+      const commandRef2 = ref(db, 'Tracker/commands');
+      await set(commandRef2, {
+        command: 'get_contacts',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+      
+      toast({
+        title: "Request Sent",
+        description: "Device contacts refresh requested."
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to request contacts refresh.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading2(false);
+    }
+  };
 
+  useEffect(() => {
     const contactsRef = ref(db, 'Tracker/contacts');
     const unsubContacts = onValue(contactsRef, (snapshot) => {
       const data = snapshot.val();
@@ -130,7 +154,7 @@ const PhoneTab = () => {
       toast({
         title: "Error",
         description: "Failed to send SMS retrieval request.",
-        variant: "destructive",
+        variant: "destructive"
       });
       console.error("Failed to get sms:", error);
     } finally {
@@ -148,7 +172,7 @@ const PhoneTab = () => {
         toast({
           title: "Validation Error",
           description: `Contact ${i + 1}: Name provided but phone number is missing.`,
-          variant: "destructive",
+          variant: "destructive"
         });
         return false;
       }
@@ -157,7 +181,7 @@ const PhoneTab = () => {
         toast({
           title: "Validation Error",
           description: `Contact ${i + 1}: Phone number provided but name is missing.`,
-          variant: "destructive",
+          variant: "destructive"
         });
         return false;
       }
@@ -168,7 +192,7 @@ const PhoneTab = () => {
           toast({
             title: "Validation Error",
             description: `Contact ${i + 1}: Phone number must be exactly 10 digits with no letters.`,
-            variant: "destructive",
+            variant: "destructive"
           });
           return false;
         }
@@ -204,13 +228,13 @@ const PhoneTab = () => {
 
       toast({
         title: "Contacts Updated",
-        description: "Contacts have been updated successfully.",
+        description: "Contacts have been updated successfully."
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update contacts.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading((prev) => ({ ...prev, contacts: false }));
@@ -222,7 +246,7 @@ const PhoneTab = () => {
       toast({
         title: "Error",
         description: "Please enter a phone number",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
@@ -239,15 +263,15 @@ const PhoneTab = () => {
       });
 
       toast({
-        title: "Call Initiated",
-        description: `Calling ${callNumber}...`,
+        title: "Sent Dial Request",
+        description: `Calling ${callNumber}...`
       });
       setCallNumber("");
     } catch (error) {
       toast({
         title: "Call Failed",
         description: "Unable to initiate call",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading((prev) => ({ ...prev, call: false }));
@@ -259,7 +283,7 @@ const PhoneTab = () => {
       toast({
         title: "Error",
         description: "Please enter both phone number and message",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
@@ -277,7 +301,7 @@ const PhoneTab = () => {
 
       toast({
         title: "SMS Sent",
-        description: `Message sent to ${smsNumber}`,
+        description: `Message sent to ${smsNumber}`
       });
       setSmsNumber("");
       setSmsMessage("");
@@ -285,7 +309,7 @@ const PhoneTab = () => {
       toast({
         title: "SMS Failed",
         description: "Unable to send message",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading((prev) => ({ ...prev, sms: false }));
@@ -336,7 +360,7 @@ const PhoneTab = () => {
   return (
     <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Phone Control</h1>
+        <h1 className="text-2xl font-bold text-white">Phone Functions</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -415,13 +439,42 @@ const PhoneTab = () => {
               ))}
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 space-y-3">
               <Button
                 onClick={saveContacts}
                 disabled={loading.contacts}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600 text-white"
               >
-                {loading.contacts ? "Saving..." : "Save Contacts"}
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading.contacts ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Contacts
+                    </>
+                  )}
+                </span>
+              </Button>
+              <Button
+                onClick={refreshContacts}
+                disabled={loading2}
+                className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+              >
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading2 ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                    <RefreshCw className={`w-4 h-4 mr-2`} />
+                    Refresh Contacts
+                    </>
+                  )}
+                </span>
               </Button>
             </div>
           </CardContent>
@@ -445,9 +498,20 @@ const PhoneTab = () => {
             <Button
               onClick={makeCall}
               disabled={loading.call}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600 text-white"
             >
-              {loading.call ? "Calling..." : "Make Call"}
+              <span className="relative z-10 flex items-center justify-center">
+                {loading.call ? (
+                  <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  </>
+                ) : (
+                  <>
+                    <PhoneOutgoing className="w-4 h-4 mr-2" />
+                    Make Call
+                  </>
+                )}
+              </span>
             </Button>
 
             <div className="space-y-2">
@@ -459,7 +523,7 @@ const PhoneTab = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => selectContact(contact, "call")}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="border-gray-600 text-gray-300"
                   >
                     {contact.name}
                   </Button>
@@ -497,10 +561,21 @@ const PhoneTab = () => {
             <Button
               onClick={sendSms}
               disabled={loading.sms}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {loading.sms ? "Sending..." : "Send SMS"}
-            </Button>
+                className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+              >
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading.sms ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                    <Send className={`w-4 h-4 mr-2`} />
+                    Send SMS
+                    </>
+                  )}
+                </span>
+              </Button>
 
             <div className="space-y-2">
               <label className="text-sm text-gray-400">Quick Contacts</label>
@@ -511,7 +586,7 @@ const PhoneTab = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => selectContact(contact, "sms")}
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="border-gray-600 text-gray-300"
                   >
                     {contact.name}
                   </Button>
@@ -549,14 +624,25 @@ const PhoneTab = () => {
                   toast({
                     title: "Invalid Index",
                     description: "Please enter a valid SMS index",
-                    variant: "destructive",
+                    variant: "destructive"
                   });
                 }
               }}
               disabled={loading.sms}
-              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+              className="w-full bg-gradient-to-br from-amber-600 to-yellow-600 hover:from-amber-600 hover:to-yellow-600 text-white"
             >
-              {loading.sms ? "Retrieving..." : "Retrieve SMS"}
+              <span className="relative z-10 flex items-center justify-center">
+                {loading.sms ? (
+                  <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  </>
+                ) : (
+                  <>
+                  <MessagesSquare className={`w-4 h-4 mr-2`} />
+                  Retrieve SMS
+                  </>
+                )}
+              </span>
             </Button>
 
             {sms_message.number && (

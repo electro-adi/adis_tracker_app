@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon } from 'lucide-react';
+import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon, History, Clock, MapPinned } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -81,7 +81,8 @@ const LocationTab = () => {
     2: "Request (Sleep)",
     3: "Fix Found",
     4: "Fix Found (Sleep)",
-    5: "Periodic Wakeup (Sleep)"
+    5: "Periodic Wakeup",
+    6: "Going to Sleep"
   };
 
   const [loading, setLoading] = useState(false);
@@ -89,6 +90,7 @@ const LocationTab = () => {
 
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
+  const [historyList, setHistoryList] = useState([]);
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
@@ -147,16 +149,20 @@ const LocationTab = () => {
   }, []);
 
   useEffect(() => {
-    if (!showHistory) return;
-
     const historyRef = ref(db, 'Tracker/location/history');
     const unsubHistory = onValue(historyRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const historyArray = Object.values(data)
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-          .slice(0, 50);
-        setHistoryData(historyArray);
+          .sort((a, b) => new Date(a.gps_timestamp) - new Date(b.gps_timestamp));
+        setHistoryList(historyArray);
+        
+        if (showHistory) {
+          const mapHistory = historyArray
+            .sort((a, b) => new Date(b.gps_timestamp) - new Date(a.gps_timestamp))
+            .slice(0, 50);
+          setHistoryData(mapHistory);
+        }
       }
     });
 
@@ -169,7 +175,7 @@ const LocationTab = () => {
       const data = snapshot.val();
       if (data) {
         setStatus({
-          stored_sms: data.stored_sms || 0,
+          gps_fix: data.gps_fix || false,
         });
       }
     });
@@ -191,14 +197,15 @@ const LocationTab = () => {
       });
       
       toast({
-        title: "Location Updated",
+        title: "Request Sent",
         description: "Request sent for new location data."
       });
     } catch (error) {
       console.error('Location request failed:', error);
       toast({
         title: "Error",
-        description: "Failed to send location request."
+        description: "Failed to send location request.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -213,33 +220,28 @@ const LocationTab = () => {
   return (
     <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Tracker Location</h1>
+        <h1 className="text-2xl font-bold text-white">Device Location</h1>
         <Button
           onClick={requestLocation}
           disabled={loading}
           className={`
-            relative group
-            bg-gradient-to-br from-sky-500 to-blue-600
+            bg-gradient-to-br from-sky-600 to-blue-600
             text-white font-semibold
+            hover:bg-blue-600
             px-5 py-2.5
             rounded-lg
-            overflow-hidden
-            transition-all duration-300 ease-out
-            shadow-md hover:shadow-lg
-            focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-gray-950
-            active:scale-95 active:shadow-inner
-            disabled:opacity-60 disabled:cursor-not-allowed
+            shadow-md
           `}
         >   
           <span className="relative z-10 flex items-center justify-center">
             {loading ? (
               <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Updating Location...
+                Requesting Location...
               </>
             ) : (
               <>
-                <MapPin className="w-4 h-4 mr-2 group-hover:animate-pulse" />
+                <MapPin className="w-4 h-4 mr-2" />
                 Request Location
               </>
             )}
@@ -307,7 +309,7 @@ const LocationTab = () => {
                             <strong>GPS Point {idx + 1}</strong><br />
                             Lat: {point.gps_lat}<br />
                             Lon: {point.gps_lon}<br />
-                            Time: {new Date(point.timestamp).toLocaleString()}<br />
+                            Time: {new Date(point.gps_timestamp).toLocaleString()}<br />
                             Speed: {point.speed ?? "--"} km/h <br />
                             Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
                           </div>
@@ -328,7 +330,7 @@ const LocationTab = () => {
                             <strong>LBS Point {idx + 1}</strong><br />
                             Lat: {point.lbs_lat}<br />
                             Lon: {point.lbs_lon}<br />
-                            Time: {new Date(point.timestamp).toLocaleString()}<br />
+                            Time: {new Date(point.lbs_timestamp).toLocaleString()}<br />
                             Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
                           </div>
                         </Popup>
@@ -363,7 +365,7 @@ const LocationTab = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center">
@@ -382,23 +384,33 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Satellites:</span>
-              <span className="text-white">{locationData.sats ?? "--"}</span>
+              <span className={locationData.sats === 0 ? "text-gray-500" : "text-white"}>
+                {locationData.sats === 0 ? "--" : `${locationData.sats}`}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Altitude:</span>
-              <span className="text-white">{locationData.alt ?? "--"}m</span>
+              <span className={locationData.alt === 0 ? "text-gray-500" : "text-white"}>
+                {locationData.alt === 0 ? "--" : `${locationData.alt} m`}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Speed:</span>
-              <span className="text-white">{locationData.speed ?? "--"} km/h</span>
+              <span className={locationData.speed === 0 ? "text-gray-500" : "text-white"}>
+                {locationData.speed === 0 ? "--" : `${locationData.speed} km/h`}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Course:</span>
-              <span className="text-white">{locationData.course ?? "--"}°</span>
+              <span className={locationData.course === 0 ? "text-gray-500" : "text-white"}>
+                {locationData.course === 0 ? "--" : `${locationData.course}°`}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className="text-white">{locationData.gps_age_human ?? "--"}</span>
+              <span className={!locationData.gps_age_human ? "text-gray-500" : "text-white"}>
+                {locationData.gps_age_human ? locationData.gps_age_human : "--"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
@@ -429,11 +441,91 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className="text-white">{locationData.lbs_age_human ?? "--"}</span>
+              <span className={!locationData.lbs_age_human ? "text-gray-500" : "text-white"}>
+                {locationData.lbs_age_human ? locationData.lbs_age_human : "--"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
               <span className="text-white">{sendReasonMap[locationData.send_reason] ?? "--"}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <History className="w-5 h-5 mr-2 text-purple-400" />
+              Location History
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-80 overflow-y-scroll p-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+              {historyList.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  No history available
+                </div>
+              ) : (
+                historyList.slice().reverse().map((entry, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-gray-500 transition-colors"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-blue-400" />
+                        <span className="text-base font-semibold text-white">
+                          {getTimeAgo(entry.gps_timestamp)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-blue-600 px-3 py-1 rounded-full">
+                        <MapPinned className="w-3.5 h-3.5 text-white" />
+                        <span className="text-sm font-bold text-white">
+                          {entry.distance_from_last_update}m
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-4">
+                      <div className="flex-1 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">GPS:</span>
+                          <span className={entry.gps_fix ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                            {entry.gps_fix ? "✓" : "✗"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Sats:</span>
+                          <span className="text-white">{entry.sats}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Event:</span>
+                          <span className="text-white text-[10px]">{sendReasonMap[entry.send_reason]}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-px bg-gray-600"></div>
+                      
+                      <div className="flex-1 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">LBS:</span>
+                          <span className={entry.lbs_fix ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                            {entry.lbs_fix ? "✓" : "✗"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Speed:</span>
+                          <span className="text-white">{entry.speed} km/h</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Alt:</span>
+                          <span className="text-white">{entry.alt} m</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

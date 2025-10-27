@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { 
   Battery, 
-  Wifi, 
   Signal, 
   Smartphone, 
-  Lock, 
-  Unlock,
   RefreshCw,
   Clock,
 } from 'lucide-react';
@@ -47,12 +43,12 @@ const StatusTab = () => {
     2: "Request (Sleep)",
     3: "Fix Found",
     4: "Fix Found (Sleep)",
-    5: "Periodic Wakeup (Sleep)"
+    5: "Periodic Wakeup",
+    6: "Going to Sleep"
   };
 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   const getTimeAgo = (isoString) => {
@@ -125,13 +121,14 @@ const StatusTab = () => {
       });
       
       toast({
-        title: "Status Updated",
-        description: "Device status refresh requested."
+        title: "Request Sent",
+        description: "Device status update requested."
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to request status refresh."
+        description: "Failed to request status update.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -158,19 +155,27 @@ const StatusTab = () => {
           <span className="text-sm text-gray-400">{getTimeAgo(status.timestamp)}</span>
           <Button 
             onClick={refreshStatus} 
-            disabled={loading}
             variant="outline"
             className={`
               border-gray-600 text-gray-300
               active:bg-gray-800 active:text-gray-200
               disabled:opacity-50
             `}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+              <span className="relative z-10 flex items-center justify-center">
+                {loading ? (
+                  <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className={`w-4 h-4 mr-2`} />
+                    Refresh
+                  </>
+                )}
+              </span>
+            </Button>
         </div>
       </div>
-
 
       {/* Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -181,28 +186,36 @@ const StatusTab = () => {
                 <Smartphone className="w-5 h-5 mr-2 text-blue-400" />
                 Device
               </div>
-              {status.sleep_mode ? (<Badge className="bg-green-600 animate-pulse-slow text-white">Active</Badge> ) : (<Badge className="bg-gray-500 text-white">Asleep</Badge>)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-gray-400">Screen:</span>
-              <span className="text-white">{status.screen_on ? 'On' : 'Off'}</span>
+              <span className={status.screen_on ? "text-white" : "text-gray-500"}>
+                {status.screen_on ? "On" : "Off"}
+              </span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Deepsleep:</span>
+              <span className={status.sleep_mode ? "text-white" : "text-gray-500"}>
+                {status.sleep_mode ? "On" : "Off"}
+              </span>
+            </div>
+
             <div className="flex justify-between">
               <span className="text-gray-400">Locked:</span>
               <div className="flex items-center">
-                {status.locked ? (
-                  <Lock className="w-4 h-4 text-red-400 mr-1" />
-                ) : (
-                  <Unlock className="w-4 h-4 text-green-400 mr-1" />
-                )}
-                <span className="text-white">{status.locked ? 'Yes' : 'No'}</span>
+                <span className={status.locked ? "text-white" : "text-gray-500"}>
+                  {status.locked ? "Yes" : "No"}
+                </span>
               </div>
             </div>
+
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
-              <span className="text-white">{sendReasonMap[status.send_reason] ?? "--"}</span>
+              <span className={sendReasonMap[status.send_reason] ? "text-white" : "text-gray-500"}>
+                {sendReasonMap[status.send_reason] ?? "--"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">GPS State:</span>
@@ -256,15 +269,17 @@ const StatusTab = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">ESP-NOW:</span>
               <div className="flex items-center">
-                <Wifi className={`w-4 h-4 mr-1 ${status.espnow_state ? 'text-green-400' : 'text-gray-500'}`} />
-                <span className="text-white">{status.espnow_state ? 'Enabled' : 'Disabled'}</span>
+                <span className={status.espnow_state ? "text-white" : "text-gray-500"}>
+                  {status.espnow_state ? "Enabled" : "Disabled"}
+                </span>
               </div>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">WiFi:</span>
               <div className="flex items-center">
-                <Wifi className={`w-4 h-4 mr-1 ${status.wifi_enabled ? 'text-green-400' : 'text-gray-500'}`} />
-                <span className="text-white">{status.wifi_enabled ? 'Enabled' : 'Disabled'}</span>
+                <span className={status.wifi_enabled ? "text-white" : "text-gray-500"}>
+                  {status.wifi_enabled ? "Enabled" : "Disabled"}
+                </span>
               </div>
             </div>
             {status.wifi_enabled && (
@@ -301,11 +316,15 @@ const StatusTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">In Call:</span>
-              <span className="text-white">{status.in_call ? 'Yes' : 'No'}</span>
+              <span className={status.in_call ? "text-white" : "text-gray-500"}>
+                {status.in_call ? "Yes" : "No"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Extreme Power Saving Mode:</span>
-              <span className="text-white">{status.prd_eps ? 'Active' : 'Inactive'}</span>
+              <span className={status.prd_eps ? "text-white" : "text-gray-500"}>
+                {status.prd_eps ? "Enabled" : "Disabled"}
+              </span>
             </div>
           </CardContent>
         </Card>

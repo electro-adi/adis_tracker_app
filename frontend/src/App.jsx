@@ -33,6 +33,7 @@ function App() {
   const [trackerAwake, setTrackerAwake] = useState(false);
   const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [appLaunchTime] = useState(Date.now());
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
@@ -48,6 +49,56 @@ function App() {
     if (diffHr < 24) return `${diffHr}h ago`;
     const diffDay = Math.floor(diffHr / 24);
     return `${diffDay}d ago`;
+  };
+
+  const getServerStatus = () => {
+    const timeSinceLaunch = (currentTime - appLaunchTime) / 1000;
+    
+    if (serverConnected) {
+      return {
+        text: 'Server Online',
+        color: 'text-green-400',
+        dotColor: 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse'
+      };
+    }
+    
+    if (timeSinceLaunch < 100) {
+      return {
+        text: 'Waiting for server...',
+        color: 'text-yellow-400',
+        dotColor: 'bg-yellow-400 shadow-[0_0_8px_0px_rgba(250,204,21,0.5)]'
+      };
+    }
+    
+    return {
+      text: 'Server Offline',
+      color: 'text-red-400',
+      dotColor: 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'
+    };
+  };
+
+  const getTrackerStatus = () => {
+    if (!trackerConnected) {
+      return {
+        text: 'Device Disconnected',
+        color: 'text-red-400',
+        dotColor: 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'
+      };
+    }
+    
+    if (trackerAwake) {
+      return {
+        text: 'Device Awake',
+        color: 'text-green-400',
+        dotColor: 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse'
+      };
+    }
+    
+    return {
+      text: 'Device Asleep',
+      color: 'text-blue-400',
+      dotColor: 'bg-blue-500 shadow-[0_0_8px_0px_rgba(59,130,246,0.5)]'
+    };
   };
 
   useEffect(() => {
@@ -203,6 +254,11 @@ useEffect(() => {
     catch (error) 
     {
       console.warn('[HEARTBEAT] Failed:', error.message);
+      toast({
+        title: "Error",
+        description: "Backend: " + error.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -236,6 +292,9 @@ useEffect(() => {
     }
   };
 
+  const serverStatus = getServerStatus();
+  const trackerStatus = getTrackerStatus();
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
       <header className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md" style={{ paddingTop: '50px' }}>
@@ -244,16 +303,15 @@ useEffect(() => {
             <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
             <div className="flex flex-col items-end text-right"> 
               <div className="flex items-center gap-1.5">
-                <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ serverConnected ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'}`}> </div>
-                <span className={`text-sm font-medium ${ serverConnected ? 'text-green-400' : 'text-red-400'}`}>
-                  {serverConnected ? 'Server Online' : 'Server Offline'}
+                <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${serverStatus.dotColor}`}></div>
+                <span className={`text-sm font-medium ${serverStatus.color}`}>
+                  {serverStatus.text}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 mt-1.5">
-              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${ trackerConnected ? 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_0px_rgba(239,68,68,0.5)]'}`}> </div>
-                <span
-                  className={`text-sm font-medium ${ trackerConnected ? 'text-green-400' : 'text-red-400'}`}> 
-                  {trackerConnected ? 'Device Connected' : 'Device Disconnected'}
+                <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${trackerStatus.dotColor}`}></div>
+                <span className={`text-sm font-medium ${trackerStatus.color}`}>
+                  {trackerStatus.text}
                 </span>
               </div>
               <span className="text-xs text-gray-400 mt-0.5 opacity-90">

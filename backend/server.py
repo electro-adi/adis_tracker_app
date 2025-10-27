@@ -146,6 +146,25 @@ async def execute_command(command_data):
     data1 = command_data.get("data1", "")
     data2 = command_data.get("data2", "")
 
+    # wake up tracker first if its asleep
+    currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
+    if currently_active is False: 
+        await emqx_manager.publish("Tracker/to/mode", "0")
+
+        # wait until currently_active becomes True with a timeout of 30 seconds
+        timeout = 30
+        start = datetime.now(timezone.utc)
+        while (datetime.now(timezone.utc) - start).total_seconds() < timeout:
+            await asyncio.sleep(1)
+            currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
+            if currently_active is True:
+                break
+        else:
+            # Timeout reached, log and abort
+            logger.error("Tracker did not wake up within 30 seconds!")
+            return
+
+
     if command == "get_status":
         await emqx_manager.publish("Tracker/to/request", "0")
 
@@ -214,7 +233,6 @@ async def execute_command(command_data):
         #send data1 as payload to Tracker/to/espnow/send
         await emqx_manager.publish("Tracker/to/espnow/send", data1)
 
-    await firebase_manager.update_data("Preferences", {"do_not_wake_tracker": False})
     await firebase_manager.update_data("Tracker/commands", {"pending": False})
 
 def handle_command(event):
@@ -229,13 +247,6 @@ def handle_command(event):
 
 def handle_frontend_status(event):
     app_online = event.data
-
-    if app_online is False:
-        logger.info("Frontend went offline")
-        asyncio.run_coroutine_threadsafe(
-            firebase_manager.update_data("Preferences", {"do_not_wake_tracker": True}),
-            loop
-        )
 
     future = asyncio.run_coroutine_threadsafe(
         firebase_manager.get_data("Tracker/status/latest/currently_active"),
@@ -763,8 +774,8 @@ async def heartbeat():
             }
         )
 
-    do_not_wake_tracker = await firebase_manager.get_data("Preferences/do_not_wake_tracker")
-    if do_not_wake_tracker is True:
+    tracker_autowake = await firebase_manager.get_data("Preferences/tracker_autowake")
+    if tracker_autowake is True:
         await emqx_manager.publish("Tracker/to/mode", "0")
 
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}

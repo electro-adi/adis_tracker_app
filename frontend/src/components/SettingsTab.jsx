@@ -8,7 +8,7 @@ import {
   Vibrate, 
   Bell, 
   Power, 
-  RotateCcw,
+  RefreshCw,
   Shield,
   Smartphone,
   Save,
@@ -41,15 +41,6 @@ const SettingsTab = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const commandRef = ref(db, 'Tracker/commands');
-    set(commandRef, {
-      command: 'get_config',
-      data1: ' ',
-      data2: ' ',
-      timestamp: new Date().toISOString(),
-      pending: true
-    });
-
     const configRef = ref(db, 'Tracker/deviceconfig');
     const unsubConfig = onValue(configRef, (snapshot) => {
       const data = snapshot.val();
@@ -172,41 +163,42 @@ const SettingsTab = () => {
 
       toast({
         title: "Settings Saved",
-        description: "Device settings have been updated successfully.",
+        description: "Device settings have been updated successfully."
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to save settings.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const resetToDefaults = () => {
-    setSettings({
-      call_mode: 2,
-      gps_mode: 0,
-      boot_animation: true,
-      enable_buzzer: true,
-      enable_haptics: true,
-      boot_sms: false,
-      noti_sound: true,
-      noti_ppp: true,
-      ringtone: 1,
-      sms_thru_mqtt: true,
-      DS_call_mode: 3,
-      prd_wakeup: false,
-      prd_wakeup_time: 120,
-      prd_sms_intvrl: 0,
-      prd_mqtt_intvrl: 0
-    });
-    toast({
-      title: "Settings Reset",
-      description: "All settings have been reset to default values.",
-    });
+  const refreshSettings = async () => {
+    setLoading(true);
+    try {
+      const commandRef = ref(db, 'Tracker/commands');
+      set(commandRef, {
+        command: 'get_config',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+      toast({
+        title: "Request Sent",
+        description: "Device settings refresh requested."
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to request settings refresh."
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const UpdateMode = async (mode) => {
@@ -223,13 +215,13 @@ const SettingsTab = () => {
 
       toast({
         title: "Mode Updated",
-        description: "Device mode command sent successfully.",
+        description: "Device mode command sent successfully."
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update mode.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -305,52 +297,27 @@ const SettingsTab = () => {
         <h1 className="text-2xl font-bold text-white">Device Settings</h1>
         <div className="flex gap-2">
           <Button
-            onClick={resetToDefaults}
-            variant="outline"
-            size="sm"
-            className={`
-              group
-              border-amber-500/70 text-amber-400
-              hover:border-amber-500 hover:bg-amber-500/10 hover:text-amber-300
-              active:bg-amber-500/20 active:scale-[0.98]
-              focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-gray-950
-              transition-all duration-200 ease-out
-              disabled:opacity-50
-            `}
-          >
-            <RotateCcw className="w-4 h-4 mr-2 transition-transform duration-300 group-hover:rotate-[-90deg]" />
-            Reset
-          </Button>
-          <Button
             onClick={saveSettings}
             disabled={loading}
             className={`
-              relative group
               bg-gradient-to-r from-emerald-500 to-green-600
               text-white font-semibold
+              hover:bg-blue-600
               px-5 py-2.5
               rounded-lg
-              shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-green-700
-              focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-gray-950
-              active:scale-95 active:shadow-inner active:from-emerald-600 active:to-green-700
-              transition-all duration-300 ease-out
-              disabled:opacity-60 disabled:cursor-not-allowed
+              shadow-md
             `}
           >
             <span className="relative z-10 flex items-center justify-center">
               {loading ? (
                 <>
-                  <div className="flex items-center justify-center space-x-1 mr-2.5">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
-                  </div>
-                  Saving...
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>      
+                  Updating...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2 transform transition-transform duration-200 group-hover:scale-110" />
-                  Save Settings
+                  <Save className="w-4 h-4 mr-2" />
+                  Update Settings
                 </>
               )}
             </span>
@@ -433,7 +400,7 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('ringtone', mode.value)}
                     className={settings.ringtone === mode.value 
-                      ? "bg-blue-600 hover:bg-blue-700" 
+                      ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
                       : "border-gray-600 text-gray-300 hover:bg-gray-700"
                     }
                   >
@@ -487,7 +454,7 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('call_mode', mode.value)}
                     className={settings.call_mode === mode.value 
-                      ? "bg-blue-600 hover:bg-blue-700" 
+                      ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
                       : "border-gray-600 text-gray-300 hover:bg-gray-700"
                     }
                   >
@@ -507,7 +474,7 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('DS_call_mode', mode.value)}
                     className={settings.DS_call_mode === mode.value 
-                      ? "bg-purple-600 hover:bg-purple-700" 
+                      ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-600" 
                       : "border-gray-600 text-gray-300 hover:bg-gray-700"
                     }
                   >
@@ -608,7 +575,7 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('gps_mode', mode.value)}
                     className={settings.gps_mode === mode.value 
-                      ? "bg-green-600 hover:bg-green-700" 
+                      ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600" 
                       : "border-gray-600 text-gray-300 hover:bg-gray-700"
                     }
                   >
@@ -640,7 +607,7 @@ const SettingsTab = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => UpdateMode(mode.value)}
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                  className="border-gray-600 text-gray-300 hover:bg-transparent"
                 >
                   {mode.name}
                 </Button>
@@ -653,7 +620,7 @@ const SettingsTab = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => UpdateMode(6)}
-                  className="border-orange-600 text-orange-300 hover:bg-orange-900"
+                  className="border-orange-600 text-orange-300 hover:bg-transparent"
                 >
                   Reboot GSM
                 </Button>
@@ -661,11 +628,29 @@ const SettingsTab = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => UpdateMode(7)}
-                  className="border-red-600 text-red-300 hover:bg-red-900"
+                  className="border-red-600 text-red-300 hover:bg-transparent"
                 >
                   Reboot Device
                 </Button>
               </div>
+              <Button
+                onClick={refreshSettings}
+                disabled={loading}
+                className="w-full mt-6 bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+              >
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                    <RefreshCw className={`w-4 h-4 mr-2`} />
+                    Refresh Device Config
+                    </>
+                  )}
+                </span>
+              </Button>
             </div>
           </CardContent>
         </Card>

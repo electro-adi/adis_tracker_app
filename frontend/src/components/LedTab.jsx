@@ -2,19 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
-import { Lightbulb, Palette, Settings, Eye } from 'lucide-react';
+import { Lightbulb, LightbulbOff, Palette, Settings, RefreshCw, Eye } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
 import { ref, onValue, set, update } from 'firebase/database';
 import { db } from '../firebase';
 
 const LedTab = () => {
-  const [ledSettings, setLedSettings] = useState({
+  const [LedConfig, setLedConfig] = useState({
     red: 0,
     green: 0,
     blue: 0,
-    enableled: true
-  });
-  const [animationSettings, setAnimationSettings] = useState({
+    enableled: true,
     led_boot_ani: 4,
     led_call_ani: 6,
     led_noti_ani: 5
@@ -23,29 +21,43 @@ const LedTab = () => {
   const [previewColor, setPreviewColor] = useState('#000000');
   const { toast } = useToast();
 
-  useEffect(() => {
-    const commandRef = ref(db, 'Tracker/commands');
-    set(commandRef, {
-      command: 'get_ledconfig',
-      data1: ' ',
-      data2: ' ',
-      timestamp: new Date().toISOString(),
-      pending: true
-    });
-  }, []);
+  const refreshLedconfig = async () => {
+    setLoading(true);
+    try {
+      const commandRef2 = ref(db, 'Tracker/commands');
+      await set(commandRef2, {
+        command: 'get_ledconfig',
+        data1: ' ',
+        data2: ' ',
+        timestamp: new Date().toISOString(),
+        pending: true
+      });
+
+      toast({
+        title: "Request Sent",
+        description: "Device LED configuration refresh requested."
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to request LED configuration refresh.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const ledConfigRef = ref(db, 'Tracker/ledconfig');
-    const unsubLedConfig = onValue(ledConfigRef, (snapshot) => {
+    const LedConfigRef = ref(db, 'Tracker/ledconfig');
+    const unsubLedConfig = onValue(LedConfigRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setLedSettings({
+        setLedConfig({
           red: data.red || 0,
           green: data.green || 0,
           blue: data.blue || 0,
-          enableled: data.enableled !== undefined ? data.enableled : true
-        });
-        setAnimationSettings({
+          enableled: data.enableled !== undefined ? data.enableled : true,
           led_boot_ani: data.led_boot_ani || 4,
           led_call_ani: data.led_call_ani || 6,
           led_noti_ani: data.led_noti_ani || 5
@@ -60,8 +72,8 @@ const LedTab = () => {
   }, []);
 
   const updateLedColor = (color, value) => {
-    const newSettings = { ...ledSettings, [color]: value[0] };
-    setLedSettings(newSettings);
+    const newSettings = { ...LedConfig, [color]: value[0] };
+    setLedConfig(newSettings);
     
     const hex = rgbToHex(newSettings.red, newSettings.green, newSettings.blue);
     setPreviewColor(hex);
@@ -83,19 +95,18 @@ const LedTab = () => {
   const setPresetColor = (color) => {
     const rgb = hexToRgb(color);
     if (rgb) {
-      const newSettings = { ...ledSettings, red: rgb.r, green: rgb.g, blue: rgb.b };
-      setLedSettings(newSettings);
+      const newSettings = { ...LedConfig, red: rgb.r, green: rgb.g, blue: rgb.b };
+      setLedConfig(newSettings);
       setPreviewColor(color);
     }
   };
 
-  const applyLedSettings = async () => {
+  const applyLedConfig = async () => {
     setLoading(true);
     try {
-      const ledConfigRef = ref(db, 'Tracker/ledconfig');
-      await update(ledConfigRef, {
-        ...ledSettings,
-        ...animationSettings,
+      const LedConfigRef = ref(db, 'Tracker/ledconfig');
+      await update(LedConfigRef, {
+        ...LedConfig,
         timestamp: new Date().toISOString()
       });
 
@@ -110,13 +121,13 @@ const LedTab = () => {
 
       toast({
         title: "LED Settings Updated",
-        description: "LED configuration has been applied to the device.",
+        description: "LED configuration has been applied to the device."
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update LED settings.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -124,14 +135,13 @@ const LedTab = () => {
   };
 
   const toggleLed = async () => {
-    const newEnabled = !ledSettings.enableled;
-    setLedSettings(prev => ({ ...prev, enableled: newEnabled }));
+    const newEnabled = !LedConfig.enableled;
+    setLedConfig(prev => ({ ...prev, enableled: newEnabled }));
     try {
-      const ledConfigRef = ref(db, 'Tracker/ledconfig');
-      await update(ledConfigRef, {
-        ...ledSettings,
+      const LedConfigRef = ref(db, 'Tracker/ledconfig');
+      await update(LedConfigRef, {
         enableled: newEnabled,
-        ...animationSettings,
+        ...LedConfig,
         timestamp: new Date().toISOString()
       });
 
@@ -146,13 +156,13 @@ const LedTab = () => {
 
       toast({
         title: newEnabled ? "LED Enabled" : "LED Disabled",
-        description: `LED functionality has been ${newEnabled ? 'enabled' : 'disabled'}.`,
+        description: `LED functionality has been ${newEnabled ? 'enabled' : 'disabled'}.`
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to toggle LED state.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -186,18 +196,19 @@ const LedTab = () => {
     <div className="p-6 pt-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">LED Control</h1>
-        
-        <Button
-          onClick={toggleLed}
-          size="sm"
-          className={
-            ledSettings.enableled
-              ? "bg-green-600 hover:bg-green-700 text-white"
-              : "bg-gray-600 hover:bg-gray-700 text-white"
-          }
-        >
-          {ledSettings.enableled ? "Disable LED" : "Enable LED"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={toggleLed}
+            className={
+              LedConfig.enableled
+                ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white"
+                : "bg-gray-600 hover:bg-gray-600 text-white"
+            }
+          >
+            {LedConfig.enableled ? <Lightbulb className="w-4 h-4 mr-2" /> : <LightbulbOff className="w-4 h-4 mr-2" />}
+            {LedConfig.enableled ? "Disable LED" : "Enable LED"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -228,10 +239,10 @@ const LedTab = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <label className="text-sm text-red-400">Red</label>
-                  <span className="text-sm text-gray-400">{ledSettings.red}</span>
+                  <span className="text-sm text-gray-400">{LedConfig.red}</span>
                 </div>
                 <Slider
-                  value={[ledSettings.red]}
+                  value={[LedConfig.red]}
                   onValueChange={(value) => updateLedColor('red', value)}
                   max={255}
                   step={1}
@@ -242,10 +253,10 @@ const LedTab = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <label className="text-sm text-green-400">Green</label>
-                  <span className="text-sm text-gray-400">{ledSettings.green}</span>
+                  <span className="text-sm text-gray-400">{LedConfig.green}</span>
                 </div>
                 <Slider
-                  value={[ledSettings.green]}
+                  value={[LedConfig.green]}
                   onValueChange={(value) => updateLedColor('green', value)}
                   max={255}
                   step={1}
@@ -256,10 +267,10 @@ const LedTab = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <label className="text-sm text-blue-400">Blue</label>
-                  <span className="text-sm text-gray-400">{ledSettings.blue}</span>
+                  <span className="text-sm text-gray-400">{LedConfig.blue}</span>
                 </div>
                 <Slider
-                  value={[ledSettings.blue]}
+                  value={[LedConfig.blue]}
                   onValueChange={(value) => updateLedColor('blue', value)}
                   max={255}
                   step={1}
@@ -291,6 +302,23 @@ const LedTab = () => {
                 ))}
               </div>
             </div>
+            <Button 
+              onClick={applyLedConfig}
+              disabled={loading || !LedConfig.enableled}
+              className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Lightbulb className="w-4 h-4 mr-2" />
+                  Update LED Color
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
 
@@ -310,11 +338,11 @@ const LedTab = () => {
                   {animationModes.map((mode) => (
                     <Button
                       key={mode.value}
-                      variant={animationSettings.led_boot_ani === mode.value ? "default" : "outline"}
+                      variant={LedConfig.led_boot_ani === mode.value ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAnimationSettings(prev => ({ ...prev, led_boot_ani: mode.value }))}
-                      className={animationSettings.led_boot_ani === mode.value 
-                        ? "bg-blue-600 hover:bg-blue-700" 
+                      className={LedConfig.led_boot_ani === mode.value 
+                        ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
                         : "border-gray-600 text-gray-300 hover:bg-gray-700"
                       }
                     >
@@ -330,11 +358,11 @@ const LedTab = () => {
                   {animationModes.map((mode) => (
                     <Button
                       key={mode.value}
-                      variant={animationSettings.led_call_ani === mode.value ? "default" : "outline"}
+                      variant={LedConfig.led_call_ani === mode.value ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAnimationSettings(prev => ({ ...prev, led_call_ani: mode.value }))}
-                      className={animationSettings.led_call_ani === mode.value 
-                        ? "bg-green-600 hover:bg-green-700" 
+                      className={LedConfig.led_call_ani === mode.value 
+                        ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600" 
                         : "border-gray-600 text-gray-300 hover:bg-gray-700"
                       }
                     >
@@ -350,11 +378,11 @@ const LedTab = () => {
                   {animationModes.map((mode) => (
                     <Button
                       key={mode.value}
-                      variant={animationSettings.led_noti_ani === mode.value ? "default" : "outline"}
+                      variant={LedConfig.led_noti_ani === mode.value ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAnimationSettings(prev => ({ ...prev, led_noti_ani: mode.value }))}
-                      className={animationSettings.led_noti_ani === mode.value 
-                        ? "bg-purple-600 hover:bg-purple-700" 
+                      className={LedConfig.led_noti_ani === mode.value 
+                        ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-600" 
                         : "border-gray-600 text-gray-300 hover:bg-gray-700"
                       }
                     >
@@ -364,24 +392,43 @@ const LedTab = () => {
                 </div>
               </div>
             </div>
-
-            <Button 
-              onClick={applyLedSettings}
-              disabled={loading || !ledSettings.enableled}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Applying...
-                </>
-              ) : (
-                <>
-                  <Lightbulb className="w-4 h-4 mr-2" />
-                  Apply LED Settings
-                </>
-              )}
-            </Button>
+            <div className="mt-6 space-y-3">
+              <Button
+                onClick={refreshLedconfig}
+                disabled={loading}
+                className="w-full bg-gradient-to-br from-amber-600 to-yellow-600 hover:from-amber-600 hover:to-yellow-600 text-white"
+              >
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                    <RefreshCw className={`w-4 h-4 mr-2`} />
+                    Refresh LED Config
+                    </>
+                  )}
+                </span>
+              </Button>
+              <Button 
+                onClick={applyLedConfig}
+                disabled={loading || !LedConfig.enableled}
+                className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    Update LED Settings
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

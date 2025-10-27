@@ -31,7 +31,7 @@ const CMDTab = () => {
     navigator.clipboard.writeText(cmd);
     toast({
       title: "Copied!",
-      description: `"${cmd}" has been copied to clipboard.`,
+      description: `"${cmd}" has been copied to clipboard.`
     });
   };
 

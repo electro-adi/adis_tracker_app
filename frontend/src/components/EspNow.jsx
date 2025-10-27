@@ -101,7 +101,7 @@ const EspNowTab = () => {
       toast({
         title: "Error",
         description: "Command cannot be empty",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
@@ -126,13 +126,13 @@ const EspNowTab = () => {
       setMessage('');
       toast({
         title: "Command Sent",
-        description: "ESP-NOW command has been sent successfully.",
+        description: "ESP-NOW command has been sent successfully."
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to send ESP-NOW command.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -153,13 +153,13 @@ const EspNowTab = () => {
 
       toast({
         title: "Mode Set",
-        description: `ESP-NOW mode set to ${EspnowModes[mode].name}.`,
+        description: `ESP-NOW mode set to ${EspnowModes[mode].name}.`
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to set ESP-NOW mode.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -186,13 +186,13 @@ const EspNowTab = () => {
 
       toast({
         title: "Boot Mode Saved",
-        description: "ESP-NOW boot mode has been updated successfully.",
+        description: "ESP-NOW boot mode has been updated successfully."
       });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to save boot mode.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -249,7 +249,7 @@ const EspNowTab = () => {
                   onClick={() => SetEspnowMode(mode.value)}
                   disabled={loading}
                   className={currentMode === mode.value 
-                    ? "bg-blue-600 hover:bg-blue-700" 
+                    ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
                     : "border-gray-600 text-gray-300 hover:bg-gray-700"
                   }
                 >
@@ -278,7 +278,7 @@ const EspNowTab = () => {
                   onClick={() => SetBootEspnowMode(mode.value)}
                   disabled={loading}
                   className={bootMode === mode.value 
-                    ? "bg-blue-600 hover:bg-blue-700" 
+                    ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-600" 
                     : "border-gray-600 text-gray-300 hover:bg-gray-700"
                   }
                 >
@@ -349,7 +349,7 @@ const EspNowTab = () => {
               <Button
                 onClick={() => SendEspnowCmd(message)}
                 disabled={loading || !message.trim()}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600 text-white"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
