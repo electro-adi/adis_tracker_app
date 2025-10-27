@@ -108,10 +108,6 @@ const LocationTab = () => {
     return `${diffDay}d ago`;
   };
 
-  const [status, setStatus] = useState({
-    gps_fix: false
-  });
-
   useEffect(() => {
     const locationRef = ref(db, 'Tracker/location/latest');
     const unsubLocation = onValue(locationRef, (snapshot) => {
@@ -168,21 +164,6 @@ const LocationTab = () => {
 
     return () => unsubHistory();
   }, [showHistory]);
-
-  useEffect(() => {
-    const statusRef = ref(db, 'Tracker/status/latest');
-    const unsubStatus = onValue(statusRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setStatus({
-          gps_fix: data.gps_fix || false,
-        });
-      }
-    });
-    return () => {
-      unsubStatus();
-    };
-  }, []);
 
   const requestLocation = async () => {
     setLoading(true);
@@ -415,10 +396,6 @@ const LocationTab = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
               <span className="text-white">{sendReasonMap[locationData.send_reason] ?? "--"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">GPS State:</span>
-              <span className="text-white">{status.gps_fix ? 'Fix Found' : 'Fix Not Found'}</span>
             </div>
           </CardContent>
         </Card>

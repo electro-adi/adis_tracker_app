@@ -162,8 +162,16 @@ async def execute_command(command_data):
         else:
             # Timeout reached, log and abort
             logger.error("Tracker did not wake up within 30 seconds!")
-            return
 
+            # Send notification
+            notification = Notification(
+                title="Error",
+                message=f"Tracker did not wake up within 30 seconds.",
+                type="high_priority"
+            )
+            await send_notification(notification)
+
+            return
 
     if command == "get_status":
         await emqx_manager.publish("Tracker/to/request", "0")
@@ -471,7 +479,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
         # if gps fix is available, then update
         if location.gps_fix:
-            logger.log("GPS fix found, updating.")
+            logger.info("GPS fix found, updating.")
             new_location.update({
                 "gps_lat": location.gps_lat,
                 "gps_lon": location.gps_lon,
@@ -484,7 +492,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
         # if lbs fix is available, then update
         if location.lbs_fix:
-            logger.log("LBS fix found, updating.")
+            logger.info("LBS fix found, updating.")
             new_location.update({
                 "lbs_lat": location.lbs_lat,
                 "lbs_lon": location.lbs_lon,
