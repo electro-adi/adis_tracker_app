@@ -71,6 +71,8 @@ const LocationTab = () => {
     alt: 0.0,
     speed: 0.0,
     course: 0.0,
+    gps_timestamp: null,
+    lbs_timestamp: null,
     gps_age_human: "--",
     lbs_age_human: "--",
   });
@@ -91,10 +93,11 @@ const LocationTab = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [historyList, setHistoryList] = useState([]);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
-    const now = new Date();
+    const now = currentTime;
     const past = new Date(isoString);
     const diffMs = now - past;
     const diffSec = Math.floor(diffMs / 1000);
@@ -107,6 +110,14 @@ const LocationTab = () => {
     const diffDay = Math.floor(diffHr / 24);
     return `${diffDay}d ago`;
   };
+
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timeInterval);
+  }, []);
 
   useEffect(() => {
     const locationRef = ref(db, 'Tracker/location/latest');
@@ -124,25 +135,18 @@ const LocationTab = () => {
           alt: data.alt || 0.0,
           speed: data.speed || 0.0,
           course: data.course || 0.0,
+          gps_timestamp: data.gps_timestamp,
+          lbs_timestamp: data.lbs_timestamp,
           gps_age_human: getTimeAgo(data.gps_timestamp),
           lbs_age_human: getTimeAgo(data.lbs_timestamp),
         });
       }
     });
 
-    const updateInterval = setInterval(() => {
-      setLocationData(prev => ({
-        ...prev,
-        gps_age_human: getTimeAgo(prev.gps_timestamp),
-        lbs_age_human: getTimeAgo(prev.lbs_timestamp),
-      }));
-    }, 30000);
-
     return () => {
       unsubLocation();
-      clearInterval(updateInterval);
     };
-  }, []);
+  }, [currentTime]);
 
   useEffect(() => {
     const historyRef = ref(db, 'Tracker/location/history');
@@ -193,9 +197,13 @@ const LocationTab = () => {
     }
   };
 
-  const openInGoogleMaps = () => {
-    const url = `https://www.google.com/maps?q=${locationData.gps_lat},${locationData.gps_lon}`;
+  const openInGoogleMaps = (lat, lon) => {
+    const url = `https://www.google.com/maps?q=${lat},${lon}`;
     window.open(url, '_blank');
+  };
+
+  const handleHistoryClick = (entry) => {
+    openInGoogleMaps(entry.gps_lat, entry.gps_lon);
   };
 
   return (
@@ -259,7 +267,7 @@ const LocationTab = () => {
                       Lon: {locationData.gps_lon}<br />
                       Satellites: {locationData.sats ?? "--"}<br />
                       Speed: {locationData.speed ?? "--"} km/h <br />
-                      Age: {locationData.gps_age_human ?? "--"}<br />
+                      Age: {getTimeAgo(locationData.gps_timestamp)}<br />
                       Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
                     </div>
                   </Popup>
@@ -271,7 +279,7 @@ const LocationTab = () => {
                       <strong>LBS Location</strong><br />
                       Lat: {locationData.lbs_lat}<br />
                       Lon: {locationData.lbs_lon}<br />
-                      Age: {locationData.lbs_age_human ?? "--"}<br />
+                      Age: {getTimeAgo(locationData.lbs_timestamp)}<br />
                       Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
                     </div>
                   </Popup>
@@ -326,7 +334,7 @@ const LocationTab = () => {
 
             <div className="absolute top-4 right-4 z-5 flex items-center space-x-2">
               <Button
-                onClick={openInGoogleMaps}
+                onClick={() => openInGoogleMaps(locationData.gps_lat, locationData.gps_lon)}
                 size="sm"
                 className="bg-gray-900/80 active:bg-gray-900 text-white backdrop-blur-sm"
               >
@@ -389,8 +397,8 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className={!locationData.gps_age_human ? "text-gray-500" : "text-white"}>
-                {locationData.gps_age_human ? locationData.gps_age_human : "--"}
+              <span className="text-white">
+                {getTimeAgo(locationData.gps_timestamp)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -418,8 +426,8 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Age:</span>
-              <span className={!locationData.lbs_age_human ? "text-gray-500" : "text-white"}>
-                {locationData.lbs_age_human ? locationData.lbs_age_human : "--"}
+              <span className="text-white">
+                {getTimeAgo(locationData.lbs_timestamp)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -437,7 +445,23 @@ const LocationTab = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-80 overflow-y-scroll p-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+            <style>{`
+              .history-scroll::-webkit-scrollbar {
+                width: 8px;
+              }
+              .history-scroll::-webkit-scrollbar-track {
+                background: #1f2937;
+                border-radius: 4px;
+              }
+              .history-scroll::-webkit-scrollbar-thumb {
+                background: #4b5563;
+                border-radius: 4px;
+              }
+              .history-scroll::-webkit-scrollbar-thumb:hover {
+                background: #6b7280;
+              }
+            `}</style>
+            <div className="max-h-80 overflow-y-scroll history-scroll p-4 space-y-2">
               {historyList.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">
                   No history available
@@ -446,7 +470,8 @@ const LocationTab = () => {
                 historyList.slice().reverse().map((entry, idx) => (
                   <div
                     key={idx}
-                    className="bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-gray-500 transition-colors"
+                    onClick={() => handleHistoryClick(entry)}
+                    className="bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-blue-500 hover:bg-gray-650 transition-all cursor-pointer active:scale-98"
                   >
                     <div className="flex justify-between items-center mb-3">
                       <div className="flex items-center gap-2">

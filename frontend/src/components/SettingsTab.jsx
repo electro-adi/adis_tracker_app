@@ -12,11 +12,18 @@ import {
   Shield,
   Smartphone,
   Save,
-  MessageSquareShare
+  MessageSquareShare,
+  Server,
+  RotateCcw,
+  Terminal,
+  Battery,
+  BatteryLow
 } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
 import { ref, onValue, update, set } from 'firebase/database';
 import { db } from '../firebase';
+
+const DEPLOY_HOOK = import.meta.env.VITE_DEPLAY_HOOK;
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
@@ -37,6 +44,8 @@ const SettingsTab = () => {
     prd_mqtt_intvrl: 0
   });
   
+  const [autoWake, setAutoWake] = useState(false);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -65,7 +74,31 @@ const SettingsTab = () => {
       }
     });
 
-    return () => unsubConfig();
+    const autoWakeRef = ref(db, 'Preferences/tracker_autowake');
+    const unsubAutoWake = onValue(autoWakeRef, (snapshot) => {
+      const value = snapshot.val();
+      setAutoWake(value === true);
+    });
+
+    const logsRef = ref(db, 'Tracker/Logs');
+    const unsubLogs = onValue(logsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const logArray = Object.entries(data).map(([key, value]) => ({
+          id: key,
+          ...value
+        })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setLogs(logArray);
+      } else {
+        setLogs([]);
+      }
+    });
+
+    return () => {
+      unsubConfig();
+      unsubAutoWake();
+      unsubLogs();
+    };
   }, []);
 
   const formatWakeupTime = (minutes) => {
@@ -101,7 +134,6 @@ const SettingsTab = () => {
     return ` (Every ${formatWakeupTime(totalMinutes)})`;
   };
 
-  // Convert minutes to logarithmic scale position (0-100)
   const minutesToSlider = (minutes) => {
     const minLog = Math.log(5);
     const maxLog = Math.log(28800);
@@ -109,7 +141,6 @@ const SettingsTab = () => {
     return (Math.log(minutes) - minLog) * scale;
   };
 
-  // Convert slider position (0-100) to minutes using logarithmic scale
   const sliderToMinutes = (position) => {
     const minLog = Math.log(5);
     const maxLog = Math.log(28800);
@@ -117,16 +148,12 @@ const SettingsTab = () => {
     let minutes = Math.round(Math.exp(minLog + position * scale));
     
     if (minutes <= 60) {
-      // Below 1 hour: snap to 5-minute intervals
       minutes = Math.round(minutes / 5) * 5;
     } else if (minutes <= 1440) {
-      // Below 1 day: snap to 30-minute intervals
       minutes = Math.round(minutes / 30) * 30;
     } else if (minutes <= 10080) {
-      // Below 1 week: snap to 6-hour (360 min) intervals
       minutes = Math.round(minutes / 360) * 360;
     } else {
-      // Above 1 week: snap to 1-day (1440 min) intervals
       minutes = Math.round(minutes / 1440) * 1440;
     }
     
@@ -201,6 +228,36 @@ const SettingsTab = () => {
     }
   };
 
+  const restartServer = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(DEPLOY_HOOK, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: `Failed to restart server: ${response.status}`,
+        });
+      } else {
+        toast({
+          title: "Request Sent",
+          description: "Restarting server...",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to restart server.",
+      });
+      console.error("Restart error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const UpdateMode = async (mode) => {
     setLoading(true);
     try {
@@ -225,6 +282,44 @@ const SettingsTab = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleAutoWake = async () => {
+    setLoading(true);
+    try {
+      const autoWakeRef = ref(db, 'Preferences/tracker_autowake');
+      await set(autoWakeRef, !autoWake);
+      toast({
+        title: "Auto Wake Updated",
+        description: `Auto wake ${!autoWake ? 'enabled' : 'disabled'}.`
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to toggle auto wake.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getLogTypeColor = (type) => {
+    switch(type) {
+      case 'critical': return 'text-red-400';
+      case 'error': return 'text-orange-400';
+      case 'general': return 'text-gray-300';
+      default: return 'text-gray-300';
+    }
+  };
+
+  const getLogTypeIcon = (type) => {
+    switch(type) {
+      case 'critical': return '🔴';
+      case 'error': return '🟠';
+      case 'general': return '🔵';
+      default: return '⚪';
     }
   };
 
@@ -651,6 +746,94 @@ const SettingsTab = () => {
                   )}
                 </span>
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Server Settings */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <Server className="w-5 h-5 mr-2 text-blue-400" />
+              Server Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="pt-4 border-t border-gray-700">
+              <Button
+                onClick={restartServer}
+                disabled={loading}
+                className="w-full mt-6 bg-gradient-to-br from-amber-600 to-yellow-600 hover:from-amber-600 hover:to-yellow-600 text-white"
+              >
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                    <RotateCcw className={`w-4 h-4 mr-2`} />
+                    Restart Server
+                    </>
+                  )}
+                </span>
+              </Button>
+
+              <Button
+                onClick={toggleAutoWake}
+                disabled={loading}
+                className={`w-full mt-3 ${autoWake 
+                  ? 'bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-600 hover:to-emerald-600' 
+                  : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-600 hover:to-gray-700'} text-white`}
+              >
+                <span className="relative z-10 flex items-center justify-center">
+                  {loading ? (
+                    <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    </>
+                  ) : (
+                    <>
+                    {autoWake ? <Battery className="w-4 h-4 mr-2" /> : <BatteryLow className="w-4 h-4 mr-2" />}
+                    Auto Wake: {autoWake ? 'ON' : 'OFF'}
+                    </>
+                  )}
+                </span>
+              </Button>
+
+              <div className="mt-6 space-y-2">
+                <div className="flex items-center space-x-2 text-white mb-2">
+                  <Terminal className="w-4 h-4" />
+                  <span className="text-sm font-semibold">System Logs</span>
+                </div>
+                <div className="bg-gray-900 rounded-lg p-3 h-64 overflow-y-auto font-mono text-xs border border-gray-700">
+                  {logs.length === 0 ? (
+                    <div className="text-gray-500 text-center py-8">No logs available</div>
+                  ) : (
+                    logs.map((log) => (
+                      <div key={log.id} className="mb-2 border-b border-gray-800 pb-2 last:border-b-0">
+                        <div className="flex items-start space-x-2">
+                          <span className="text-xs">{getLogTypeIcon(log.type)}</span>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <span className={`${getLogTypeColor(log.type)} break-all`}>
+                                {log.log}
+                              </span>
+                              <span className="text-gray-600 text-[10px] whitespace-nowrap ml-2">
+                                {new Date(log.timestamp).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

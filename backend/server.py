@@ -556,19 +556,14 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
             await firebase_manager.push_data("Tracker/location/history", new_location)
             
-            threshold_distance = await firebase_manager.get_data("Preferences/threshold_distance") or 0
-
-            # if moved significantly
-            if distance > threshold_distance:
-
-                # Send notification
-                notification = Notification(
-                    title="Location Update",
-                    message=f"Moved by: {distance} meters.",
-                    type="location_update"
-                )
-                
-                background_tasks.add_task(send_notification, notification)
+            # Send notification
+            notification = Notification(
+                title="Location Update",
+                message=f"Moved by: {distance} meters.",
+                type="location_update"
+            )
+            
+            background_tasks.add_task(send_notification, notification)
         
         return {"success": True}
     except Exception as e:
@@ -729,7 +724,7 @@ async def webhook_logs(data: dict, background_tasks: BackgroundTasks):
         log_msg = data.get("log", "")
 
         # Update Firebase log entry
-        await firebase_manager.update_data(
+        await firebase_manager.push_data(
             "Tracker/Logs",
             {
                 "type": log_type,
@@ -854,7 +849,7 @@ async def startup_event():
 
         if tracker_connected:
             await firebase_manager.update_data(
-                "MQTT",
+                "Tracker/MQTT",
                 {
                     "connected": True,
                     "last_connected": datetime.now(timezone.utc).isoformat()
