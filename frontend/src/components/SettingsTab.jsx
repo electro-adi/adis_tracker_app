@@ -14,16 +14,12 @@ import {
   Save,
   MessageSquareShare,
   Server,
-  RotateCcw,
   Terminal,
-  Battery,
-  BatteryLow
+  Loader
 } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
 import { ref, onValue, update, set } from 'firebase/database';
 import { db } from '../firebase';
-
-const DEPLOY_HOOK = import.meta.env.VITE_DEPLAY_HOOK;
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
@@ -223,36 +219,6 @@ const SettingsTab = () => {
         title: "Error",
         description: "Failed to request settings refresh."
       });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const restartServer = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(DEPLOY_HOOK, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        toast({
-          title: "Error",
-          description: `Failed to restart server: ${response.status}`,
-        });
-      } else {
-        toast({
-          title: "Request Sent",
-          description: "Restarting server...",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to restart server.",
-      });
-      console.error("Restart error:", error);
     } finally {
       setLoading(false);
     }
@@ -759,31 +725,12 @@ const SettingsTab = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="pt-4 border-t border-gray-700">
-              <Button
-                onClick={restartServer}
-                disabled={loading}
-                className="w-full mt-6 bg-gradient-to-br from-amber-600 to-yellow-600 hover:from-amber-600 hover:to-yellow-600 text-white"
-              >
-                <span className="relative z-10 flex items-center justify-center">
-                  {loading ? (
-                    <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    </>
-                  ) : (
-                    <>
-                    <RotateCcw className={`w-4 h-4 mr-2`} />
-                    Restart Server
-                    </>
-                  )}
-                </span>
-              </Button>
-
+            <div className="mt-6 space-y-2">
               <Button
                 onClick={toggleAutoWake}
                 disabled={loading}
                 className={`w-full mt-3 ${autoWake 
-                  ? 'bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-600 hover:to-emerald-600' 
+                  ? 'bg-gradient-to-br from-green-600 to-emerald-700 hover:from-green-600 hover:to-emerald-700' 
                   : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-600 hover:to-gray-700'} text-white`}
               >
                 <span className="relative z-10 flex items-center justify-center">
@@ -793,7 +740,7 @@ const SettingsTab = () => {
                     </>
                   ) : (
                     <>
-                    {autoWake ? <Battery className="w-4 h-4 mr-2" /> : <BatteryLow className="w-4 h-4 mr-2" />}
+                    <Loader className="w-4 h-4 mr-2" />
                     Auto Wake: {autoWake ? 'ON' : 'OFF'}
                     </>
                   )}
