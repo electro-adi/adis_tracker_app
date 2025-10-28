@@ -120,10 +120,10 @@ class EMQXManager:
             }
             
             response = requests.post(
-                EMQX_API_URL,
+                f"{EMQX_API_URL}/publish",
                 json=data,
                 auth=(EMQX_API_KEY, EMQX_SECRET_KEY),
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
             
             if response.status_code == 200:
@@ -136,6 +136,38 @@ class EMQXManager:
         except Exception as e:
             logger.error(f"Error publishing to EMQX: {str(e)}")
             return False
+        
+    @staticmethod
+    async def check_client() -> bool:
+        """Check if a client is connected to EMQX broker via HTTP API"""
+        try:
+            response = requests.get(
+                f"{EMQX_API_URL}/clients?_page=1&_limit=50",
+                auth=(EMQX_API_KEY, EMQX_SECRET_KEY),
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code != 200:
+                logger.error(f"Failed to query clients: {response.status_code} - {response.text}")
+                return False
+
+            data = response.json()
+            clients = data.get("data", [])
+
+            # Check if any clientid starts with "Tracker"
+            for client in clients:
+                cid = client.get("clientid", "")
+                if cid.startswith("Tracker"):
+                    logger.info(f"Client connected: {cid}")
+                    return True
+
+            logger.info("No Tracker clients found connected.")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error checking EMQX clients: {str(e)}")
+            return False
+
 
 emqx_manager = EMQXManager()
 
@@ -399,6 +431,10 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
         elif topic.endswith("/notification"):
             noti_obj = Notification(**payload)
             return await webhook_notification(noti_obj, background_tasks)
+        
+        elif topic.endswith("/logs"):
+            if isinstance(payload, dict):
+                return await webhook_logs(payload, background_tasks)
 
         elif topic.endswith("/events/connection"):
             if isinstance(payload, dict):
@@ -685,6 +721,37 @@ async def webhook_notification(notification: Notification, background_tasks: Bac
     except Exception as e:
         logger.error(f"Error sending notification: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 
+    
+async def webhook_logs(data: dict, background_tasks: BackgroundTasks):
+    """Handle log messages from EMQX webhook"""
+    try:
+        log_type = data.get("type", "").lower()
+        log_msg = data.get("log", "")
+
+        # Update Firebase log entry
+        await firebase_manager.update_data(
+            "Tracker/Logs",
+            {
+                "type": log_type,
+                "log": log_msg,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+
+        # If it's an error or critical log → send high priority notification
+        if log_type in ["error", "critical"]:
+            notification = Notification(
+                title="System Alert",
+                message=log_msg,
+                type="high_priority"
+            )
+            background_tasks.add_task(send_notification, notification)
+
+        return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Error handling logs webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
     """Handle connection messages from EMQX webhook"""
@@ -782,6 +849,17 @@ async def startup_event():
     global loop
     try:
         logger.info("GPS Tracker API started successfully")
+
+        tracker_connected = await emqx_manager.check_client()
+
+        if tracker_connected:
+            await firebase_manager.update_data(
+                "MQTT",
+                {
+                    "connected": True,
+                    "last_connected": datetime.now(timezone.utc).isoformat()
+                }
+            )
 
         loop = asyncio.get_running_loop()
 
