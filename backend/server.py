@@ -525,6 +525,17 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 "sats": location.sats,
                 "gps_timestamp": datetime.now(timezone.utc).isoformat()
             })
+        else:
+            logger.info("GPS fix not found, using last data.")
+            new_location.update({
+                "gps_lat": stored_location.get("gps_lat", 0.0),
+                "gps_lon": stored_location.get("gps_lon", 0.0),
+                "alt": stored_location.get("alt", 0.0),
+                "speed": stored_location.get("speed", 0.0),
+                "course": stored_location.get("course", 0.0),
+                "sats": stored_location.get("sats", 0.0),
+                "gps_timestamp": stored_location.get("gps_timestamp")
+            })
 
         # if lbs fix is available, then update
         if location.lbs_fix:
@@ -533,6 +544,13 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 "lbs_lat": location.lbs_lat,
                 "lbs_lon": location.lbs_lon,
                 "lbs_timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            logger.info("LBS fix not found, using last data.")
+            new_location.update({
+                "lbs_lat": stored_location.get("lbs_lat", 0.0),
+                "lbs_lon": stored_location.get("lbs_lon", 0.0),
+                "lbs_timestamp": stored_location.get("lbs_timestamp")
             })
 
         # Convert datetime objects before saving
@@ -543,7 +561,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
         await firebase_manager.update_data("Tracker/location/latest", new_location)
         
-        # If there is gps fix, then save as latest
+        # If there is gps fix, then store history and send notification
         if location.gps_fix:
 
             # Calculate distance difference
@@ -559,7 +577,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
             # Send notification
             notification = Notification(
                 title="Location Update",
-                message=f"Moved by: {distance} meters.",
+                message=f"Moved by {int(distance)} meters.",
                 type="location_update"
             )
             
