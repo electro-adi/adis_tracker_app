@@ -400,7 +400,7 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
             loc_obj = GpsLocation(**payload)
             return await webhook_location(loc_obj, background_tasks)
 
-        elif topic.endswith("/callstatus"):
+        elif topic.endswith("/call_status"):
             cals_obj = CallStatus(**payload)
             return await webhook_callstatus(cals_obj, background_tasks)
     
@@ -477,7 +477,7 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
                 0: "Tracker Online",
                 1: "Status Requested",
                 2: "Device Woken up",
-                5: "Periodic Wake up"
+                5: f"Periodic Wake up: {status.prd_wakeup_counter}"
             }
 
             reason_message = reason_map.get(status.send_reason, "Unknown Status")
@@ -573,14 +573,25 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
             new_location["distance_from_last_update"] = int(distance)
 
             await firebase_manager.push_data("Tracker/location/history", new_location)
-            
-            # Send notification
+
+            prd_wakeup_num = getattr(location, "prd_wakeup_num", 0)
+
+            if prd_wakeup_num != 0:
+                if distance >= 1000:
+                    message = f"PRD Wakeup: {prd_wakeup_num}, Moved by {round(distance / 1000, 2)} kilometers."
+                else:
+                    message = f"PRD Wakeup: {prd_wakeup_num}, Moved by {int(distance)} meters."
+            else:
+                if distance >= 1000:
+                    message = f"Moved by {round(distance / 1000, 2)} kilometers."
+                else:
+                    message = f"Moved by {int(distance)} meters."
+
             notification = Notification(
                 title="Location Update",
-                message=f"Moved by {int(distance)} meters.",
+                message=message,
                 type="location_update"
             )
-            
             background_tasks.add_task(send_notification, notification)
         
         return {"success": True}

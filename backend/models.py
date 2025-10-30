@@ -23,11 +23,13 @@ class DeviceStatus(BaseModel):
     prd_eps: Optional[bool] = None
     gps_fix: bool
     prd_wakeup_counter: int
+    temp_contact: str
     build: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class GpsLocation(BaseModel):
     send_reason: int
+    prd_wakeup_num: int
     gps_lat: float
     gps_lon: float
     lbs_lat: float
