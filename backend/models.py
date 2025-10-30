@@ -23,6 +23,7 @@ class DeviceStatus(BaseModel):
     prd_eps: Optional[bool] = None
     gps_fix: bool
     prd_wakeup_counter: int
+    build: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class GpsLocation(BaseModel):
