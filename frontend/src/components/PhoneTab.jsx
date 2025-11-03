@@ -358,7 +358,7 @@ const PhoneTab = () => {
   };
 
   return (
-    <div className="p-6 pt-8 space-y-6">
+    <div className="px-[6vw] py-[5vh] space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Phone Functions</h1>
       </div>

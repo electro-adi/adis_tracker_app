@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Shield } from 'lucide-react';
-import { Button } from './ui/button';
+import { BringToFront } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
 import { ref, set } from 'firebase/database';
 import { db } from '../firebase';
@@ -46,7 +45,7 @@ const IRTab = () => {
   ];
 
   return (
-    <div className="p-6 pt-8 space-y-6">
+    <div className="px-[6vw] py-[5vh] space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">IR Commands</h1>
       </div>
@@ -55,33 +54,33 @@ const IRTab = () => {
         <Card className="bg-gray-800 border border-gray-700 rounded-2xl shadow-md">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2 text-lg font-semibold">
-              <Shield className="w-5 h-5 text-gray-400" />
+              <BringToFront className="w-5 h-5 text-purple-400" />
               Stored IR Commands
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {stored_commands.map((cmd) => {
-                const borderColor =
-                  cmd.name.includes("RED") ? "border-red-500" :
-                  cmd.name.includes("BLUE") ? "border-blue-500" :
-                  cmd.name.includes("GREEN") ? "border-green-500" :
-                  cmd.name.includes("BLACK") ? "border-gray-800" :
-                  cmd.name.includes("WHITE") ? "border-gray-200" :
-                  "border-gray-700";
+                const textColor =
+                  cmd.name.includes("RED") ? "text-red-500" :
+                  cmd.name.includes("BLUE") ? "text-blue-500" :
+                  cmd.name.includes("GREEN") ? "text-green-500" :
+                  cmd.name.includes("BLACK") ? "text-gray-800" :
+                  cmd.name.includes("WHITE") ? "text-gray-200" :
+                  "text-white";
 
                 return (
-                  <Button
+                  <div
                     key={cmd.value}
                     onClick={() => SendIRCmd(cmd.value)}
-                    className={`p-5 rounded-2xl border-2 ${borderColor} text-lg font-semibold`}
+                    className="p-4 bg-gray-900 rounded-xl border border-gray-700 active:bg-gray-700"
                   >
                     <div className="flex justify-between items-center">
-                      <div className={`${borderColor.replace("border-", "text-")}`}>
+                      <div className={`${textColor} font-mono text-sm break-all`}>
                         {cmd.name}
                       </div>
                     </div>
-                  </Button>
+                  </div>
                 );
               })}
             </div>

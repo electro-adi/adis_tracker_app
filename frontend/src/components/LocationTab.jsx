@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { MapPin, Satellite, RadioTower, Navigation as NavigationIcon, History, Clock, MapPinned } from 'lucide-react';
+import { MapPin, Satellite, RadioTower, Navigation, History, Clock, MapPinned } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -42,27 +42,27 @@ const greenDotIcon = L.divIcon({
   iconAnchor: [6, 6],
 });
 
-const FitBoundsToMarkers = ({ gps, lbs, hasFit }) => {
+const FitBoundsToMarkers = ({ gps, lbs, shouldRecenter, onRecenterComplete }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (!gps || !lbs) return;
+    if (!gps || !lbs || !shouldRecenter) return;
 
-    if (!hasFit.current) {
-      const bounds = L.latLngBounds([gps, lbs]);
-      map.fitBounds(bounds, { padding: [30, 30] });
-      hasFit.current = true;
-    }
-  }, [gps, lbs, map, hasFit]);
+    const bounds = L.latLngBounds([gps, lbs]);
+    map.fitBounds(bounds, { padding: [30, 30] });
+    onRecenterComplete();
+  }, [gps, lbs, map, shouldRecenter, onRecenterComplete]);
 
   return null;
 };
 
 const LocationTab = () => {
-  const hasFit = React.useRef(false); 
+  const [shouldRecenter, setShouldRecenter] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false); 
 
   const [locationData, setLocationData] = useState({
-    send_reason: 0,
+    send_reason_gps: 0,
+    send_reason_lbs: 0,
     gps_lat: 49.9180204,
     gps_lon: 19.937429,
     lbs_lat: 49.9208907,
@@ -124,9 +124,9 @@ const LocationTab = () => {
     const unsubLocation = onValue(locationRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        hasFit.current = false;
         setLocationData({
-          send_reason: data.send_reason || 0,
+          send_reason_gps: data.send_reason_gps || 0,
+          send_reason_lbs: data.send_reason_lbs || 0,
           gps_lat: data.gps_lat || 49.9180204,
           gps_lon: data.gps_lon || 19.937429,
           lbs_lat: data.lbs_lat || 49.9208907,
@@ -140,13 +140,18 @@ const LocationTab = () => {
           gps_age_human: getTimeAgo(data.gps_timestamp),
           lbs_age_human: getTimeAgo(data.lbs_timestamp),
         });
+        
+        if (!isDataLoaded) {
+          setIsDataLoaded(true);
+          setShouldRecenter(true);
+        }
       }
     });
 
     return () => {
       unsubLocation();
     };
-  }, [currentTime]);
+  }, [currentTime, isDataLoaded]);
 
   useEffect(() => {
     const historyRef = ref(db, 'Tracker/location/history');
@@ -206,27 +211,24 @@ const LocationTab = () => {
     openInGoogleMaps(entry.gps_lat, entry.gps_lon);
   };
 
+  const recenterMap = () => {
+    setShouldRecenter(true);
+  };
+
   return (
-    <div className="p-6 pt-8 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="px-[6vw] py-[5vh] space-y-6">
+      <div className="flex justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-white">Device Location</h1>
         <Button
           onClick={requestLocation}
           disabled={loading}
-          className={`
-            bg-gradient-to-br from-sky-600 to-blue-600
-            text-white font-semibold
-            hover:bg-blue-600
-            px-5 py-2.5
-            rounded-lg
-            shadow-md
-          `}
+          className="bg-gradient-to-br from-sky-600 to-blue-600 text-white font-semibold hover:bg-blue-600 px-4 py-2 rounded-lg shadow-md flex-shrink-0"
         >   
           <span className="relative z-10 flex items-center justify-center">
             {loading ? (
               <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Requesting Location...
+                Requesting...
               </>
             ) : (
               <>
@@ -256,7 +258,8 @@ const LocationTab = () => {
                 <FitBoundsToMarkers
                   gps={[locationData.gps_lat, locationData.gps_lon]}
                   lbs={[locationData.lbs_lat, locationData.lbs_lon]}
-                  hasFit={hasFit}
+                  shouldRecenter={shouldRecenter}
+                  onRecenterComplete={() => setShouldRecenter(false)}
                 />
 
                 <Marker position={[locationData.gps_lat, locationData.gps_lon]} icon={blueIcon}>
@@ -268,7 +271,7 @@ const LocationTab = () => {
                       Satellites: {locationData.sats ?? "--"}<br />
                       Speed: {locationData.speed ?? "--"} km/h <br />
                       Age: {getTimeAgo(locationData.gps_timestamp)}<br />
-                      Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
+                      Event: {sendReasonMap[locationData.send_reason_gps] ?? "--"}<br />
                     </div>
                   </Popup>
                 </Marker>
@@ -280,7 +283,7 @@ const LocationTab = () => {
                       Lat: {locationData.lbs_lat}<br />
                       Lon: {locationData.lbs_lon}<br />
                       Age: {getTimeAgo(locationData.lbs_timestamp)}<br />
-                      Event: {sendReasonMap[locationData.send_reason] ?? "--"}<br />
+                      Event: {sendReasonMap[locationData.send_reason_lbs] ?? "--"}<br />
                     </div>
                   </Popup>
                 </Marker>
@@ -300,7 +303,7 @@ const LocationTab = () => {
                             Lon: {point.gps_lon}<br />
                             Time: {new Date(point.gps_timestamp).toLocaleString()}<br />
                             Speed: {point.speed ?? "--"} km/h <br />
-                            Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
+                            Event: {sendReasonMap[point.send_reason_gps] ?? "--"}<br />
                           </div>
                         </Popup>
                       </Marker>
@@ -320,7 +323,7 @@ const LocationTab = () => {
                             Lat: {point.lbs_lat}<br />
                             Lon: {point.lbs_lon}<br />
                             Time: {new Date(point.lbs_timestamp).toLocaleString()}<br />
-                            Event: {sendReasonMap[point.send_reason] ?? "--"}<br />
+                            Event: {sendReasonMap[point.send_reason_lbs] ?? "--"}<br />
                           </div>
                         </Popup>
                       </Marker>
@@ -334,12 +337,20 @@ const LocationTab = () => {
 
             <div className="absolute top-4 right-4 z-5 flex items-center space-x-2">
               <Button
+                onClick={recenterMap}
+                size="sm"
+                className="bg-gray-900/80 active:bg-gray-900 text-white backdrop-blur-sm"
+              >
+                <MapPin className="w-4 h-4" />
+              </Button>
+
+              <Button
                 onClick={() => openInGoogleMaps(locationData.gps_lat, locationData.gps_lon)}
                 size="sm"
                 className="bg-gray-900/80 active:bg-gray-900 text-white backdrop-blur-sm"
               >
-                <NavigationIcon className="w-4 h-4 mr-2" />
-                Open in Maps
+                <Navigation className="w-4 h-4 mr-2" />
+                Maps
               </Button>
 
               <Button
@@ -347,7 +358,7 @@ const LocationTab = () => {
                 size="sm"
                 className="bg-gray-900/80 active:bg-gray-900 text-white"
               >
-                {showHistory ? "Hide History" : "View History"}
+                {showHistory ? "Hide" : "History"}
               </Button>
             </div>
           </div>
@@ -403,7 +414,7 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
-              <span className="text-white">{sendReasonMap[locationData.send_reason] ?? "--"}</span>
+              <span className="text-white">{sendReasonMap[locationData.send_reason_gps] ?? "--"}</span>
             </div>
           </CardContent>
         </Card>
@@ -432,7 +443,7 @@ const LocationTab = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Event:</span>
-              <span className="text-white">{sendReasonMap[locationData.send_reason] ?? "--"}</span>
+              <span className="text-white">{sendReasonMap[locationData.send_reason_lbs] ?? "--"}</span>
             </div>
           </CardContent>
         </Card>
@@ -502,7 +513,7 @@ const LocationTab = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Event:</span>
-                          <span className="text-white text-[10px]">{sendReasonMap[entry.send_reason]}</span>
+                          <span className="text-white text-[10px]">{sendReasonMap[entry.send_reason_gps]}</span>
                         </div>
                       </div>
                       

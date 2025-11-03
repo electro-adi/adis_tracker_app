@@ -143,14 +143,46 @@ const SettingsTab = () => {
     const scale = (maxLog - minLog) / 100;
     let minutes = Math.round(Math.exp(minLog + position * scale));
     
-    if (minutes <= 60) {
-      minutes = Math.round(minutes / 5) * 5;
-    } else if (minutes <= 1440) {
-      minutes = Math.round(minutes / 30) * 30;
-    } else if (minutes <= 10080) {
-      minutes = Math.round(minutes / 360) * 360;
+    // Define snap points for common intervals
+    const snapPoints = [
+      5, 10, 15, 20, 25, 30,           // 5-min intervals up to 30
+      45, 60,                           // 45 min, 1 hour
+      90, 120,                          // 1.5, 2 hours
+      180, 240, 300, 360,              // 3, 4, 5, 6 hours
+      480, 600, 720,                    // 8, 10, 12 hours
+      1440,                             // 1 day
+      2880, 4320,                       // 2, 3 days
+      7200, 10080,                      // 5 days, 1 week
+      14400, 20160, 28800               // 10 days, 2 weeks, 20 days
+    ];
+    
+    // Find closest snap point
+    let closestSnap = snapPoints[0];
+    let minDiff = Math.abs(minutes - snapPoints[0]);
+    
+    for (let snap of snapPoints) {
+      const diff = Math.abs(minutes - snap);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestSnap = snap;
+      }
+    }
+    
+    // If very close to a snap point (within 15% of the range between snap points), snap to it
+    const threshold = minutes * 0.15;
+    if (minDiff < threshold) {
+      minutes = closestSnap;
     } else {
-      minutes = Math.round(minutes / 1440) * 1440;
+      // Otherwise apply original snapping logic
+      if (minutes <= 60) {
+        minutes = Math.round(minutes / 5) * 5;
+      } else if (minutes <= 1440) {
+        minutes = Math.round(minutes / 30) * 30;
+      } else if (minutes <= 10080) {
+        minutes = Math.round(minutes / 360) * 360;
+      } else {
+        minutes = Math.round(minutes / 1440) * 1440;
+      }
     }
     
     return Math.max(5, Math.min(28800, minutes));
@@ -353,21 +385,14 @@ const SettingsTab = () => {
   ];
 
   return (
-    <div className="p-6 pt-8 space-y-6">
+    <div className="px-[6vw] py-[5vh] space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Device Settings</h1>
         <div className="flex gap-2">
           <Button
             onClick={saveSettings}
             disabled={loading}
-            className={`
-              bg-gradient-to-r from-emerald-500 to-green-600
-              text-white font-semibold
-              hover:bg-blue-600
-              px-5 py-2.5
-              rounded-lg
-              shadow-md
-            `}
+            className="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold hover:bg-blue-600 px-5 py-2.5 rounded-lg shadow-md"
           >
             <span className="relative z-10 flex items-center justify-center">
               {loading ? (
@@ -566,6 +591,7 @@ const SettingsTab = () => {
                 onCheckedChange={(checked) => updateSetting('prd_wakeup', checked)}
               />
             </div>
+
             {settings.prd_wakeup && (
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -706,7 +732,7 @@ const SettingsTab = () => {
                     </>
                   ) : (
                     <>
-                    <RefreshCw className={`w-4 h-4 mr-2`} />
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh Device Config
                     </>
                   )}
@@ -724,62 +750,59 @@ const SettingsTab = () => {
               Server Settings
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="mt-6 space-y-2">
-              <Button
-                onClick={toggleAutoWake}
-                disabled={loading}
-                className={`w-full mt-3 ${autoWake 
-                  ? 'bg-gradient-to-br from-green-600 to-emerald-700 hover:from-green-600 hover:to-emerald-700' 
-                  : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-600 hover:to-gray-700'} text-white`}
-              >
-                <span className="relative z-10 flex items-center justify-center">
-                  {loading ? (
-                    <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    </>
-                  ) : (
-                    <>
-                    <Loader className="w-4 h-4 mr-2" />
-                    Auto Wake: {autoWake ? 'ON' : 'OFF'}
-                    </>
-                  )}
-                </span>
-              </Button>
-
-              <div className="mt-6 space-y-2">
-                <div className="flex items-center space-x-2 text-white mb-2">
-                  <Terminal className="w-4 h-4" />
-                  <span className="text-sm font-semibold">System Logs</span>
-                </div>
-                <div className="bg-gray-900 rounded-lg p-3 h-64 overflow-y-auto font-mono text-xs border border-gray-700">
-                  {logs.length === 0 ? (
-                    <div className="text-gray-500 text-center py-8">No logs available</div>
-                  ) : (
-                    logs.map((log) => (
-                      <div key={log.id} className="mb-2 border-b border-gray-800 pb-2 last:border-b-0">
-                        <div className="flex items-start space-x-2">
-                          <span className="text-xs">{getLogTypeIcon(log.type)}</span>
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start">
-                              <span className={`${getLogTypeColor(log.type)} break-all`}>
-                                {log.log}
-                              </span>
-                              <span className="text-gray-600 text-[10px] whitespace-nowrap ml-2">
-                                {new Date(log.timestamp).toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </div>
+          <CardContent className="space-y-5">
+            <Button
+              onClick={toggleAutoWake}
+              disabled={loading}
+              className={`w-full ${autoWake 
+                ? 'bg-gradient-to-br from-green-600 to-emerald-700 hover:from-green-600 hover:to-emerald-700' 
+                : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-600 hover:to-gray-700'} text-white`}
+            >
+              <span className="relative z-10 flex items-center justify-center">
+                {loading ? (
+                  <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  </>
+                ) : (
+                  <>
+                  <Loader className="w-4 h-4 mr-2" />
+                  Auto Wake: {autoWake ? 'ON' : 'OFF'}
+                  </>
+                )}
+              </span>
+            </Button>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-white mb-2">
+                <Terminal className="w-4 h-4" />
+                <span className="text-sm font-semibold">System Logs</span>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-3 h-64 overflow-y-auto font-mono text-xs border border-gray-700">
+                {logs.length === 0 ? (
+                  <div className="text-gray-500 text-center py-8">No logs available</div>
+                ) : (
+                  logs.map((log) => (
+                    <div key={log.id} className="mb-2 border-b border-gray-800 pb-2 last:border-b-0">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-xs">{getLogTypeIcon(log.type)}</span>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <span className={`${getLogTypeColor(log.type)} break-all`}>
+                              {log.log}
+                            </span>
+                            <span className="text-gray-600 text-[10px] whitespace-nowrap ml-2">
+                              {new Date(log.timestamp).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
                           </div>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </CardContent>

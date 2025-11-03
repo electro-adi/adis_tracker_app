@@ -220,7 +220,7 @@ const EspNowTab = () => {
   };
 
   return (
-    <div className="p-6 pt-8 space-y-6">
+    <div className="px-[6vw] py-[5vh] space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-white">ESP-NOW</h1>

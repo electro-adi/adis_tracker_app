@@ -20,7 +20,7 @@ class DeviceStatus(BaseModel):
     uptime: str
     espnow_state: int
     stored_sms: int
-    prd_eps: Optional[bool] = None
+    prd_eps: bool
     gps_fix: bool
     prd_wakeup_counter: int
     temp_contact: str
@@ -29,6 +29,8 @@ class DeviceStatus(BaseModel):
 
 class GpsLocation(BaseModel):
     send_reason: int
+    send_reason_gps: Optional[int]
+    send_reason_lbs: Optional[int]
     prd_wakeup_num: int
     gps_lat: float
     gps_lon: float
@@ -44,7 +46,7 @@ class GpsLocation(BaseModel):
     lbs_timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class CallStatus(BaseModel):
-    status: int = Field(ge=0, le=3)
+    call_status: int
     number: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -53,27 +55,27 @@ class LedConfig(BaseModel):
     green: int = Field(ge=0, le=255)
     blue: int = Field(ge=0, le=255)
     enableled: bool
-    led_boot_ani: Optional[int] = Field(default=None, ge=0, le=10)
-    led_call_ani: Optional[int] = Field(default=None, ge=0, le=10)
-    led_noti_ani: Optional[int] = Field(default=None, ge=0, le=10)
+    led_boot_ani: int
+    led_call_ani: int
+    led_noti_ani: int
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class DeviceConfig(BaseModel):
-    callmode: Optional[int] = Field(default=None, ge=0, le=2)
-    gpsmode: Optional[int] = Field(default=None, ge=0, le=9)
-    bootanimation: Optional[bool] = None
-    enablebuzzer: Optional[bool] = None
-    enablehaptics: Optional[bool] = None
-    bootsms: Optional[bool] = None
-    noti_sound: Optional[bool] = None
-    noti_ppp: Optional[bool] = None
-    ringtone: Optional[int] = Field(default=None, ge=0, le=24)
-    sms_thru_mqtt: Optional[bool] = None
-    DS_call_mode: Optional[int] = Field(default=None, ge=0, le=3)
-    prd_wakeup: Optional[bool] = None
-    prd_wakeup_time: Optional[int] = Field(default=None, ge=5, le=28800)
-    prd_sms_intvrl: Optional[int] = Field(default=None, ge=0, le=10)
-    prd_mqtt_intvrl: Optional[int] = Field(default=None, ge=0, le=10)
+    callmode: int
+    gpsmode: int
+    bootanimation: bool
+    enablebuzzer: bool
+    enablehaptics: bool
+    bootsms: bool
+    noti_sound: bool
+    noti_ppp: bool
+    ringtone: int
+    sms_thru_mqtt: bool
+    DS_call_mode: int
+    prd_wakeup: bool
+    prd_wakeup_time: int
+    prd_sms_intvrl: int
+    prd_mqtt_intvrl:int
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Contacts(BaseModel):

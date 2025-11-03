@@ -178,6 +178,8 @@ async def execute_command(command_data):
     data1 = command_data.get("data1", "")
     data2 = command_data.get("data2", "")
 
+    tracker_autowake = await firebase_manager.get_data("Preferences/tracker_autowake")
+
     # wake up tracker first if its asleep
     currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
     if currently_active is False: 
@@ -205,7 +207,7 @@ async def execute_command(command_data):
 
             return
 
-    if command == "get_status":
+    if command == "get_status" and tracker_autowake:
         await emqx_manager.publish("Tracker/to/request", "0")
 
     elif command == "get_location":
@@ -421,8 +423,8 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
             return await webhook_storedsms(ssms_obj, background_tasks)
         
         elif topic.endswith("/sms/received"):
-            if isinstance(payload, str):
-                return await webhook_newsms(payload, background_tasks)
+            payload_str = str(payload)
+            return await webhook_newsms(payload_str, background_tasks)
 
         elif topic.endswith("/espnow/received"):
             if isinstance(payload, str):
@@ -458,6 +460,11 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         status_dict = status.dict()
         status_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
 
+        #make sure the stored_sms value does not go below 0
+        prev_status = await firebase_manager.get_data("Tracker/status/latest")
+        if status.stored_sms < 0:
+            status.stored_sms = prev_status.get("stored_sms", 0)
+
         # Save to Firebase
         await firebase_manager.update_data("Tracker/status/latest", status_dict)
         await firebase_manager.push_data("Tracker/status/history", status_dict)
@@ -484,7 +491,7 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
 
             notification = Notification(
                 title="Status Update",
-                message=f"{reason_message} - Battery: {status.bat_percent}%",
+                message=f"{reason_message}, Battery: {status.bat_percent}%",
                 type="status_update"
             )
 
@@ -517,6 +524,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         if location.gps_fix:
             logger.info("GPS fix found, updating.")
             new_location.update({
+                "send_reason_gps": location.send_reason,
                 "gps_lat": location.gps_lat,
                 "gps_lon": location.gps_lon,
                 "alt": location.alt,
@@ -528,6 +536,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         else:
             logger.info("GPS fix not found, using last data.")
             new_location.update({
+                "send_reason_gps": stored_location.get("send_reason_gps"),
                 "gps_lat": stored_location.get("gps_lat", 0.0),
                 "gps_lon": stored_location.get("gps_lon", 0.0),
                 "alt": stored_location.get("alt", 0.0),
@@ -541,6 +550,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         if location.lbs_fix:
             logger.info("LBS fix found, updating.")
             new_location.update({
+                "send_reason_lbs": location.send_reason,
                 "lbs_lat": location.lbs_lat,
                 "lbs_lon": location.lbs_lon,
                 "lbs_timestamp": datetime.now(timezone.utc).isoformat()
@@ -548,6 +558,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
         else:
             logger.info("LBS fix not found, using last data.")
             new_location.update({
+                "send_reason_lbs": stored_location.get("send_reason_lbs"),
                 "lbs_lat": stored_location.get("lbs_lat", 0.0),
                 "lbs_lon": stored_location.get("lbs_lon", 0.0),
                 "lbs_timestamp": stored_location.get("lbs_timestamp")
@@ -574,18 +585,23 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
             await firebase_manager.push_data("Tracker/location/history", new_location)
 
-            prd_wakeup_num = getattr(location, "prd_wakeup_num", 0)
-
-            if prd_wakeup_num != 0:
+            if location.prd_wakeup_num != 0 and location.send_reason == 5:
                 if distance >= 1000:
-                    message = f"PRD Wakeup: {prd_wakeup_num}, Moved by {round(distance / 1000, 2)} kilometers."
+                    message = f"PRD Wakeup: {location.prd_wakeup_num}, Device moved by {round(distance / 1000, 2)} kilometers."
                 else:
-                    message = f"PRD Wakeup: {prd_wakeup_num}, Moved by {int(distance)} meters."
+                    message = f"PRD Wakeup: {location.prd_wakeup_num}, Device moved by {int(distance)} meters."
+
+            elif location.prd_wakeup_num != 0 and location.send_reason == 4:
+                if distance >= 1000:
+                    message = f"Fix found, Device moved by {round(distance / 1000, 2)} kilometers."
+                else:
+                    message = f"Fix found, Device moved by {int(distance)} meters."
+
             else:
                 if distance >= 1000:
-                    message = f"Moved by {round(distance / 1000, 2)} kilometers."
+                    message = f"Device moved by {round(distance / 1000, 2)} kilometers."
                 else:
-                    message = f"Moved by {int(distance)} meters."
+                    message = f"Device moved by {int(distance)} meters."
 
             notification = Notification(
                 title="Location Update",
@@ -686,7 +702,7 @@ async def webhook_newsms(data: str, background_tasks: BackgroundTasks):
         # Send notification
         notification = Notification(
             title="SMS Received",
-            message=f"Stored at index {data}...",
+            message=f"Stored at index {data}..",
             type="general"
         )
         
@@ -790,7 +806,7 @@ async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
             notification = Notification(
                 title="Tracker Connected",
                 message=f"Device {clientid} just connected",
-                type="general"
+                type="high_priority"
             )
             background_tasks.add_task(send_notification, notification)
 

@@ -34,6 +34,9 @@ const StatusTab = () => {
     stored_sms: 0,
     prd_eps: false,
     gps_fix: false,
+    prd_wakeup_counter: 0,
+    temp_contact: "",
+    build: "",
     timestamp: ""
   });
 
@@ -84,16 +87,19 @@ const StatusTab = () => {
           gsm_rssi: data.gsm_rssi || 0,
           wifi_enabled: data.wifi_enabled || false,
           wifi_rssi: data.wifi_rssi || 0,
-          wifi: data.wifi || "",
+          wifi: data.wifi || "--",
           in_call: data.in_call || false,
           locked: data.locked || false,
           light_level: data.light_level || 0,
-          uptime: data.uptime || "00:00:00",
+          uptime: data.uptime || "--",
           espnow_state: data.espnow_state || 0,
           stored_sms: data.stored_sms || 0,
           prd_eps: data.prd_eps || false,
           gps_fix: data.gps_fix || false,
-          timestamp: data.timestamp || ""
+          prd_wakeup_counter: data.prd_wakeup_counter || 0,
+          temp_contact: data.temp_contact || "--",
+          build: data.build || "--",
+          timestamp: data.timestamp || "--"
         });
       }
     });
@@ -148,7 +154,7 @@ const StatusTab = () => {
   };
 
   return (
-    <div className="p-6 pt-8 space-y-6">
+    <div className="px-[6vw] py-[5vh] space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Device Status</h1>
         <div className="flex items-center space-x-2">
@@ -190,9 +196,9 @@ const StatusTab = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-gray-400">Screen:</span>
-              <span className={status.screen_on ? "text-white" : "text-gray-500"}>
-                {status.screen_on ? "On" : "Off"}
+              <span className="text-gray-400">Event:</span>
+              <span className={sendReasonMap[status.send_reason] ? "text-white" : "text-gray-500"}>
+                {sendReasonMap[status.send_reason] ?? "--"}
               </span>
             </div>
             <div className="flex justify-between">
@@ -201,7 +207,12 @@ const StatusTab = () => {
                 {status.sleep_mode ? "On" : "Off"}
               </span>
             </div>
-
+            <div className="flex justify-between">
+              <span className="text-gray-400">Screen:</span>
+              <span className={status.screen_on ? "text-white" : "text-gray-500"}>
+                {status.screen_on ? "On" : "Off"}
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Locked:</span>
               <div className="flex items-center">
@@ -210,16 +221,21 @@ const StatusTab = () => {
                 </span>
               </div>
             </div>
-
             <div className="flex justify-between">
-              <span className="text-gray-400">Event:</span>
-              <span className={sendReasonMap[status.send_reason] ? "text-white" : "text-gray-500"}>
-                {sendReasonMap[status.send_reason] ?? "--"}
+              <span className="text-gray-400">Wakeup Counter:</span>
+              <span className={status.prd_wakeup_counter === 0 ? "text-gray-500" : "text-white"}>
+                {status.prd_wakeup_counter}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">GPS State:</span>
-              <span className="text-white">{status.gps_fix ? 'Fix Found' : 'Fix Not Found'}</span>
+              <span className="text-gray-400">Light Level:</span>
+              <span className="text-white">{status.light_level} lux</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Extreme Power Saving Mode:</span>
+              <span className={status.prd_eps ? "text-white" : "text-gray-500"}>
+                {status.prd_eps ? "Enabled" : "Disabled"}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -288,6 +304,18 @@ const StatusTab = () => {
                 <span className="text-white">{status.wifi_rssi} dBm</span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-gray-400">In Call:</span>
+              <span className={status.in_call ? "text-white" : "text-gray-500"}>
+                {status.in_call ? "Yes" : "No"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Temp Contact:</span>
+              <span className={status.temp_contact ? "text-white" : "text-gray-500"}>
+                {status.temp_contact ?? "--"}
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -303,28 +331,16 @@ const StatusTab = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-gray-400">Uptime:</span>
-              <span className="text-white font-mono">{status.uptime}</span>
-            </div>
-            <div className="flex justify-between">
               <span className="text-gray-400">Last Activity:</span>
               <span className="text-white">{getTimeAgo(status.last_activity_human)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Light Level:</span>
-              <span className="text-white">{status.light_level} lux</span>
+              <span className="text-gray-400">Uptime:</span>
+              <span className="text-white font-mono">{status.uptime}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">In Call:</span>
-              <span className={status.in_call ? "text-white" : "text-gray-500"}>
-                {status.in_call ? "Yes" : "No"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Extreme Power Saving Mode:</span>
-              <span className={status.prd_eps ? "text-white" : "text-gray-500"}>
-                {status.prd_eps ? "Enabled" : "Disabled"}
-              </span>
+              <span className="text-gray-400">Build:</span>
+              <span className="text-white font-mono">{status.build}</span>
             </div>
           </CardContent>
         </Card>

@@ -36,7 +36,7 @@ const CMDTab = () => {
   };
 
   return (
-    <div className="p-6 pt-8 space-y-6">
+    <div className="px-[6vw] py-[5vh] space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">SMS Commands</h1>
       </div>
@@ -54,7 +54,7 @@ const CMDTab = () => {
               <div
                 key={i}
                 onClick={() => copyToClipboard(c.cmd)}
-                className="p-4 bg-gray-900 rounded-xl border border-gray-700 active:bg-gray-700 cursor-pointer transition group"
+                className="p-4 bg-gray-900 rounded-xl border border-gray-700 active:bg-gray-700"
               >
                 <div className="flex justify-between items-center">
                   <code className="text-green-400 font-mono text-sm break-all">
