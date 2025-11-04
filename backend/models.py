@@ -29,8 +29,8 @@ class DeviceStatus(BaseModel):
 
 class GpsLocation(BaseModel):
     send_reason: int
-    send_reason_gps: Optional[int]
-    send_reason_lbs: Optional[int]
+    send_reason_gps: Optional[int] = 0
+    send_reason_lbs: Optional[int] = 0
     prd_wakeup_num: int
     gps_lat: float
     gps_lon: float
