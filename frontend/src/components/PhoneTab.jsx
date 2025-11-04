@@ -443,7 +443,7 @@ const PhoneTab = () => {
               <Button
                 onClick={saveContacts}
                 disabled={loading.contacts}
-                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600 text-white"
+                className="w-full bg-gradient-to-r from-emerald-500 to-green-700 hover:from-emerald-500 hover:to-green-700 text-white"
               >
                 <span className="relative z-10 flex items-center justify-center">
                   {loading.contacts ? (
@@ -461,7 +461,7 @@ const PhoneTab = () => {
               <Button
                 onClick={refreshContacts}
                 disabled={loading2}
-                className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+                className="w-full bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700 text-white"
               >
                 <span className="relative z-10 flex items-center justify-center">
                   {loading2 ? (
@@ -498,7 +498,7 @@ const PhoneTab = () => {
             <Button
               onClick={makeCall}
               disabled={loading.call}
-              className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600 text-white"
+              className="w-full bg-gradient-to-r from-emerald-500 to-green-700 hover:from-emerald-500 hover:to-green-700 text-white"
             >
               <span className="relative z-10 flex items-center justify-center">
                 {loading.call ? (
@@ -561,7 +561,7 @@ const PhoneTab = () => {
             <Button
               onClick={sendSms}
               disabled={loading.sms}
-                className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+                className="w-full bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700 text-white"
               >
                 <span className="relative z-10 flex items-center justify-center">
                   {loading.sms ? (
@@ -629,7 +629,7 @@ const PhoneTab = () => {
                 }
               }}
               disabled={loading.sms}
-              className="w-full bg-gradient-to-br from-amber-600 to-yellow-600 hover:from-amber-600 hover:to-yellow-600 text-white"
+              className="w-full bg-gradient-to-br from-amber-500 to-yellow-700 hover:from-amber-500 hover:to-yellow-700 text-white"
             >
               <span className="relative z-10 flex items-center justify-center">
                 {loading.sms ? (

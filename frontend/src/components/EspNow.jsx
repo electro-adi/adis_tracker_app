@@ -249,8 +249,8 @@ const EspNowTab = () => {
                   onClick={() => SetEspnowMode(mode.value)}
                   disabled={loading}
                   className={currentMode === mode.value 
-                    ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
-                    : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                    ? "bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700" 
+                    : "border-gray-500 text-gray-300 hover:bg-gray-700"
                   }
                 >
                   {mode.name}
@@ -278,8 +278,8 @@ const EspNowTab = () => {
                   onClick={() => SetBootEspnowMode(mode.value)}
                   disabled={loading}
                   className={bootMode === mode.value 
-                    ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-600" 
-                    : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                    ? "bg-gradient-to-br from-violet-500 to-fuchsia-700 hover:from-violet-500 hover:to-fuchsia-700" 
+                    : "border-gray-500 text-gray-300 hover:bg-gray-700"
                   }
                 >
                   {mode.name}
@@ -349,7 +349,7 @@ const EspNowTab = () => {
               <Button
                 onClick={() => SendEspnowCmd(message)}
                 disabled={loading || !message.trim()}
-                className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600 text-white"
+                className="bg-gradient-to-r from-emerald-500 to-green-700 hover:from-emerald-500 hover:to-green-700 text-white"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

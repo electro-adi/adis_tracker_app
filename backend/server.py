@@ -460,11 +460,6 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
         status_dict = status.dict()
         status_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
 
-        #make sure the stored_sms value does not go below 0
-        prev_status = await firebase_manager.get_data("Tracker/status/latest")
-        if status.stored_sms < 0:
-            status.stored_sms = prev_status.get("stored_sms", 0)
-
         # Save to Firebase
         await firebase_manager.update_data("Tracker/status/latest", status_dict)
         await firebase_manager.push_data("Tracker/status/history", status_dict)
@@ -865,8 +860,19 @@ async def heartbeat():
     if tracker_autowake is True:
         await emqx_manager.publish("Tracker/to/mode", "0")
 
-    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
+    tracker_connected = await firebase_manager.get_data("Tracker/MQTT/connected")
+    if tracker_connected is False:
+        new_tracker_connected = await emqx_manager.check_client()
+        if new_tracker_connected:
+            await firebase_manager.update_data(
+                "Tracker/MQTT",
+                {
+                    "connected": True,
+                    "last_connected": datetime.now(timezone.utc).isoformat()
+                }
+            )
 
+    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
 app.include_router(api_router)
 

@@ -201,8 +201,8 @@ const LedTab = () => {
             onClick={toggleLed}
             className={
               LedConfig.enableled
-                ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white"
-                : "bg-gray-600 hover:bg-gray-600 text-white"
+                ? "bg-gradient-to-br from-sky-500 to-blue-700 text-white"
+                : "bg-gray-500 hover:bg-gray-700 text-white"
             }
           >
             {LedConfig.enableled ? <Lightbulb className="w-4 h-4 mr-2" /> : <LightbulbOff className="w-4 h-4 mr-2" />}
@@ -305,7 +305,7 @@ const LedTab = () => {
             <Button 
               onClick={applyLedConfig}
               disabled={loading || !LedConfig.enableled}
-              className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+              className="w-full bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700 text-white"
             >
               {loading ? (
                 <>
@@ -342,8 +342,8 @@ const LedTab = () => {
                       size="sm"
                       onClick={() => setAnimationSettings(prev => ({ ...prev, led_boot_ani: mode.value }))}
                       className={LedConfig.led_boot_ani === mode.value 
-                        ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
-                        : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        ? "bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700" 
+                        : "border-gray-500 text-gray-300 hover:bg-gray-700"
                       }
                     >
                       {mode.name}
@@ -362,8 +362,8 @@ const LedTab = () => {
                       size="sm"
                       onClick={() => setAnimationSettings(prev => ({ ...prev, led_call_ani: mode.value }))}
                       className={LedConfig.led_call_ani === mode.value 
-                        ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600" 
-                        : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        ? "bg-gradient-to-r from-emerald-500 to-green-700 hover:from-emerald-500 hover:to-green-700" 
+                        : "border-gray-500 text-gray-300 hover:bg-gray-700"
                       }
                     >
                       {mode.name}
@@ -382,8 +382,8 @@ const LedTab = () => {
                       size="sm"
                       onClick={() => setAnimationSettings(prev => ({ ...prev, led_noti_ani: mode.value }))}
                       className={LedConfig.led_noti_ani === mode.value 
-                        ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-600" 
-                        : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        ? "bg-gradient-to-br from-violet-500 to-fuchsia-700 hover:from-violet-500 hover:to-fuchsia-700" 
+                        : "border-gray-500 text-gray-300 hover:bg-gray-700"
                       }
                     >
                       {mode.name}
@@ -396,7 +396,7 @@ const LedTab = () => {
               <Button
                 onClick={refreshLedconfig}
                 disabled={loading}
-                className="w-full bg-gradient-to-br from-amber-600 to-yellow-600 hover:from-amber-600 hover:to-yellow-600 text-white"
+                className="w-full bg-gradient-to-br from-amber-500 to-yellow-700 hover:from-amber-500 hover:to-yellow-700 text-white"
               >
                 <span className="relative z-10 flex items-center justify-center">
                   {loading ? (
@@ -414,7 +414,7 @@ const LedTab = () => {
               <Button 
                 onClick={applyLedConfig}
                 disabled={loading || !LedConfig.enableled}
-                className="w-full bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+                className="w-full bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700 text-white"
               >
                 {loading ? (
                   <>

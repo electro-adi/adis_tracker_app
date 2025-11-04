@@ -323,11 +323,13 @@ const SettingsTab = () => {
 
   const deviceModes = [
     { value: 0, name: 'Wake' },
-    { value: 1, name: 'Display Off' },
-    { value: 2, name: 'Deep Sleep' },
+    { value: 1, name: 'Display OFF' },
     { value: 3, name: 'Lock' },
     { value: 4, name: 'Unlock' },
-    { value: 5, name: 'EPS Mode' }
+    { value: 7, name: 'Enter EPS Mode' },
+    { value: 8, name: 'Exit EPS Mode' },
+    { value: 9, name: 'Enter BLE Beacon Mode' },
+    { value: 10, name: 'Exit BLE Beacon Mode' }
   ];
 
   const callModes = [
@@ -392,7 +394,7 @@ const SettingsTab = () => {
           <Button
             onClick={saveSettings}
             disabled={loading}
-            className="bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold hover:bg-blue-600 px-5 py-2.5 rounded-lg shadow-md"
+            className="bg-gradient-to-br from-green-500 to-emerald-700 hover:from-green-500 hover:to-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg shadow-md"
           >
             <span className="relative z-10 flex items-center justify-center">
               {loading ? (
@@ -486,8 +488,8 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('ringtone', mode.value)}
                     className={settings.ringtone === mode.value 
-                      ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
-                      : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                      ? "bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700" 
+                      : "border-gray-500 text-gray-300 hover:bg-gray-700"
                     }
                   >
                     {mode.name}
@@ -540,8 +542,8 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('call_mode', mode.value)}
                     className={settings.call_mode === mode.value 
-                      ? "bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600" 
-                      : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                      ? "bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700" 
+                      : "border-gray-500 text-gray-300 hover:bg-gray-700"
                     }
                   >
                     {mode.name}
@@ -560,8 +562,8 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('DS_call_mode', mode.value)}
                     className={settings.DS_call_mode === mode.value 
-                      ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-600" 
-                      : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                      ? "bg-gradient-to-br from-violet-500 to-fuchsia-700 hover:from-violet-500 hover:to-fuchsia-700" 
+                      : "border-gray-500 text-gray-300 hover:bg-gray-700"
                     }
                   >
                     {mode.name}
@@ -662,8 +664,8 @@ const SettingsTab = () => {
                     size="sm"
                     onClick={() => updateSetting('gps_mode', mode.value)}
                     className={settings.gps_mode === mode.value 
-                      ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-600 hover:to-green-600" 
-                      : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                      ? "bg-gradient-to-r from-emerald-500 to-green-700 hover:from-emerald-500 hover:to-green-700" 
+                      : "border-gray-500 text-gray-300 hover:bg-gray-700"
                     }
                   >
                     {mode.name}
@@ -700,13 +702,30 @@ const SettingsTab = () => {
                 </Button>
               ))}
             </div>
-
+            <Button
+              onClick={() => UpdateMode(2)}
+              disabled={loading}
+              className="w-full mt-6 bg-gradient-to-br from-amber-500 to-yellow-700 hover:from-amber-500 hover:to-yellow-700 text-white"
+            >
+              <span className="relative z-10 flex items-center justify-center">
+                {loading ? (
+                  <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  </>
+                ) : (
+                  <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Enter Deepsleep Mode
+                  </>
+                )}
+              </span>
+            </Button>
             <div className="pt-4 border-t border-gray-700">
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => UpdateMode(6)}
+                  onClick={() => UpdateMode(5)}
                   className="border-orange-600 text-orange-300 hover:bg-transparent"
                 >
                   Reboot GSM
@@ -714,7 +733,7 @@ const SettingsTab = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => UpdateMode(7)}
+                  onClick={() => UpdateMode(6)}
                   className="border-red-600 text-red-300 hover:bg-transparent"
                 >
                   Reboot Device
@@ -723,7 +742,7 @@ const SettingsTab = () => {
               <Button
                 onClick={refreshSettings}
                 disabled={loading}
-                className="w-full mt-6 bg-gradient-to-br from-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-600 text-white"
+                className="w-full mt-6 bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700 text-white"
               >
                 <span className="relative z-10 flex items-center justify-center">
                   {loading ? (
@@ -755,8 +774,8 @@ const SettingsTab = () => {
               onClick={toggleAutoWake}
               disabled={loading}
               className={`w-full ${autoWake 
-                ? 'bg-gradient-to-br from-green-600 to-emerald-700 hover:from-green-600 hover:to-emerald-700' 
-                : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-600 hover:to-gray-700'} text-white`}
+                ? 'bg-gradient-to-br from-green-500 to-emerald-700 hover:from-green-500 hover:to-emerald-700' 
+                : 'bg-gradient-to-br from-gray-500 to-gray-700 hover:from-gray-500 hover:to-gray-700'} text-white`}
             >
               <span className="relative z-10 flex items-center justify-center">
                 {loading ? (

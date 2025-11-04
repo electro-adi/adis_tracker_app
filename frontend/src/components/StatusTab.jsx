@@ -33,6 +33,7 @@ const StatusTab = () => {
     espnow_state: 0,
     stored_sms: 0,
     prd_eps: false,
+    ble_beacon: false,
     gps_fix: false,
     prd_wakeup_counter: 0,
     temp_contact: "",
@@ -95,6 +96,7 @@ const StatusTab = () => {
           espnow_state: data.espnow_state || 0,
           stored_sms: data.stored_sms || 0,
           prd_eps: data.prd_eps || false,
+          ble_beacon: data.ble_beacon || false,
           gps_fix: data.gps_fix || false,
           prd_wakeup_counter: data.prd_wakeup_counter || 0,
           temp_contact: data.temp_contact || "--",
@@ -235,6 +237,12 @@ const StatusTab = () => {
               <span className="text-gray-400">Extreme Power Saving Mode:</span>
               <span className={status.prd_eps ? "text-white" : "text-gray-500"}>
                 {status.prd_eps ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">BLE Beacon Mode:</span>
+              <span className={status.ble_beacon ? "text-white" : "text-gray-500"}>
+                {status.ble_beacon ? "Enabled" : "Disabled"}
               </span>
             </div>
           </CardContent>

@@ -222,7 +222,7 @@ const LocationTab = () => {
         <Button
           onClick={requestLocation}
           disabled={loading}
-          className="bg-gradient-to-br from-sky-600 to-blue-600 text-white font-semibold hover:bg-blue-600 px-4 py-2 rounded-lg shadow-md flex-shrink-0"
+          className="bg-gradient-to-br from-sky-500 to-blue-700 text-white font-semibold hover:from-sky-500 hover:to-blue-700 px-4 py-2 rounded-lg shadow-md flex-shrink-0"
         >   
           <span className="relative z-10 flex items-center justify-center">
             {loading ? (
