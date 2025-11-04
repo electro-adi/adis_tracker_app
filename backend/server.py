@@ -620,7 +620,7 @@ async def webhook_callstatus(callstatus: CallStatus, background_tasks: Backgroun
         await firebase_manager.update_data("Tracker/callstatus", callstatus_dict)
         
         # Send notification
-        if callstatus.status == 2:  # Incoming call
+        if callstatus.call_status == 2:  # Incoming call
             notification = Notification(
                 title="Incoming Call",
                 message=f"Tracker receiving call from: {callstatus.number}",

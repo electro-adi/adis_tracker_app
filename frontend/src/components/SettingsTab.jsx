@@ -9,6 +9,7 @@ import {
   Bell, 
   Power, 
   RefreshCw,
+  BatteryPlus,
   Shield,
   Smartphone,
   Save,
@@ -714,7 +715,7 @@ const SettingsTab = () => {
                   </>
                 ) : (
                   <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <BatteryPlus className="w-4 h-4 mr-2" />
                   Enter Deepsleep Mode
                   </>
                 )}
