@@ -207,7 +207,7 @@ async def execute_command(command_data):
 
             return
 
-    if command == "get_status" and tracker_autowake:
+    if command == "get_status":
         await emqx_manager.publish("Tracker/to/request", "0")
 
     elif command == "get_location":

@@ -135,13 +135,13 @@ const LedTab = () => {
   };
 
   const toggleLed = async () => {
+    setLoading(true);
     const newEnabled = !LedConfig.enableled;
-    setLedConfig(prev => ({ ...prev, enableled: newEnabled }));
+    
     try {
       const LedConfigRef = ref(db, 'Tracker/ledconfig');
       await update(LedConfigRef, {
         enableled: newEnabled,
-        ...LedConfig,
         timestamp: new Date().toISOString()
       });
 
@@ -164,7 +164,13 @@ const LedTab = () => {
         description: "Failed to toggle LED state.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const setAnimationSettings = (updateFn) => {
+    setLedConfig(updateFn);
   };
 
   const presetColors = [
@@ -199,13 +205,18 @@ const LedTab = () => {
         <div className="flex gap-2">
           <Button
             onClick={toggleLed}
+            disabled={loading}
             className={
               LedConfig.enableled
                 ? "bg-gradient-to-br from-sky-500 to-blue-700 text-white"
                 : "bg-gray-500 hover:bg-gray-700 text-white"
             }
           >
-            {LedConfig.enableled ? <Lightbulb className="w-4 h-4 mr-2" /> : <LightbulbOff className="w-4 h-4 mr-2" />}
+            {loading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            ) : (
+              LedConfig.enableled ? <Lightbulb className="w-4 h-4 mr-2" /> : <LightbulbOff className="w-4 h-4 mr-2" />
+            )}
             {LedConfig.enableled ? "Disable LED" : "Enable LED"}
           </Button>
         </div>
@@ -340,7 +351,7 @@ const LedTab = () => {
                       key={mode.value}
                       variant={LedConfig.led_boot_ani === mode.value ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setAnimationSettings(prev => ({ ...prev, led_boot_ani: mode.value }))}
+                      onClick={() => setLedConfig(prev => ({ ...prev, led_boot_ani: mode.value }))}
                       className={LedConfig.led_boot_ani === mode.value 
                         ? "bg-gradient-to-br from-sky-500 to-blue-700 hover:from-sky-500 hover:to-blue-700" 
                         : "border-gray-500 text-gray-300 hover:bg-gray-700"
@@ -360,7 +371,7 @@ const LedTab = () => {
                       key={mode.value}
                       variant={LedConfig.led_call_ani === mode.value ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setAnimationSettings(prev => ({ ...prev, led_call_ani: mode.value }))}
+                      onClick={() => setLedConfig(prev => ({ ...prev, led_call_ani: mode.value }))}
                       className={LedConfig.led_call_ani === mode.value 
                         ? "bg-gradient-to-r from-emerald-500 to-green-700 hover:from-emerald-500 hover:to-green-700" 
                         : "border-gray-500 text-gray-300 hover:bg-gray-700"
@@ -380,7 +391,7 @@ const LedTab = () => {
                       key={mode.value}
                       variant={LedConfig.led_noti_ani === mode.value ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setAnimationSettings(prev => ({ ...prev, led_noti_ani: mode.value }))}
+                      onClick={() => setLedConfig(prev => ({ ...prev, led_noti_ani: mode.value }))}
                       className={LedConfig.led_noti_ani === mode.value 
                         ? "bg-gradient-to-br from-violet-500 to-fuchsia-700 hover:from-violet-500 hover:to-fuchsia-700" 
                         : "border-gray-500 text-gray-300 hover:bg-gray-700"
@@ -405,7 +416,7 @@ const LedTab = () => {
                     </>
                   ) : (
                     <>
-                    <RefreshCw className={`w-4 h-4 mr-2`} />
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh LED Config
                     </>
                   )}

@@ -1,0 +1,47 @@
+Connection Rule:
+
+SELECT
+  connected_at,
+  clientid
+FROM
+  "$events/client_connected"
+
+Connection Action: Republish to topic "Tracker/events/connection" with qos 1
+
+{
+  "connected_at":${connected_at},
+  "clientid":${clientid}
+}
+
+
+Disconnection Rule:
+
+SELECT
+  reason,
+  disconnected_at,
+  clientid
+FROM
+  "$events/client/disconnected"
+
+Disconnection Action: Republish to topic "Tracker/events/disconnection" with qos 1
+
+{
+  "reason":${reason},
+  "disconnected_at":${disconnected_at},
+  "clientid":${clientid}
+}
+
+
+MQTT WEBHOOK RULE:
+
+
+SELECT
+  *
+FROM
+  "Tracker/from/#"
+
+and action is to send the topic and payload to the server webhook url
+
+
+
+
