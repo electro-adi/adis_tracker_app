@@ -23,8 +23,6 @@ if (!deviceId) {
   localStorage.setItem('deviceId', deviceId);
 }
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-
 function App() {
   const [activeTab, setActiveTab] = useState('location');
   const { toast } = useToast();
@@ -239,35 +237,6 @@ function App() {
       isMounted = false;
     };
   }, []);
-
-useEffect(() => {
-  const heartbeat = async () => {
-    try 
-    {
-      const response = await fetch(`${BACKEND_URL}/api/heartbeat`, {
-        method: 'GET',
-        cache: 'no-store',
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      console.log('[HEARTBEAT] Backend awake');
-    } 
-    catch (error) 
-    {
-      console.warn('[HEARTBEAT] Failed:', error.message);
-      toast({
-        title: "Error",
-        description: "Backend: " + error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  heartbeat();
-
-  const interval = setInterval(heartbeat, 60_000);
-
-  return () => clearInterval(interval);
-}, []);
 
   const renderActiveTab = () => {
     switch (activeTab) {

@@ -178,8 +178,6 @@ async def execute_command(command_data):
     data1 = command_data.get("data1", "")
     data2 = command_data.get("data2", "")
 
-    tracker_autowake = await firebase_manager.get_data("Preferences/tracker_autowake")
-
     # wake up tracker first if its asleep
     currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
     if currently_active is False: 
@@ -844,36 +842,6 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
 async def root():
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
-@api_router.get("/heartbeat")
-async def heartbeat():
-    backend_state = await firebase_manager.get_data("Backend/online")
-    if backend_state is False:
-        await firebase_manager.update_data(
-            "Backend",
-            {
-                "online": True,
-                "last_online": datetime.now(timezone.utc).isoformat()
-            }
-        )
-
-    tracker_autowake = await firebase_manager.get_data("Preferences/tracker_autowake")
-    if tracker_autowake is True:
-        await emqx_manager.publish("Tracker/to/mode", "0")
-
-    tracker_connected = await firebase_manager.get_data("Tracker/MQTT/connected")
-    if tracker_connected is False:
-        new_tracker_connected = await emqx_manager.check_client()
-        if new_tracker_connected:
-            await firebase_manager.update_data(
-                "Tracker/MQTT",
-                {
-                    "connected": True,
-                    "last_connected": datetime.now(timezone.utc).isoformat()
-                }
-            )
-
-    return {"message": "GPS Tracker Control API", "version": "6.9.0"}
-
 app.include_router(api_router)
 
 app.add_middleware(
@@ -891,14 +859,25 @@ async def startup_event():
     try:
         logger.info("GPS Tracker API started successfully")
 
+        """Check if tracker is connected to MQTT Broker"""
         tracker_connected = await emqx_manager.check_client()
-
         if tracker_connected:
             await firebase_manager.update_data(
                 "Tracker/MQTT",
                 {
                     "connected": True,
                     "last_connected": datetime.now(timezone.utc).isoformat()
+                }
+            )
+
+        """Change to backend = online in firebase"""
+        backend_state = await firebase_manager.get_data("Backend/online")
+        if backend_state is False:
+            await firebase_manager.update_data(
+                "Backend",
+                {
+                    "online": True,
+                    "last_online": datetime.now(timezone.utc).isoformat()
                 }
             )
 

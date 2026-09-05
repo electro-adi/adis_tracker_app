@@ -41,7 +41,6 @@ const SettingsTab = () => {
     prd_mqtt_intvrl: 0
   });
   
-  const [autoWake, setAutoWake] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -71,12 +70,6 @@ const SettingsTab = () => {
       }
     });
 
-    const autoWakeRef = ref(db, 'Preferences/tracker_autowake');
-    const unsubAutoWake = onValue(autoWakeRef, (snapshot) => {
-      const value = snapshot.val();
-      setAutoWake(value === true);
-    });
-
     const logsRef = ref(db, 'Tracker/Logs');
     const unsubLogs = onValue(logsRef, (snapshot) => {
       const data = snapshot.val();
@@ -93,7 +86,6 @@ const SettingsTab = () => {
 
     return () => {
       unsubConfig();
-      unsubAutoWake();
       unsubLogs();
     };
   }, []);
@@ -277,26 +269,6 @@ const SettingsTab = () => {
       toast({
         title: "Error",
         description: "Failed to update mode.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleAutoWake = async () => {
-    setLoading(true);
-    try {
-      const autoWakeRef = ref(db, 'Preferences/tracker_autowake');
-      await set(autoWakeRef, !autoWake);
-      toast({
-        title: "Auto Wake Updated",
-        description: `Auto wake ${!autoWake ? 'enabled' : 'disabled'}.`
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to toggle auto wake.",
         variant: "destructive"
       });
     } finally {
@@ -771,26 +743,6 @@ const SettingsTab = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <Button
-              onClick={toggleAutoWake}
-              disabled={loading}
-              className={`w-full ${autoWake 
-                ? 'bg-gradient-to-br from-green-500 to-emerald-700 hover:from-green-500 hover:to-emerald-700' 
-                : 'bg-gradient-to-br from-gray-500 to-gray-700 hover:from-gray-500 hover:to-gray-700'} text-white`}
-            >
-              <span className="relative z-10 flex items-center justify-center">
-                {loading ? (
-                  <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  </>
-                ) : (
-                  <>
-                  <Loader className="w-4 h-4 mr-2" />
-                  Auto Wake: {autoWake ? 'ON' : 'OFF'}
-                  </>
-                )}
-              </span>
-            </Button>
             <div className="space-y-2">
               <div className="flex items-center space-x-2 text-white mb-2">
                 <Terminal className="w-4 h-4" />
