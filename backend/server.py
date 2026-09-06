@@ -11,7 +11,6 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import messaging, credentials, exceptions, db
-import requests
 from pydantic import BaseModel
 from math import radians, sin, cos, sqrt, atan2
 
@@ -19,7 +18,8 @@ loop = None
 
 from models import (
     DeviceStatus, GpsLocation, CallStatus, LedConfig, 
-    DeviceConfig, Contacts, SmsMessage, Notification
+    DeviceConfig, Contacts, SmsMessage, Notification,
+    AppLogEntry
 )
 
 # Firebase initialization
@@ -37,18 +37,72 @@ EMQX_API_URL = os.getenv("EMQX_API_URL")
 EMQX_API_KEY = os.getenv("EMQX_API_KEY")
 EMQX_SECRET_KEY = os.getenv("EMQX_SECRET_KEY")
 
+MAX_LOG_ENTRIES = 500
+_heartbeat_tick = 0
+
 # Create the main app
 app = FastAPI(title="GPS Tracker Control API", version="6.9.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Configure logging
+#---------------------------------------------------------------------------
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+class FirebaseLogHandler(logging.Handler):
+    def emit(self, record):
+        level = record.levelname.lower()
+        if level not in ("warning", "error", "critical"):
+            return  # skip info/debug — too noisy for the app's log view
+        try:
+            message = self.format(record)
+            asyncio.create_task(log_event("backend", level, message))
+        except Exception:
+            pass
+
+logger.addHandler(FirebaseLogHandler())
+
+async def log_event(source: str, level: str, message: str):
+    """Unified log writer: pushes to Firebase, and notifies on high severity."""
+    level = level.lower()
+    try:
+        await firebase_manager.push_data(
+            "Logs",
+            {
+                "source": source,
+                "level": level,
+                "log": message,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        print(f"[log_event] Failed to write to Firebase: {e}")
+
+    if level == "critical":
+        try:
+            notification = Notification(
+                title=f"{source.capitalize()} Alert",
+                message=message,
+                type="high_priority"
+            )
+            await send_notification(notification)
+        except Exception as e:
+            print(f"[log_event] Failed to send notification: {e}")
+
+async def cleanup_old_logs():
+    try:
+        all_logs = await firebase_manager.get_data("Logs")
+        if all_logs and len(all_logs) > MAX_LOG_ENTRIES:
+            sorted_keys = sorted(all_logs.keys())
+            for key in sorted_keys[: len(sorted_keys) - MAX_LOG_ENTRIES]:
+                db.reference(f"Logs/{key}").delete()
+    except Exception as e:
+        print(f"[cleanup_old_logs] Failed: {e}")
 
 #--------------------------------------------------------------------------- 
 class FirebaseManager:
@@ -174,116 +228,129 @@ emqx_manager = EMQXManager()
 #--------------------------------------------------------------------------- 
 # Commands from frontend
 async def execute_command(command_data):
-    command = command_data.get("command", "")
-    data1 = command_data.get("data1", "")
-    data2 = command_data.get("data2", "")
+    try:
+        command = command_data.get("command", "")
+        data1 = command_data.get("data1", "")
+        data2 = command_data.get("data2", "")
 
-    # wake up tracker first if its asleep
-    currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
-    if currently_active is False: 
-        await emqx_manager.publish("Tracker/to/mode", "0")
+        # Check tracker mqtt connection status in firebase
+        tracker_connected_firebase = await firebase_manager.get_data("Tracker/MQTT/connected")
+        if tracker_connected_firebase is False:
+            
+            # Check if tracker is actually connected to MQTT broker or not 
+            tracker_connected_current = await emqx_manager.check_client()
+            if tracker_connected_current != tracker_connected_firebase:
+                await firebase_manager.update_data(
+                    "Tracker/MQTT",
+                    {
+                        "connected": tracker_connected_current,
+                        "last_connected": datetime.now(timezone.utc).isoformat()
+                    }
+                )
 
-        # wait until currently_active becomes True with a timeout of 30 seconds
-        timeout = 30
-        start = datetime.now(timezone.utc)
-        while (datetime.now(timezone.utc) - start).total_seconds() < timeout:
-            await asyncio.sleep(1)
+                # Log Error
+                if tracker_connected_current is False: 
+                    logger.error("Tracker is not connected to MQTT broker. Cannot execute command.")
+
+        # Wake up tracker first if its asleep
+        if tracker_connected_firebase is True:
             currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
-            if currently_active is True:
-                break
-        else:
-            # Timeout reached, log and abort
-            logger.error("Tracker did not wake up within 30 seconds!")
+            if currently_active is False: 
+                await emqx_manager.publish("Tracker/to/mode", "0")
 
-            # Send notification
-            notification = Notification(
-                title="Error",
-                message=f"Tracker did not wake up within 30 seconds.",
-                type="high_priority"
-            )
-            await send_notification(notification)
+                # wait until currently_active becomes True with a timeout of 30 seconds
+                timeout = 30
+                start = datetime.now(timezone.utc)
+                while (datetime.now(timezone.utc) - start).total_seconds() < timeout:
+                    await asyncio.sleep(1)
+                    currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
+                    if currently_active is True:
+                        break
+                else:
+                    # Timeout reached, log and abort
+                    logger.error("Tracker did not wake up within 30 seconds!")
 
-            return
+        if tracker_connected_firebase and currently_active is True:
+            if command == "get_status":
+                await emqx_manager.publish("Tracker/to/request", "0")
 
-    if command == "get_status":
-        await emqx_manager.publish("Tracker/to/request", "0")
+            elif command == "get_location":
+                await emqx_manager.publish("Tracker/to/request", "1")
 
-    elif command == "get_location":
-        await emqx_manager.publish("Tracker/to/request", "1")
+            elif command == "get_contacts":
+                await emqx_manager.publish("Tracker/to/request", "5")
 
-    elif command == "get_contacts":
-        await emqx_manager.publish("Tracker/to/request", "5")
+            elif command == "set_contacts":
+                #send the contacts json from realtime database as payload to Tracker/to/set/contacts
+                contacts = await firebase_manager.get_data("Tracker/contacts") or {}
+                if "timestamp" in contacts:
+                    del contacts["timestamp"]
+                await emqx_manager.publish("Tracker/to/set/contacts", contacts)
 
-    elif command == "set_contacts":
-        #send the contacts json from realtime database as payload to Tracker/to/set/contacts
-        contacts = await firebase_manager.get_data("Tracker/contacts")
-        if "timestamp" in contacts:
-            del contacts["timestamp"]
-        await emqx_manager.publish("Tracker/to/set/contacts", contacts)
+            elif command == "make_call":
+                #send data1 as payload to Tracker/to/call
+                await emqx_manager.publish("Tracker/to/call", data1)
 
-    elif command == "make_call":
-        #send data1 as payload to Tracker/to/call
-        await emqx_manager.publish("Tracker/to/call", data1)
+            elif command == "send_sms":
+                #send data1 and data2 in sms model json to Tracker/to/sms/send
+                sms = {
+                    "number": data1,
+                    "message": data2
+                }
+                await emqx_manager.publish("Tracker/to/sms/send", sms)
 
-    elif command == "send_sms":
-        #send data1 and data2 in sms model json to Tracker/to/sms/send
-        sms = {
-            "number": data1,
-            "message": data2
-        }
-        await emqx_manager.publish("Tracker/to/sms/send", sms)
+            elif command == "get_sms":
+                #send data1 as payload to Tracker/to/sms/get
+                await emqx_manager.publish("Tracker/to/sms/get", data1)
 
-    elif command == "get_sms":
-        #send data1 as payload to Tracker/to/sms/get
-        await emqx_manager.publish("Tracker/to/sms/get", data1)
+            elif command == "get_ledconfig":
+                await emqx_manager.publish("Tracker/to/request", "3") or {}
 
-    elif command == "get_ledconfig":
-        await emqx_manager.publish("Tracker/to/request", "3")
+            elif command == "set_ledconfig":
+                #send the ledconfig json from realtime database as payload to Tracker/to/set/led_config
+                ledconfig = await firebase_manager.get_data("Tracker/ledconfig")
+                if "timestamp" in ledconfig:
+                    del ledconfig["timestamp"]
+                await emqx_manager.publish("Tracker/to/set/led_config", ledconfig)
 
-    elif command == "set_ledconfig":
-        #send the ledconfig json from realtime database as payload to Tracker/to/set/led_config
-        ledconfig = await firebase_manager.get_data("Tracker/ledconfig")
-        if "timestamp" in ledconfig:
-            del ledconfig["timestamp"]
-        await emqx_manager.publish("Tracker/to/set/led_config", ledconfig)
+            elif command == "send_ir":
+                #send data1 as payload to Tracker/to/irsend
+                await emqx_manager.publish("Tracker/to/irsend", data1)
+            
+            elif command == "get_config":
+                await emqx_manager.publish("Tracker/to/request", "4")
 
-    elif command == "send_ir":
-        #send data1 as payload to Tracker/to/irsend
-        await emqx_manager.publish("Tracker/to/irsend", data1)
-    
-    elif command == "get_config":
-        await emqx_manager.publish("Tracker/to/request", "4")
+            elif command == "set_config":
+                #send the deviceconfig json from realtime database as payload to Tracker/to/set/config
+                deviceconfig = await firebase_manager.get_data("Tracker/deviceconfig") or {}
+                if "timestamp" in deviceconfig:
+                    del deviceconfig["timestamp"]
+                await emqx_manager.publish("Tracker/to/set/config", deviceconfig)
 
-    elif command == "set_config":
-        #send the deviceconfig json from realtime database as payload to Tracker/to/set/config
-        deviceconfig = await firebase_manager.get_data("Tracker/deviceconfig")
-        if "timestamp" in deviceconfig:
-            del deviceconfig["timestamp"]
-        await emqx_manager.publish("Tracker/to/set/config", deviceconfig)
+            elif command == "mode":
+                #send data1 as payload to Tracker/to/mode
+                await emqx_manager.publish("Tracker/to/mode", data1)
 
-    elif command == "mode":
-        #send data1 as payload to Tracker/to/mode
-        await emqx_manager.publish("Tracker/to/mode", data1)
+            elif command == "mode_espnow":
+                #send data1 as payload to Tracker/to/espnow/mode
+                await emqx_manager.publish("Tracker/to/espnow/mode", data1)
+            
+            elif command == "send_espnow":
+                #send data1 as payload to Tracker/to/espnow/send
+                await emqx_manager.publish("Tracker/to/espnow/send", data1)
 
-    elif command == "mode_espnow":
-        #send data1 as payload to Tracker/to/espnow/mode
-        await emqx_manager.publish("Tracker/to/espnow/mode", data1)
-    
-    elif command == "send_espnow":
-        #send data1 as payload to Tracker/to/espnow/send
-        await emqx_manager.publish("Tracker/to/espnow/send", data1)
-
-    await firebase_manager.update_data("Tracker/commands", {"pending": False})
+    finally:
+        await firebase_manager.update_data("Tracker/commands", {"pending": False})
 
 def handle_command(event):
     data = event.data
-    
     if not isinstance(data, dict) or not data.get("pending"):
         return
-    
     logger.info("Command Detected!")
-    
-    asyncio.run_coroutine_threadsafe(execute_command(data), loop)
+    future = asyncio.run_coroutine_threadsafe(execute_command(data), loop)
+    future.add_done_callback(
+        lambda f: logger.error(f"execute_command failed: {f.exception()}") if f.exception() else None
+    )
 
 def handle_frontend_status(event):
     app_online = event.data
@@ -363,7 +430,6 @@ async def send_notification(notification: Notification, user_id: str = "default_
     except Exception as e:
         logger.error(f"Error fetching tokens or sending push: {e}")
 
-
 #--------------------------------------------------------------------------- 
 # Webhook endpoints for EMQX HTTP connector
 @api_router.post("/webhook/mqtt")
@@ -374,6 +440,10 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
 
         topic = body.get("topic")
         payload_raw = body.get("payload")
+
+        if not topic or payload_raw is None:
+            logger.warning(f"Webhook received incomplete message: topic={topic}, payload={payload_raw}")
+            return {"success": True}
         
         try:
             payload = json.loads(payload_raw)
@@ -487,7 +557,6 @@ async def webhook_status(status: DeviceStatus, background_tasks: BackgroundTasks
                 message=f"{reason_message}, Battery: {status.bat_percent}%",
                 type="status_update"
             )
-
             background_tasks.add_task(send_notification, notification)
 
         return {"success": True}
@@ -510,12 +579,12 @@ def haversine(lat1, lon1, lat2, lon2):
 async def webhook_location(location: GpsLocation, background_tasks: BackgroundTasks):
     """Handle GPS location updates from EMQX webhook"""
     try:
-        stored_location = await firebase_manager.get_data("Tracker/location/latest")
+        stored_location = await firebase_manager.get_data("Tracker/location/latest") or {}
         new_location = location.dict()
 
         # if gps fix is available, then update
         if location.gps_fix:
-            logger.info("GPS fix found, updating.")
+            logger.info("GPS fix found, updating firebase.")
             new_location.update({
                 "send_reason_gps": location.send_reason,
                 "gps_lat": location.gps_lat,
@@ -527,7 +596,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 "gps_timestamp": datetime.now(timezone.utc).isoformat()
             })
         else:
-            logger.info("GPS fix not found, using last data.")
+            logger.warning("GPS fix not found")
             new_location.update({
                 "send_reason_gps": stored_location.get("send_reason_gps"),
                 "gps_lat": stored_location.get("gps_lat", 0.0),
@@ -541,7 +610,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
 
         # if lbs fix is available, then update
         if location.lbs_fix:
-            logger.info("LBS fix found, updating.")
+            logger.info("LBS fix found, updating firebase.")
             new_location.update({
                 "send_reason_lbs": location.send_reason,
                 "lbs_lat": location.lbs_lat,
@@ -549,7 +618,7 @@ async def webhook_location(location: GpsLocation, background_tasks: BackgroundTa
                 "lbs_timestamp": datetime.now(timezone.utc).isoformat()
             })
         else:
-            logger.info("LBS fix not found, using last data.")
+            logger.warning("LBS fix not found")
             new_location.update({
                 "send_reason_lbs": stored_location.get("send_reason_lbs"),
                 "lbs_lat": stored_location.get("lbs_lat", 0.0),
@@ -730,7 +799,7 @@ async def webhook_espnow(data: str, background_tasks: BackgroundTasks):
         return {"success": True}
 
     except Exception as e:
-        logger.error(f"Error handling disconnection webhook: {str(e)}")
+        logger.error(f"Error handling espnow webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def webhook_notification(notification: Notification, background_tasks: BackgroundTasks):
@@ -747,36 +816,16 @@ async def webhook_notification(notification: Notification, background_tasks: Bac
         
         return {"success": True}
     except Exception as e:
-        logger.error(f"Error sending notification: {str(e)}")
+        logger.error(f"Error sending notification from webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 
     
 async def webhook_logs(data: dict, background_tasks: BackgroundTasks):
     """Handle log messages from EMQX webhook"""
     try:
-        log_type = data.get("type", "").lower()
+        log_type = data.get("type", "info").lower()
         log_msg = data.get("log", "")
-
-        # Update Firebase log entry
-        await firebase_manager.push_data(
-            "Tracker/Logs",
-            {
-                "type": log_type,
-                "log": log_msg,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-        )
-
-        # If it's an error or critical log → send high priority notification
-        if log_type in ["error", "critical"]:
-            notification = Notification(
-                title="System Alert",
-                message=log_msg,
-                type="high_priority"
-            )
-            background_tasks.add_task(send_notification, notification)
-
+        await log_event("tracker", log_type, log_msg)
         return {"success": True}
-
     except Exception as e:
         logger.error(f"Error handling logs webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -788,7 +837,7 @@ async def webhook_connection(data: dict, background_tasks: BackgroundTasks):
 
         if clientid.startswith("Tracker"):
             await firebase_manager.update_data(
-                f"Tracker/MQTT",
+                "Tracker/MQTT",
                 {
                     "connected": True,
                     "last_connected": datetime.now(timezone.utc).isoformat()
@@ -817,7 +866,7 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
         if clientid.startswith("Tracker"):
             # Update Firebase state
             await firebase_manager.update_data(
-                f"Tracker/MQTT",
+                "Tracker/MQTT",
                 {
                     "connected": False,
                     "last_disconnected": datetime.now(timezone.utc).isoformat()
@@ -888,6 +937,21 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
 
+@app.on_event("startup")
+async def start_heartbeat_loop():
+    asyncio.create_task(heartbeat_loop())
+
+async def heartbeat_loop():
+    global _heartbeat_tick
+    while True:
+        try:
+            _heartbeat_tick += 1
+            if _heartbeat_tick % 30 == 0:
+                await cleanup_old_logs()
+        except Exception as e:
+            logger.error(f"Heartbeat loop error: {str(e)}")
+        await asyncio.sleep(60)
+
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -902,3 +966,8 @@ async def shutdown_event():
     )
 
     logger.info("GPS Tracker API shutdown completed")
+
+@api_router.post("/logs/app")
+async def submit_app_log(entry: AppLogEntry):
+    await log_event("app", entry.level, entry.log)
+    return {"success": True}

@@ -105,3 +105,7 @@ class Notification(BaseModel):
     type: str
     data: Optional[dict] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class AppLogEntry(BaseModel):
+    level: str
+    log: str

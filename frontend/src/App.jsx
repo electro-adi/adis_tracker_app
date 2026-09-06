@@ -100,6 +100,17 @@ function App() {
   };
 
   useEffect(() => {
+    const handleError = (event) => logToServer('error', event.message || String(event.error));
+    const handleRejection = (event) => logToServer('error', String(event.reason));
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
+  useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
       * { 

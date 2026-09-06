@@ -1,4 +1,4 @@
-cd C:\Users\adity\Downloads\Tracker_App-main\frontend
+cd frontend
 yarn build
 npx cap copy
 npx cap sync
