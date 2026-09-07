@@ -1,6 +1,6 @@
 services:
   tracker-backend:
-    build: ./backend
+    build: .
     container_name: tracker-backend
     restart: unless-stopped
     network_mode: host

@@ -50,18 +50,22 @@ api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+_background_tasks = set()
 
 class FirebaseLogHandler(logging.Handler):
     def emit(self, record):
         level = record.levelname.lower()
         if level not in ("warning", "error", "critical"):
-            return  # skip info/debug — too noisy for the app's log view
+            return
         try:
             message = self.format(record)
-            asyncio.create_task(log_event("backend", level, message))
+            task = asyncio.create_task(log_event("backend", level, message))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
         except Exception:
             pass
 
@@ -919,17 +923,6 @@ async def startup_event():
                 }
             )
 
-        """Change to backend = online in firebase"""
-        backend_state = await firebase_manager.get_data("Backend/online")
-        if backend_state is False:
-            await firebase_manager.update_data(
-                "Backend",
-                {
-                    "online": True,
-                    "last_online": datetime.now(timezone.utc).isoformat()
-                }
-            )
-
         loop = asyncio.get_running_loop()
 
         start_listener()
@@ -945,6 +938,10 @@ async def heartbeat_loop():
     global _heartbeat_tick
     while True:
         try:
+            await firebase_manager.update_data(
+                "Backend",
+                {"last_heartbeat": datetime.now(timezone.utc).isoformat()}
+            )
             _heartbeat_tick += 1
             if _heartbeat_tick % 30 == 0:
                 await cleanup_old_logs()
@@ -955,17 +952,7 @@ async def heartbeat_loop():
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on shutdown"""
-
-    await firebase_manager.update_data(
-        "Backend",
-        {
-            "online": False,
-            "last_offline": datetime.now(timezone.utc).isoformat()
-        }
-    )
-
-    logger.info("GPS Tracker API shutdown completed")
+    logger.info("Adi Tracker Backend shutdown completed")
 
 @api_router.post("/logs/app")
 async def submit_app_log(entry: AppLogEntry):

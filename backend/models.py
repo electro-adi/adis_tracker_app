@@ -62,12 +62,12 @@ class LedConfig(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class DeviceConfig(BaseModel):
-    callmode: int
-    gpsmode: int
-    bootanimation: bool
-    enablebuzzer: bool
-    enablehaptics: bool
-    bootsms: bool
+    call_mode: int
+    gps_mode: int
+    boot_animation: bool
+    enable_buzzer: bool
+    enable_haptics: bool
+    boot_sms: bool
     noti_sound: bool
     noti_ppp: bool
     ringtone: int
