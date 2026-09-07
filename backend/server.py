@@ -906,7 +906,7 @@ app.add_middleware(
 async def startup_event():
     global loop
     try:
-        logger.info("GPS Tracker API started successfully")
+        logger.info("Adi Tracker Backend Started Successfully")
 
         """Check if tracker is connected to MQTT Broker"""
         tracker_connected = await emqx_manager.check_client()
