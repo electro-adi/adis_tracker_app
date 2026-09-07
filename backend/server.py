@@ -495,8 +495,8 @@ async def webhook_mqtt(request: Request, background_tasks: BackgroundTasks):
             return await webhook_storedsms(ssms_obj, background_tasks)
         
         elif topic.endswith("/sms/received"):
-            payload_str = str(payload)
-            return await webhook_newsms(payload_str, background_tasks)
+            sms_index = int(payload)
+            return await webhook_newsms(sms_index, background_tasks)
 
         elif topic.endswith("/espnow/received"):
             if isinstance(payload, str):
@@ -760,10 +760,10 @@ async def webhook_storedsms(storedsms: SmsMessage, background_tasks: BackgroundT
         logger.error(f"Error handling Stored SMS webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
-async def webhook_newsms(data: str, background_tasks: BackgroundTasks):
+async def webhook_newsms(data: int, background_tasks: BackgroundTasks):
     """Handle New SMS messages from EMQX webhook"""
     try:
-        await firebase_manager.update_data("Tracker/status/latest/stored_sms/stored_sms", data)
+        await firebase_manager.update_data("Tracker/status/latest/stored_sms", data)
 
         # Send notification
         notification = Notification(

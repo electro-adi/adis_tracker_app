@@ -26,6 +26,7 @@ if (!deviceId) {
 function App() {
   const [activeTab, setActiveTab] = useState('location');
   const { toast } = useToast();
+  const [lastHeartbeat, setLastHeartbeat] = useState(null);
   const [serverConnected, setServerConnected] = useState(false);
   const [trackerConnected, setTrackerConnected] = useState(false);
   const [trackerAwake, setTrackerAwake] = useState(false);
@@ -51,7 +52,7 @@ function App() {
 
   const getServerStatus = () => {
     const timeSinceLaunch = (currentTime - appLaunchTime) / 1000;
-    
+
     if (serverConnected) {
       return {
         text: 'Server Online',
@@ -59,7 +60,7 @@ function App() {
         dotColor: 'bg-green-500 shadow-[0_0_8px_0px_rgba(34,197,94,0.5)] animate-pulse'
       };
     }
-    
+
     if (timeSinceLaunch < 100) {
       return {
         text: 'Waiting for server...',
@@ -67,7 +68,7 @@ function App() {
         dotColor: 'bg-yellow-400 shadow-[0_0_8px_0px_rgba(250,204,21,0.5)]'
       };
     }
-    
+
     return {
       text: 'Server Offline',
       color: 'text-red-400',
@@ -124,12 +125,29 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const backendRef = ref(db, 'Backend/online');
+    const backendRef = ref(db, 'Backend/last_heartbeat');
     const unsubBackend = onValue(backendRef, (snapshot) => {
-      const isOnline = snapshot.val();
-      setServerConnected(!!isOnline);
+      setLastHeartbeat(snapshot.val());
     });
+    return () => unsubBackend();
+  }, []);
 
+  useEffect(() => {
+    const checkFreshness = () => {
+      if (!lastHeartbeat) {
+        setServerConnected(false);
+        return;
+      }
+      const ageSeconds = (Date.now() - new Date(lastHeartbeat).getTime()) / 1000;
+      setServerConnected(ageSeconds < 90); // heartbeat every 60s + grace for one missed beat
+    };
+
+    checkFreshness(); // run immediately on mount / whenever a new heartbeat arrives
+    const interval = setInterval(checkFreshness, 15000); // and re-check every 15s independently
+    return () => clearInterval(interval);
+  }, [lastHeartbeat]);
+
+  useEffect(() => {
     const trackerRef = ref(db, 'Tracker/MQTT/connected');
     const unsubTracker = onValue(trackerRef, (snapshot) => {
       const isConnected = snapshot.val();
@@ -153,7 +171,6 @@ function App() {
     }, 1000);
 
     return () => {
-      unsubBackend();
       unsubTracker();
       unsubAwake();
       unsubLastMsg();
