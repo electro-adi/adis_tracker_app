@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
@@ -14,12 +14,11 @@ import {
   Smartphone,
   Save,
   MessageSquareShare,
-  Server,
   Terminal,
-  Loader
+  Trash2
 } from 'lucide-react';
 import { useToast } from "../hooks/use-toast";
-import { ref, onValue, update, set } from 'firebase/database';
+import { ref, onValue, update, set, remove } from 'firebase/database';
 import { db } from '../firebase';
 
 const SettingsTab = () => {
@@ -29,7 +28,7 @@ const SettingsTab = () => {
     boot_animation: true,
     enable_buzzer: true,
     enable_haptics: true,
-    boot_sms: false,
+    send_boot_msg: false,
     noti_sound: true,
     noti_ppp: true,
     ringtone: 1,
@@ -45,22 +44,31 @@ const SettingsTab = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const [sortBy, setSortBy] = useState('time');       // 'time' | 'level' | 'source'
-  const [hiddenLevels, setHiddenLevels] = useState([]); // e.g. ['warning', 'info']
-  const [hiddenSources, setHiddenSources] = useState([]);
+  const visibleLogs = [...logs].sort(
+    (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+  );
 
-  const levelRank = { critical: 3, error: 2, warning: 1, info: 0 };
+  const logsContainerRef = useRef(null);
 
-  const visibleLogs = logs
-    .filter(l => !hiddenLevels.includes(l.level) && !hiddenSources.includes(l.source))
-    .sort((a, b) => {
-      if (sortBy === 'level') return (levelRank[b.level] || 0) - (levelRank[a.level] || 0);
-      if (sortBy === 'source') return (a.source || '').localeCompare(b.source || '');
-      return new Date(b.timestamp) - new Date(a.timestamp); // default: newest first
-    });
+  useEffect(() => {
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+    }
+  }, [visibleLogs.length]);
 
-  const toggleHidden = (arr, setArr, value) => {
-    setArr(arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]);
+  const handleClearLogs = () => {
+    remove(ref(db, 'Logs'));
+  };
+
+  const timeAgo = (timestamp) => {
+    const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
   };
 
   useEffect(() => {
@@ -74,7 +82,7 @@ const SettingsTab = () => {
           boot_animation: data.boot_animation !== undefined ? data.boot_animation : true,
           enable_buzzer: data.enable_buzzer !== undefined ? data.enable_buzzer : true,
           enable_haptics: data.enable_haptics !== undefined ? data.enable_haptics : true,
-          boot_sms: data.boot_sms !== undefined ? data.boot_sms : false,
+          send_boot_msg: data.send_boot_msg !== undefined ? data.send_boot_msg : false,
           noti_sound: data.noti_sound !== undefined ? data.noti_sound : true,
           noti_ppp: data.noti_ppp !== undefined ? data.noti_ppp : true,
           ringtone: data.ringtone !== undefined ? data.ringtone : 1,
@@ -294,28 +302,17 @@ const SettingsTab = () => {
     }
   };
 
-  const sourceColors = {
-    backend: 'bg-green-500/20 text-green-400 border-green-500/40',
-    tracker: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-    app: 'bg-purple-500/20 text-purple-400 border-purple-500/40',
+  const sourceTextColors = {
+    tracker: 'text-blue-400',
+    backend: 'text-green-400',
+    app: 'text-purple-400',
   };
 
-  const getLogTypeColor = (level) => {
-    switch (level) {
-      case 'critical': return 'text-red-400';
-      case 'error': return 'text-orange-400';
-      case 'warning': return 'text-yellow-400';
-      default: return 'text-gray-300';
-    }
-  };
-
-  const getLogTypeIcon = (level) => {
-    switch (level) {
-      case 'critical': return '🔴';
-      case 'error': return '🟠';
-      case 'warning': return '🟡';
-      default: return '⚪';
-    }
+  const levelTextColors = {
+    info: 'text-gray-400',
+    warning: 'text-orange-400',
+    error: 'text-red-400',
+    critical: 'text-red-500',
   };
 
   const deviceModes = [
@@ -437,8 +434,8 @@ const SettingsTab = () => {
                 <span className="text-white">Boot SMS</span>
               </div>
               <Switch
-                checked={settings.boot_sms}
-                onCheckedChange={(checked) => updateSetting('boot_sms', checked)}
+                checked={settings.send_boot_msg}
+                onCheckedChange={(checked) => updateSetting('send_boot_msg', checked)}
               />
             </div>
 
@@ -758,93 +755,48 @@ const SettingsTab = () => {
           </CardContent>
         </Card>
 
-        {/* Server Settings */}
+        {/* Logs */}
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center">
-              <Server className="w-5 h-5 mr-2 text-blue-400" />
-              Server Settings
+              <Terminal className="w-5 h-5 mr-2 text-blue-400" />
+              Logs
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-white mb-2">
-                <Terminal className="w-4 h-4" />
-                <span className="text-sm font-semibold">System Logs</span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="bg-gray-900 border border-gray-700 text-gray-300 rounded px-2 py-1"
-                >
-                  <option value="time">Newest first</option>
-                  <option value="level">By severity</option>
-                  <option value="source">By source</option>
-                </select>
-
-                {['info', 'warning', 'error', 'critical'].map(level => (
-                  <button
-                    key={level}
-                    onClick={() => toggleHidden(hiddenLevels, setHiddenLevels, level)}
-                    className={`px-2 py-1 rounded border ${
-                      hiddenLevels.includes(level)
-                        ? 'border-gray-700 text-gray-600'
-                        : 'border-gray-500 text-gray-200'
-                    }`}
+          <CardContent>
+            <div
+              ref={logsContainerRef}
+              className="bg-gray-900 rounded-lg p-3 h-[32rem] overflow-y-auto font-mono text-xs border border-gray-700"
+            >
+              {visibleLogs.length === 0 ? (
+                <div className="text-gray-500 text-center py-8">No logs available</div>
+              ) : (
+                visibleLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="grid grid-cols-[64px_64px_1fr] gap-x-3 items-baseline py-1.5 border-b border-gray-800 last:border-b-0"
                   >
-                    {level}
-                  </button>
-                ))}
-
-                {['backend', 'tracker', 'app'].map(source => (
-                  <button
-                    key={source}
-                    onClick={() => toggleHidden(hiddenSources, setHiddenSources, source)}
-                    className={`px-2 py-1 rounded border ${
-                      hiddenSources.includes(source) ? 'opacity-30' : ''
-                    } ${sourceColors[source]}`}
-                  >
-                    {source}
-                  </button>
-                ))}
-              </div>
-
-              <div className="bg-gray-900 rounded-lg p-3 h-64 overflow-y-auto font-mono text-xs border border-gray-700">
-                {visibleLogs.length === 0 ? (
-                  <div className="text-gray-500 text-center py-8">No logs available</div>
-                ) : (
-                  visibleLogs.map((log) => (
-                    <div key={log.id} className="mb-2 border-b border-gray-800 pb-2 last:border-b-0">
-                      <div className="flex items-start space-x-2">
-                        <span className="text-xs">{getLogTypeIcon(log.level)}</span>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded border mr-2 ${sourceColors[log.source] || ''}`}>
-                                {log.source}
-                              </span>
-                              <span className={`${getLogTypeColor(log.level)} break-all`}>
-                                {log.log}
-                              </span>
-                            </div>
-                            <span className="text-gray-600 text-[10px] whitespace-nowrap ml-2">
-                              {new Date(log.timestamp).toLocaleString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    <span className="text-gray-600 text-[10px] whitespace-nowrap">
+                      {timeAgo(log.timestamp)}
+                    </span>
+                    <span className={`text-[10px] font-semibold capitalize ${sourceTextColors[log.source] || 'text-gray-400'}`}>
+                      {log.source}
+                    </span>
+                    <span className={`${levelTextColors[log.level] || 'text-gray-300'} break-words`}>
+                      {log.log}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
+
+            <button
+              onClick={handleClearLogs}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear Logs
+            </button>
           </CardContent>
         </Card>
       </div>

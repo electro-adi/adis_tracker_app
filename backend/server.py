@@ -50,7 +50,7 @@ api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(name)s - %(levelname)s - %(message)s'
+    format='%(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ class EMQXManager:
                     logger.info(f"Client connected: {cid}")
                     return True
 
-            logger.info("No Tracker clients found connected.")
+            logger.warning("No Tracker clients connected.")
             return False
 
         except Exception as e:
@@ -269,6 +269,7 @@ async def execute_command(command_data):
                     await asyncio.sleep(1)
                     currently_active = await firebase_manager.get_data("Tracker/status/latest/currently_active")
                     if currently_active is True:
+                        await asyncio.sleep(3)
                         break
                 else:
                     # Timeout reached, log and abort
@@ -938,10 +939,12 @@ async def heartbeat_loop():
     global _heartbeat_tick
     while True:
         try:
-            await firebase_manager.update_data(
-                "Backend",
-                {"last_heartbeat": datetime.now(timezone.utc).isoformat()}
-            )
+            frontend_online = await firebase_manager.get_data("Frontend/online")
+            if frontend_online is True:
+                await firebase_manager.update_data(
+                    "Backend",
+                    {"last_heartbeat": datetime.now(timezone.utc).isoformat()}
+                )
             _heartbeat_tick += 1
             if _heartbeat_tick % 30 == 0:
                 await cleanup_old_logs()

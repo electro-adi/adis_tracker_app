@@ -16,6 +16,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
 import { db } from "./firebase";
+import { logToServer } from './lib/appLogger';
 
 let deviceId = localStorage.getItem('deviceId');
 if (!deviceId) {

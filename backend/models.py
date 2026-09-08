@@ -67,7 +67,7 @@ class DeviceConfig(BaseModel):
     boot_animation: bool
     enable_buzzer: bool
     enable_haptics: bool
-    boot_sms: bool
+    send_boot_msg: bool
     noti_sound: bool
     noti_ppp: bool
     ringtone: int
