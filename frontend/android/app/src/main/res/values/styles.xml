@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- res/values/themes.xml or res/values/styles.xml -->
+<resources>
+    <style name="Theme.AdisTracker" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:navigationBarColor">#111827</item>
+        <item name="android:windowSplashScreenBackground">#111827</item>
+    </style>
+
+    <!-- Your AppTheme.NoActionBarLaunch for the actual launch/splash -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.AdisTracker">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- Your base AppTheme (if used by MainActivity after splash) -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">#111827</item>
+    </style>
+</resources>

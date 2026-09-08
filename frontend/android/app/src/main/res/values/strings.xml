@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Adi\'s Tracker</string>
+    <string name="title_activity_main">Adi\'s Tracker</string>
+    <string name="package_name">com.adi.trackerapp</string>
+    <string name="custom_url_scheme">com.adi.trackerapp</string>
+    <string name="default_notification_channel_id">general</string>
+    <string name="default_notification_channel_name">General</string>
+</resources>

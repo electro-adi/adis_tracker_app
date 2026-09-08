@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks, Security, Depends
+from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 import os
@@ -32,10 +33,16 @@ if not firebase_admin._apps:
         'databaseURL': firebase_db_url
     })
 
-# EMQX Configuration
 EMQX_API_URL = os.getenv("EMQX_API_URL")
 EMQX_API_KEY = os.getenv("EMQX_API_KEY")
 EMQX_SECRET_KEY = os.getenv("EMQX_SECRET_KEY")
+
+API_SECRET = os.getenv("BACKEND_API_SECRET")
+api_key_header = APIKeyHeader(name="X-API-Key")
+
+async def verify_api_key(key: str = Security(api_key_header)):
+    if key != API_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid API key")
 
 MAX_LOG_ENTRIES = 500
 _heartbeat_tick = 0
@@ -44,7 +51,7 @@ _heartbeat_tick = 0
 app = FastAPI(title="GPS Tracker Control API", version="6.9.0")
 
 # Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="/api", dependencies=[Depends(verify_api_key)])
 
 #---------------------------------------------------------------------------
 

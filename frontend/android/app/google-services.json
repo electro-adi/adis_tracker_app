@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "318988643925",
+    "firebase_url": "https://aditracker-6ac11-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "aditracker-6ac11",
+    "storage_bucket": "aditracker-6ac11.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:318988643925:android:e3bdae5ebf1e1946b06edc",
+        "android_client_info": {
+          "package_name": "com.adi.trackerapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDX0hUY1liCNQN2lzYWd9kicp0glw0Q4EM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

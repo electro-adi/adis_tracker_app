@@ -26,9 +26,6 @@ next-env.d.ts
 
 # Production builds
 /build
-dist/
-dist
-/android
 
 # Environment files (comprehensive coverage)
 .env

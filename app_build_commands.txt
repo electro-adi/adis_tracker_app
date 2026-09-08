@@ -3,6 +3,9 @@ yarn build
 npx cap copy
 npx cap sync
 npx cap open android
+
+yarn build & npx cap copy & npx cap sync & npx cap open android
+
 npx @capacitor/assets generate
 
 npm install @capacitor/push-notifications --legacy-peer-deps
