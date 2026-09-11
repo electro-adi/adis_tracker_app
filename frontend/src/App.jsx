@@ -15,6 +15,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { db } from "./firebase";
 import { logToServer } from './lib/appLogger';
 
@@ -216,45 +217,80 @@ function App() {
 
   useEffect(() => {
     let isMounted = true;
+
     async function initPush() {
       try {
-        const result = await PushNotifications.requestPermissions();
-        console.log('[PUSH] permission', result);
+        if (window.Capacitor?.isNativePlatform()) {
+          const result = await PushNotifications.requestPermissions();
+          console.log('[PUSH] permission', result);
 
-        if (result.receive === 'granted') {
-          await PushNotifications.register();
+          if (result.receive === 'granted') {
+            await PushNotifications.register();
+          } else {
+            console.warn('[PUSH] permission not granted');
+            return;
+          }
+
+          PushNotifications.addListener('registration', async (token) => {
+            if (!isMounted) return;
+            console.log('[PUSH] registration token', token.value);
+
+            const tokenRef = ref(db, `PushTokens/default_user`);
+            await set(tokenRef, {
+              token: token.value,
+              deviceId,
+              userId: 'user123',
+              timestamp: new Date().toISOString(),
+            });
+          });
+
+          PushNotifications.addListener('registrationError', (error) => {
+            if (!isMounted) return;
+            console.error('[PUSH] registrationError', error);
+          });
+
+          PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            if (!isMounted) return;
+            console.log('[PUSH] received', notification);
+
+            toast({
+              title: notification.title,
+              description: notification.body
+            });
+          });
         } else {
-          console.warn('[PUSH] permission not granted');
-          return;
-        }
+          const messaging = getMessaging();
+          const permission = await Notification.requestPermission();
+          console.log('[PUSH] permission', permission);
 
-        PushNotifications.addListener('registration', async (token) => {
+          if (permission !== 'granted') {
+            console.warn('[PUSH] permission not granted');
+            return;
+          }
+
+          const token = await getToken(messaging, {
+            vapidKey: import.meta.env.VITE_FIREBASE_WEBPUSHKEY
+          });
+
           if (!isMounted) return;
-          console.log('[PUSH] registration token', token.value);
+          console.log('[PUSH] registration token', token);
 
-          const tokenRef = ref(db, `PushTokens/default_user`);
-          await set(tokenRef, {
-            token: token.value,
+          await set(ref(db, 'PushTokens/default_user'), {
+            token,
             deviceId,
             userId: 'user123',
             timestamp: new Date().toISOString(),
           });
-        });
 
-        PushNotifications.addListener('registrationError', (error) => {
-          if (!isMounted) return;
-          console.error('[PUSH] registrationError', error);
-        });
-
-        PushNotifications.addListener('pushNotificationReceived', (notification) => {
-          if (!isMounted) return;
-          console.log('[PUSH] received', notification);
-
-          toast({
-            title: notification.title,
-            description: notification.body
+          onMessage(messaging, (payload) => {
+            if (!isMounted) return;
+            console.log('[PUSH] received', payload);
+            toast({
+              title: payload.notification?.title,
+              description: payload.notification?.body
+            });
           });
-        });
+        }
       } catch (err) {
         console.error('[PUSH] initPush error', err);
       }

@@ -204,9 +204,9 @@ const StatusTab = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Deepsleep:</span>
+              <span className="text-gray-400">Deepsleep Mode:</span>
               <span className={status.sleep_mode ? "text-white" : "text-gray-500"}>
-                {status.sleep_mode ? "On" : "Off"}
+                {status.sleep_mode ? "Active" : "Inactive"}
               </span>
             </div>
             <div className="flex justify-between">
@@ -216,7 +216,7 @@ const StatusTab = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Locked:</span>
+              <span className="text-gray-400">Device Locked:</span>
               <div className="flex items-center">
                 <span className={status.locked ? "text-white" : "text-gray-500"}>
                   {status.locked ? "Yes" : "No"}
@@ -224,7 +224,7 @@ const StatusTab = () => {
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Wakeup Counter:</span>
+              <span className="text-gray-400">PRD Wakeup Counter:</span>
               <span className={status.prd_wakeup_counter === 0 ? "text-gray-500" : "text-white"}>
                 {status.prd_wakeup_counter}
               </span>
@@ -236,13 +236,13 @@ const StatusTab = () => {
             <div className="flex justify-between">
               <span className="text-gray-400">Extreme Power Saving Mode:</span>
               <span className={status.prd_eps ? "text-white" : "text-gray-500"}>
-                {status.prd_eps ? "Enabled" : "Disabled"}
+                {status.prd_eps ? "Active" : "Inactive"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">BLE Beacon Mode:</span>
               <span className={status.ble_beacon ? "text-white" : "text-gray-500"}>
-                {status.ble_beacon ? "Enabled" : "Disabled"}
+                {status.ble_beacon ? "Active" : "Inactive"}
               </span>
             </div>
           </CardContent>
@@ -261,7 +261,7 @@ const StatusTab = () => {
               <span className="text-white">{status.bat_voltage}V</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Level:</span>
+              <span className="text-gray-400">Percentage:</span>
               <span className={`font-semibold ${getBatteryColor(status.bat_percent)}`}>
                 {status.bat_percent}%
               </span>

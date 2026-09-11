@@ -1,6 +1,17 @@
 services:
   tracker-backend:
-    build: .
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        VITE_BACKEND_API_URL: ${VITE_BACKEND_API_URL}
+        VITE_BACKEND_API_KEY: ${VITE_BACKEND_API_KEY}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_FIREBASE_WEBPUSHKEY: ${VITE_FIREBASE_WEBPUSHKEY}
     container_name: tracker-backend
     restart: unless-stopped
     network_mode: host
@@ -10,3 +21,4 @@ services:
       - EMQX_SECRET_KEY=${EMQX_SECRET_KEY}
       - FIREBASE_ADMIN_SDK_JSON=${FIREBASE_ADMIN_SDK_JSON}
       - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL}
+      - BACKEND_API_SECRET=${BACKEND_API_SECRET}

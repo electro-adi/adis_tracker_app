@@ -7,7 +7,8 @@ import {
   Volume2, 
   Vibrate, 
   Bell, 
-  Power, 
+  HourglassCog,
+  RotateCwFadingClock,
   RefreshCw,
   BatteryPlus,
   Shield,
@@ -37,7 +38,8 @@ const SettingsTab = () => {
     prd_wakeup: false,
     prd_wakeup_time: 120,
     prd_sms_intvrl: 0,
-    prd_mqtt_intvrl: 0
+    prd_mqtt_loc_intvrl: 0,
+    prd_mqtt_sta_intvrl: 0
   });
   
   const [logs, setLogs] = useState([]);
@@ -91,7 +93,8 @@ const SettingsTab = () => {
           prd_wakeup: data.prd_wakeup !== undefined ? data.prd_wakeup : false,
           prd_wakeup_time: data.prd_wakeup_time !== undefined ? data.prd_wakeup_time : 120,
           prd_sms_intvrl: data.prd_sms_intvrl !== undefined ? data.prd_sms_intvrl : 0,
-          prd_mqtt_intvrl: data.prd_mqtt_intvrl !== undefined ? data.prd_mqtt_intvrl : 0
+          prd_mqtt_loc_intvrl: data.prd_mqtt_loc_intvrl !== undefined ? data.prd_mqtt_loc_intvrl : 0,
+          prd_mqtt_sta_intvrl: data.prd_mqtt_sta_intvrl !== undefined ? data.prd_mqtt_sta_intvrl : 0
         });
       }
     });
@@ -568,18 +571,18 @@ const SettingsTab = () => {
           </CardContent>
         </Card>
 
-        {/* Power Management */}
+        {/* Timer / PRD Updates */}
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center">
-              <Power className="w-5 h-5 mr-2 text-green-400" />
-              Power Management
+              <HourglassCog className="w-5 h-5 mr-2 text-green-400" />
+              Timer / PRD Updates
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Power className="w-4 h-4 text-gray-400" />
+                <RotateCwFadingClock className="w-4 h-4 text-gray-400" />
                 <span className="text-white">Periodic Wakeup</span>
               </div>
               <Switch
@@ -608,7 +611,7 @@ const SettingsTab = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-400">SMS Location Update Interval</label>
+                  <label className="text-sm text-gray-400">SMS Status + Location Update Interval</label>
                   <input
                     type="range"
                     min="0"
@@ -622,7 +625,7 @@ const SettingsTab = () => {
                     {settings.prd_sms_intvrl === 0
                       ? "Do not send"
                       : settings.prd_sms_intvrl === 1
-                      ? "Send everytime"
+                      ? "Send on every wakeup"
                       : `Send every ${settings.prd_sms_intvrl} wakeups${getIntervalTime(settings.prd_sms_intvrl)}`}
                   </p>
                 </div>
@@ -634,16 +637,36 @@ const SettingsTab = () => {
                     min="0"
                     max="30"
                     step="1"
-                    value={settings.prd_mqtt_intvrl}
-                    onChange={(e) => updateSetting('prd_mqtt_intvrl', parseInt(e.target.value))}
+                    value={settings.prd_mqtt_loc_intvrl}
+                    onChange={(e) => updateSetting('prd_mqtt_loc_intvrl', parseInt(e.target.value))}
                     className="w-full accent-purple-500"
                   />
                   <p className="text-xs text-gray-500">
-                    {settings.prd_mqtt_intvrl === 0
+                    {settings.prd_mqtt_loc_intvrl === 0
                       ? "Do not send"
-                      : settings.prd_mqtt_intvrl === 1
-                      ? "Send everytime"
-                      : `Send every ${settings.prd_mqtt_intvrl} wakeups${getIntervalTime(settings.prd_mqtt_intvrl)}`}
+                      : settings.prd_mqtt_loc_intvrl === 1
+                      ? "Send on every wakeup"
+                      : `Send every ${settings.prd_mqtt_loc_intvrl} wakeups${getIntervalTime(settings.prd_mqtt_loc_intvrl)}`}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">MQTT Status Update Interval</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value={settings.prd_mqtt_sta_intvrl}
+                    onChange={(e) => updateSetting('prd_mqtt_sta_intvrl', parseInt(e.target.value))}
+                    className="w-full accent-orange-500"
+                  />
+                  <p className="text-xs text-gray-500">
+                    {settings.prd_mqtt_sta_intvrl === 0
+                      ? "Do not send"
+                      : settings.prd_mqtt_sta_intvrl === 1
+                      ? "Send on every wakeup"
+                      : `Send every ${settings.prd_mqtt_sta_intvrl} wakeups${getIntervalTime(settings.prd_mqtt_sta_intvrl)}`}
                   </p>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, Request, HTTPException, BackgroundTasks, Security, Depends
 from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 import os
 import json
@@ -195,7 +196,7 @@ class EMQXManager:
                 logger.info(f"Published to {topic}: {payload_str}")
                 return True
             else:
-                logger.error(f"Failed to publish to EMQX: {response.status_code} - {response.text}")
+                logger.error(f"Failed to publish to {topic}: {payload_str} via EMQX: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
@@ -232,7 +233,6 @@ class EMQXManager:
         except Exception as e:
             logger.error(f"Error checking EMQX clients: {str(e)}")
             return False
-
 
 emqx_manager = EMQXManager()
 
@@ -771,17 +771,15 @@ async def webhook_storedsms(storedsms: SmsMessage, background_tasks: BackgroundT
 async def webhook_newsms(data: int, background_tasks: BackgroundTasks):
     """Handle New SMS messages from EMQX webhook"""
     try:
-        await firebase_manager.update_data("Tracker/status/latest/stored_sms", data)
+        await firebase_manager.save_data("Tracker/status/latest/stored_sms", data)
 
-        # Send notification
         notification = Notification(
             title="SMS Received",
             message=f"Stored at index {data}..",
             type="general"
         )
-        
         background_tasks.add_task(send_notification, notification)
-        
+
         return {"success": True}
     except Exception as e:
         logger.error(f"Error handling New SMS webhook: {str(e)}")
@@ -905,6 +903,8 @@ async def root():
 
 app.include_router(api_router)
 
+app.mount("/", StaticFiles(directory="dist", html=True), name="frontend")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -946,6 +946,7 @@ async def heartbeat_loop():
     global _heartbeat_tick
     while True:
         try:
+            logger.info("------Heartbeat------")
             frontend_online = await firebase_manager.get_data("Frontend/online")
             if frontend_online is True:
                 await firebase_manager.update_data(
