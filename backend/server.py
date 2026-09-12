@@ -364,27 +364,9 @@ def handle_command(event):
         lambda f: logger.error(f"execute_command failed: {f.exception()}") if f.exception() else None
     )
 
-def handle_frontend_status(event):
-    app_online = event.data
-
-    future = asyncio.run_coroutine_threadsafe(
-        firebase_manager.get_data("Tracker/status/latest/currently_active"),
-        loop
-    )
-    currently_active = future.result()
-
-    if app_online is False and currently_active is True:
-        asyncio.run_coroutine_threadsafe(
-            emqx_manager.publish("Tracker/to/app_offline", "1"),
-            loop
-        )
-
 def start_listener():
     ref_commands = db.reference("Tracker/commands")
     ref_commands.listen(handle_command)
-    
-    ref_frontend = db.reference("Frontend/online")
-    ref_frontend.listen(handle_frontend_status)
 
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
@@ -934,6 +916,8 @@ async def startup_event():
         loop = asyncio.get_running_loop()
 
         start_listener()
+
+        asyncio.create_task(heartbeat_loop())
         
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
@@ -942,13 +926,14 @@ async def startup_event():
 async def start_heartbeat_loop():
     asyncio.create_task(heartbeat_loop())
 
+# Heartbeat event
 async def heartbeat_loop():
     global _heartbeat_tick
     while True:
         try:
-            logger.info("------Heartbeat------")
             frontend_online = await firebase_manager.get_data("Frontend/online")
             if frontend_online is True:
+                logger.info("------Heartbeat------")
                 await firebase_manager.update_data(
                     "Backend",
                     {"last_heartbeat": datetime.now(timezone.utc).isoformat()}

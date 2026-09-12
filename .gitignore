@@ -73,3 +73,6 @@ agenthub/agents/youtube/db
 
 # Build caches
 .cache/
+
+main.env
+api-list.txt
