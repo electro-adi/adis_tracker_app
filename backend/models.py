@@ -76,7 +76,8 @@ class DeviceConfig(BaseModel):
     prd_wakeup: bool
     prd_wakeup_time: int
     prd_sms_intvrl: int
-    prd_mqtt_intvrl:int
+    prd_mqtt_loc_intvrl:int
+    prd_mqtt_sta_intvrl:int
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Contacts(BaseModel):

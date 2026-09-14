@@ -21,8 +21,10 @@ import {
 import { useToast } from "../hooks/use-toast";
 import { ref, onValue, update, set, remove } from 'firebase/database';
 import { db } from '../firebase';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 const SettingsTab = () => {
+
   const [settings, setSettings] = useState({
     call_mode: 2,
     gps_mode: 0,
@@ -41,16 +43,53 @@ const SettingsTab = () => {
     prd_mqtt_loc_intvrl: 0,
     prd_mqtt_sta_intvrl: 0
   });
-  
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
+  const [pushStatus, setPushStatus] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  );
+  const deviceId = localStorage.getItem('deviceId');
   const visibleLogs = [...logs].sort(
     (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
   );
-
   const logsContainerRef = useRef(null);
+
+  async function handleEnableWebPush() {
+    try {
+      const messaging = getMessaging();
+      const permission = await Notification.requestPermission();
+      setPushStatus(permission);
+
+      if (permission !== 'granted') {
+        console.warn('[PUSH] permission not granted');
+        return;
+      }
+
+      const token = await getToken(messaging, {
+        vapidKey: window.__ENV__?.VITE_FIREBASE_WEBPUSHKEY || import.meta.env.VITE_FIREBASE_WEBPUSHKEY
+      });
+
+      console.log('[PUSH] registration token', token);
+
+      await set(ref(db, `PushTokens/default_user/${deviceId}`), {
+        token,
+        deviceId,
+        userId: 'user123',
+        timestamp: new Date().toISOString(),
+      });
+
+      onMessage(messaging, (payload) => {
+        console.log('[PUSH] received', payload);
+        toast({
+          title: payload.notification?.title,
+          description: payload.notification?.body
+        });
+      });
+    } catch (err) {
+      console.error('[PUSH] handleEnableWebPush error', err);
+    }
+  }
 
   useEffect(() => {
     if (logsContainerRef.current) {
@@ -820,6 +859,34 @@ const SettingsTab = () => {
               <Trash2 className="w-3.5 h-3.5" />
               Clear Logs
             </button>
+          </CardContent>
+        </Card>
+
+        {/* App Settings */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <Settings className="w-5 h-5 mr-2 text-blue-400" />
+              App Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!window.Capacitor?.isNativePlatform() && (
+              <button
+                onClick={handleEnableWebPush}
+                disabled={pushStatus === 'granted' || pushStatus === 'unsupported'}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-300 text-xs transition-colors"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {pushStatus === 'granted'
+                  ? 'Notifications Enabled'
+                  : pushStatus === 'denied'
+                  ? 'Notifications Blocked — check Settings app'
+                  : pushStatus === 'unsupported'
+                  ? 'Push not supported on this browser'
+                  : 'Enable Notifications'}
+              </button>
+            )}
           </CardContent>
         </Card>
       </div>

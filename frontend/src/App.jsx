@@ -15,7 +15,6 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { db } from "./firebase";
 import { logToServer } from './lib/appLogger';
 
@@ -35,6 +34,7 @@ function App() {
   const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [appLaunchTime] = useState(Date.now());
+  const [needsPushPermission, setNeedsPushPermission] = useState(false);
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
@@ -102,17 +102,7 @@ function App() {
     };
   };
 
-  useEffect(() => {
-    const handleError = (event) => logToServer('error', event.message || String(event.error));
-    const handleRejection = (event) => logToServer('error', String(event.reason));
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
-
+  
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -126,6 +116,19 @@ function App() {
     return () => document.head.removeChild(style);
   }, []);
 
+  //-----------------------------------------------------Logger
+  useEffect(() => {
+    const handleError = (event) => logToServer('error', event.message || String(event.error));
+    const handleRejection = (event) => logToServer('error', String(event.reason));
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
+  //-----------------------------------------------------Get last backend heartbeat
   useEffect(() => {
     const backendRef = ref(db, 'Backend/last_heartbeat');
     const unsubBackend = onValue(backendRef, (snapshot) => {
@@ -134,6 +137,7 @@ function App() {
     return () => unsubBackend();
   }, []);
 
+  //-----------------------------------------------------Server online or offline state
   useEffect(() => {
     const checkFreshness = () => {
       if (!lastHeartbeat) {
@@ -149,6 +153,7 @@ function App() {
     return () => clearInterval(interval);
   }, [lastHeartbeat]);
 
+  //-----------------------------------------------------Tracker online or offline state and last mqtt message
   useEffect(() => {
     const trackerRef = ref(db, 'Tracker/MQTT/connected');
     const unsubTracker = onValue(trackerRef, (snapshot) => {
@@ -180,6 +185,7 @@ function App() {
     };
   }, []);
 
+  //-----------------------------------------------------Frontend online or offline state and last mqtt message
   useEffect(() => {
     const dbRef = getDatabase();
     const connectedRef = ref(dbRef, ".info/connected");
@@ -202,6 +208,7 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+   //-----------------------------------------------------Setup status bar
   useEffect(() => {
     const configureStatusBar = async () => {
       if (window.Capacitor?.isNativePlatform()) {
@@ -216,91 +223,51 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!window.Capacitor?.isNativePlatform()) return;
+
     let isMounted = true;
 
-    async function initPush() {
+    async function initNativePush() {
       try {
-        if (window.Capacitor?.isNativePlatform()) {
-          const result = await PushNotifications.requestPermissions();
-          console.log('[PUSH] permission', result);
+        const result = await PushNotifications.requestPermissions();
+        console.log('[PUSH] permission', result);
 
-          if (result.receive === 'granted') {
-            await PushNotifications.register();
-          } else {
-            console.warn('[PUSH] permission not granted');
-            return;
-          }
-
-          PushNotifications.addListener('registration', async (token) => {
-            if (!isMounted) return;
-            console.log('[PUSH] registration token', token.value);
-
-            const tokenRef = ref(db, `PushTokens/default_user`);
-            await set(tokenRef, {
-              token: token.value,
-              deviceId,
-              userId: 'user123',
-              timestamp: new Date().toISOString(),
-            });
-          });
-
-          PushNotifications.addListener('registrationError', (error) => {
-            if (!isMounted) return;
-            console.error('[PUSH] registrationError', error);
-          });
-
-          PushNotifications.addListener('pushNotificationReceived', (notification) => {
-            if (!isMounted) return;
-            console.log('[PUSH] received', notification);
-
-            toast({
-              title: notification.title,
-              description: notification.body
-            });
-          });
+        if (result.receive === 'granted') {
+          await PushNotifications.register();
         } else {
-          const messaging = getMessaging();
-          const permission = await Notification.requestPermission();
-          console.log('[PUSH] permission', permission);
+          console.warn('[PUSH] permission not granted');
+          return;
+        }
 
-          if (permission !== 'granted') {
-            console.warn('[PUSH] permission not granted');
-            return;
-          }
-
-          const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_WEBPUSHKEY
-          });
-
+        PushNotifications.addListener('registration', async (token) => {
           if (!isMounted) return;
-          console.log('[PUSH] registration token', token);
+          console.log('[PUSH] registration token', token.value);
 
-          await set(ref(db, 'PushTokens/default_user'), {
-            token,
+          await set(ref(db, `PushTokens/default_user/${deviceId}`), {
+            token: token.value,
             deviceId,
             userId: 'user123',
             timestamp: new Date().toISOString(),
           });
+        });
 
-          onMessage(messaging, (payload) => {
-            if (!isMounted) return;
-            console.log('[PUSH] received', payload);
-            toast({
-              title: payload.notification?.title,
-              description: payload.notification?.body
-            });
-          });
-        }
+        PushNotifications.addListener('registrationError', (error) => {
+          if (!isMounted) return;
+          console.error('[PUSH] registrationError', error);
+        });
+
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          if (!isMounted) return;
+          console.log('[PUSH] received', notification);
+          toast({ title: notification.title, description: notification.body });
+        });
       } catch (err) {
-        console.error('[PUSH] initPush error', err);
+        console.error('[PUSH] initNativePush error', err);
       }
     }
 
-    initPush();
-
-    return () => {
-      isMounted = false;
-    };
+    initNativePush();
+    return () => { isMounted = false; };
   }, []);
 
   const renderActiveTab = () => {

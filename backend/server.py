@@ -387,17 +387,16 @@ async def send_notification(notification: Notification, user_id: str = "default_
     except Exception as e:
         logger.error(f"Failed to save notification to Firebase: {e}")
 
-    try:
-        tokens = await firebase_manager.get_data(f"PushTokens/{user_id}")
-        if not tokens:
+    
+        tokens_data = await firebase_manager.get_data(f"PushTokens/{user_id}")
+        if not tokens_data:
             logger.warning("No push tokens found for user")
             return
 
-        if not isinstance(tokens, dict) or "token" not in tokens:
-            logger.error(f"Invalid token structure: {tokens}")
-            return
-
-        token = tokens["token"]
+    for device_id, entry in tokens_data.items():
+        if not isinstance(entry, dict) or "token" not in entry:
+            logger.error(f"Invalid token structure for device {device_id}: {entry}")
+            continue
 
         msg = messaging.Message(
             notification=messaging.Notification(
@@ -410,19 +409,16 @@ async def send_notification(notification: Notification, user_id: str = "default_
                     icon="ic_stat_notify"
                 )
             ),
-            token=token
+            token=entry["token"]
         )
 
         try:
             response = messaging.send(msg)
-            logger.info(f"Push sent to {user_id}, FCM response: {response}")
+            logger.info(f"Push sent to {user_id}/{device_id}, FCM response: {response}")
         except exceptions.FirebaseError as e:
-            logger.error(f"FCM push failed: {e.code} - {e.message}")
+            logger.error(f"FCM push failed for {device_id}: {e.code} - {e.message}")
         except Exception as e:
-            logger.error(f"Unexpected FCM push error: {e}")
-
-    except Exception as e:
-        logger.error(f"Error fetching tokens or sending push: {e}")
+            logger.error(f"Unexpected FCM push error for {device_id}: {e}")
 
 #--------------------------------------------------------------------------- 
 # Webhook endpoints for EMQX HTTP connector
