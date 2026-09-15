@@ -318,6 +318,15 @@ const SettingsTab = () => {
   };
 
   const UpdateMode = async (mode) => {
+    if (mode === 7 && !settings.prd_wakeup) {
+      toast({
+        title: "Cannot Enter EPS Mode",
+        description: "PRD Wakeup needs to be active for EPS Mode.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const commandRef = ref(db, 'Tracker/commands');

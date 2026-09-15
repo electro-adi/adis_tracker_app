@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect,} from "react";
 import "./App.css";
 import Navigation from "./components/Navigation";
 import LocationTab from "./components/LocationTab";
@@ -34,7 +34,8 @@ function App() {
   const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [appLaunchTime] = useState(Date.now());
-  const [needsPushPermission, setNeedsPushPermission] = useState(false);
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(140);
 
   const getTimeAgo = (isoString) => {
     if (!isoString) return '--';
@@ -114,6 +115,18 @@ function App() {
     document.head.appendChild(style);
     
     return () => document.head.removeChild(style);
+  }, []);
+
+  //-----------------------------------------------------Header height
+  useLayoutEffect(() => {
+    if (!headerRef.current) return;
+
+    const updateHeight = () => setHeaderHeight(headerRef.current.offsetHeight);
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(headerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   //-----------------------------------------------------Logger
@@ -298,7 +311,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
-      <header className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md" style={{ paddingTop: '50px' }}>
+      <header ref={headerRef} className="fixed top-0 left-0 right-0 z-20 bg-gray-900 shadow-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="px-4 py-3 border-b border-gray-700">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold text-white">Adi's Tracker Control</h1>
@@ -323,13 +336,14 @@ function App() {
         </div>
         <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       </header>
-      <main className="flex-grow overflow-y-auto"
-        style={{ 
-          paddingTop: `calc(env(safe-area-inset-top) + 140px)`,
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-        }}>
+        <main
+          className="flex-grow overflow-y-auto"
+          style={{
+            paddingTop: `${headerHeight}px`,
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)',
+          }}>
         <div className="pb-6">
             {renderActiveTab()}
         </div>

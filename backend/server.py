@@ -371,7 +371,7 @@ def start_listener():
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
     """Save and send a push notification to Firebase + FCM"""
-    
+
     timestamp = datetime.now(timezone.utc).isoformat()
 
     try:
@@ -387,38 +387,41 @@ async def send_notification(notification: Notification, user_id: str = "default_
     except Exception as e:
         logger.error(f"Failed to save notification to Firebase: {e}")
 
-    
+    try:
         tokens_data = await firebase_manager.get_data(f"PushTokens/{user_id}")
         if not tokens_data:
             logger.warning("No push tokens found for user")
             return
 
-    for device_id, entry in tokens_data.items():
-        if not isinstance(entry, dict) or "token" not in entry:
-            logger.error(f"Invalid token structure for device {device_id}: {entry}")
-            continue
+        for device_id, entry in tokens_data.items():
+            if not isinstance(entry, dict) or "token" not in entry:
+                logger.error(f"Invalid token structure for device {device_id}: {entry}")
+                continue
 
-        msg = messaging.Message(
-            notification=messaging.Notification(
-                title=notification.title,
-                body=notification.message,
-            ),
-            android=messaging.AndroidConfig(
-                notification=messaging.AndroidNotification(
-                    channel_id=notification.type or "general",
-                    icon="ic_stat_notify"
-                )
-            ),
-            token=entry["token"]
-        )
+            msg = messaging.Message(
+                notification=messaging.Notification(
+                    title=notification.title,
+                    body=notification.message,
+                ),
+                android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                        channel_id=notification.type or "general",
+                        icon="ic_stat_notify"
+                    )
+                ),
+                token=entry["token"]
+            )
 
-        try:
-            response = messaging.send(msg)
-            logger.info(f"Push sent to {user_id}/{device_id}, FCM response: {response}")
-        except exceptions.FirebaseError as e:
-            logger.error(f"FCM push failed for {device_id}: {e.code} - {e.message}")
-        except Exception as e:
-            logger.error(f"Unexpected FCM push error for {device_id}: {e}")
+            try:
+                response = messaging.send(msg)
+                logger.info(f"Push sent to {user_id}/{device_id}, FCM response: {response}")
+            except exceptions.FirebaseError as e:
+                logger.error(f"FCM push failed for {device_id}: {e.code} - {e.message}")
+            except Exception as e:
+                logger.error(f"Unexpected FCM push error for {device_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"Error fetching tokens or sending push: {e}")
 
 #--------------------------------------------------------------------------- 
 # Webhook endpoints for EMQX HTTP connector
