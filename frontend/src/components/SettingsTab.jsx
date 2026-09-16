@@ -76,20 +76,29 @@ const SettingsTab = () => {
         token,
         deviceId,
         userId: 'user123',
-        timestamp: new Date().toISOString(),
-      });
-
-      onMessage(messaging, (payload) => {
-        console.log('[PUSH] received', payload);
-        toast({
-          title: payload.notification?.title,
-          description: payload.notification?.body
-        });
+        platform: window.Capacitor?.isNativePlatform() ? 'android' : 'web',
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString()
       });
     } catch (err) {
       console.error('[PUSH] handleEnableWebPush error', err);
     }
   }
+
+  useEffect(() => {
+    if (window.Capacitor?.isNativePlatform()) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    const messaging = getMessaging();
+    const unsub = onMessage(messaging, (payload) => {
+      console.log('[PUSH] received', payload);
+      toast({
+        title: payload.notification?.title,
+        description: payload.notification?.body
+      });
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (logsContainerRef.current) {
@@ -362,8 +371,7 @@ const SettingsTab = () => {
   const levelTextColors = {
     info: 'text-gray-400',
     warning: 'text-orange-400',
-    error: 'text-red-400',
-    critical: 'text-red-500',
+    error: 'text-red-500'
   };
 
   const deviceModes = [

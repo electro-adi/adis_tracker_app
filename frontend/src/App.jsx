@@ -235,6 +235,7 @@ function App() {
     configureStatusBar();
   }, []);
 
+  //-----------------------------------------------------Push notifications
   useEffect(() => {
     if (!window.Capacitor?.isNativePlatform()) return;
 
@@ -260,7 +261,9 @@ function App() {
             token: token.value,
             deviceId,
             userId: 'user123',
-            timestamp: new Date().toISOString(),
+            platform: window.Capacitor?.isNativePlatform() ? 'android' : 'web',
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
           });
         });
 

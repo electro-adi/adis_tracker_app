@@ -370,23 +370,7 @@ def start_listener():
 
 #--------------------------------------------------------------------------- 
 async def send_notification(notification: Notification, user_id: str = "default_user"):
-    """Save and send a push notification to Firebase + FCM"""
-
-    timestamp = datetime.now(timezone.utc).isoformat()
-
-    try:
-        await firebase_manager.push_data(
-            "Notifications",
-            {
-                "title": notification.title,
-                "message": notification.message,
-                "type": notification.type,
-                "timestamp": timestamp
-            }
-        )
-    except Exception as e:
-        logger.error(f"Failed to save notification to Firebase: {e}")
-
+    """Send a push notification to FCM"""
     try:
         tokens_data = await firebase_manager.get_data(f"PushTokens/{user_id}")
         if not tokens_data:
@@ -398,23 +382,37 @@ async def send_notification(notification: Notification, user_id: str = "default_
                 logger.error(f"Invalid token structure for device {device_id}: {entry}")
                 continue
 
-            msg = messaging.Message(
-                notification=messaging.Notification(
-                    title=notification.title,
-                    body=notification.message,
-                ),
-                android=messaging.AndroidConfig(
-                    notification=messaging.AndroidNotification(
-                        channel_id=notification.type or "general",
-                        icon="ic_stat_notify"
-                    )
-                ),
-                token=entry["token"]
-            )
+            platform = entry.get("platform", "android")
+
+            if platform == "web":
+                msg = messaging.Message(
+                    webpush=messaging.WebpushConfig(
+                        notification=messaging.WebpushNotification(
+                            title=notification.title,
+                            body=notification.message,
+                            icon="/icon-192.png"
+                        )
+                    ),
+                    token=entry["token"]
+                )
+            else:
+                msg = messaging.Message(
+                    notification=messaging.Notification(
+                        title=notification.title,
+                        body=notification.message,
+                    ),
+                    android=messaging.AndroidConfig(
+                        notification=messaging.AndroidNotification(
+                            channel_id=notification.type or "general",
+                            icon="ic_stat_notify"
+                        )
+                    ),
+                    token=entry["token"]
+                )
 
             try:
                 response = messaging.send(msg)
-                logger.info(f"Push sent to {user_id}/{device_id}, FCM response: {response}")
+                logger.info(f"Push sent to {user_id}/{device_id} ({platform}), FCM response: {response}")
             except exceptions.FirebaseError as e:
                 logger.error(f"FCM push failed for {device_id}: {e.code} - {e.message}")
             except Exception as e:
@@ -878,12 +876,16 @@ async def webhook_disconnection(data: dict, background_tasks: BackgroundTasks):
         logger.error(f"Error handling disconnection webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.post("/logs/app")
+async def submit_app_log(entry: AppLogEntry):
+    await log_event("app", entry.level, entry.log)
+    return {"success": True}
+
 @api_router.get("/")
 async def root():
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
 
 app.include_router(api_router)
-
 app.mount("/", StaticFiles(directory="dist", html=True), name="frontend")
 
 app.add_middleware(
@@ -948,8 +950,3 @@ async def heartbeat_loop():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Adi Tracker Backend shutdown completed")
-
-@api_router.post("/logs/app")
-async def submit_app_log(entry: AppLogEntry):
-    await log_event("app", entry.level, entry.log)
-    return {"success": True}
