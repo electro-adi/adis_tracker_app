@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
 import { db } from "./firebase";
 import { logToServer } from './lib/appLogger';
+import { getMessaging, onMessage } from 'firebase/messaging';
 
 let deviceId = localStorage.getItem('deviceId');
 if (!deviceId) {
@@ -284,6 +285,22 @@ function App() {
 
     initNativePush();
     return () => { isMounted = false; };
+  }, []);
+
+  //-----------------------------------------------------Web push (foreground)
+  useEffect(() => {
+    if (window.Capacitor?.isNativePlatform()) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    const messaging = getMessaging();
+    const unsub = onMessage(messaging, (payload) => {
+      console.log('[PUSH] received', payload);
+      toast({
+        title: payload.notification?.title,
+        description: payload.notification?.body
+      });
+    });
+    return () => unsub();
   }, []);
 
   const renderActiveTab = () => {

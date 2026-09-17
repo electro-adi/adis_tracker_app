@@ -21,7 +21,7 @@ import {
 import { useToast } from "../hooks/use-toast";
 import { ref, onValue, update, set, remove } from 'firebase/database';
 import { db } from '../firebase';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken} from 'firebase/messaging';
 
 const SettingsTab = () => {
 
@@ -84,21 +84,6 @@ const SettingsTab = () => {
       console.error('[PUSH] handleEnableWebPush error', err);
     }
   }
-
-  useEffect(() => {
-    if (window.Capacitor?.isNativePlatform()) return;
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-
-    const messaging = getMessaging();
-    const unsub = onMessage(messaging, (payload) => {
-      console.log('[PUSH] received', payload);
-      toast({
-        title: payload.notification?.title,
-        description: payload.notification?.body
-      });
-    });
-    return () => unsub();
-  }, []);
 
   useEffect(() => {
     if (logsContainerRef.current) {
