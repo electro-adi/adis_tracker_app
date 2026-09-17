@@ -66,9 +66,14 @@ _background_tasks = set()
 
 class FirebaseLogHandler(logging.Handler):
     def emit(self, record):
-        level = record.levelname.lower()
-        if level not in ("warning", "error", "critical"):
-            return
+        level_map = {
+            "WARNING": "warning",
+            "ERROR": "error",
+            "CRITICAL": "error",  # collapsed into the same top tier
+        }
+        level = level_map.get(record.levelname)
+        if level is None:
+            return  # DEBUG, or anything else, never forwarded
         try:
             message = self.format(record)
             task = asyncio.create_task(log_event("backend", level, message))
@@ -79,9 +84,16 @@ class FirebaseLogHandler(logging.Handler):
 
 logger.addHandler(FirebaseLogHandler())
 
+VALID_LOG_LEVELS = {"info", "warning", "error"}
+
 async def log_event(source: str, level: str, message: str):
-    """Unified log writer: pushes to Firebase, and notifies on high severity."""
+    """Unified log writer: pushes to Firebase, notifies on error-level events."""
     level = level.lower()
+
+    if level not in VALID_LOG_LEVELS:
+        logger.warning(f"log_event received invalid level '{level}' from source '{source}' — treating as 'warning'. Message: {message}")
+        level = "warning"
+
     try:
         await firebase_manager.push_data(
             "Logs",
@@ -95,7 +107,7 @@ async def log_event(source: str, level: str, message: str):
     except Exception as e:
         print(f"[log_event] Failed to write to Firebase: {e}")
 
-    if level == "critical":
+    if level == "error":
         try:
             notification = Notification(
                 title=f"{source.capitalize()} Alert",

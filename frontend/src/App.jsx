@@ -236,6 +236,12 @@ function App() {
     configureStatusBar();
   }, []);
 
+  useEffect(() => {
+    navigator.serviceWorker?.getRegistrations().then((regs) => {
+      logToServer('info', `SW registrations: ${regs.map(r => `${r.scope} (active: ${!!r.active})`).join(', ')}`);
+    });
+  }, []);
+
   //-----------------------------------------------------Push notifications
   useEffect(() => {
     if (!window.Capacitor?.isNativePlatform()) return;
@@ -285,6 +291,31 @@ function App() {
 
     initNativePush();
     return () => { isMounted = false; };
+  }, []);
+
+  //-----------------------------------------------------Web push token refresh
+  useEffect(() => {
+    if (window.Capacitor?.isNativePlatform()) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    (async () => {
+      try {
+        const messaging = getMessaging();
+        const token = await getToken(messaging, {
+          vapidKey: window.__ENV__?.VITE_FIREBASE_WEBPUSHKEY || import.meta.env.VITE_FIREBASE_WEBPUSHKEY
+        });
+        await set(ref(db, `PushTokens/default_user/${deviceId}`), {
+          token,
+          deviceId,
+          userId: 'user123',
+          platform: 'web',
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error('[PUSH] token refresh error', err);
+      }
+    })();
   }, []);
 
   //-----------------------------------------------------Web push (foreground)
