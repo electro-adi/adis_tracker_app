@@ -17,7 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase, ref, onValue, onDisconnect, set } from "firebase/database";
 import { db } from "./firebase";
 import { logToServer } from './lib/appLogger';
-import { getMessaging, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 let deviceId = localStorage.getItem('deviceId');
 if (!deviceId) {
@@ -332,6 +332,40 @@ function App() {
       });
     });
     return () => unsub();
+  }, []);
+
+  //-----------------------------------------------------Foreground/background status
+  useEffect(() => {
+    const presenceRef = ref(db, 'Frontend');
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        await set(presenceRef, {
+          online: true,
+          last_online: new Date().toISOString()
+        });
+
+        try {
+          await fetch(`${window.__ENV__?.VITE_BACKEND_API_URL || import.meta.env.VITE_BACKEND_API_URL}update_status`, {
+            method: 'POST',
+            headers: {
+              'X-API-Key': window.__ENV__?.VITE_BACKEND_API_KEY || import.meta.env.VITE_BACKEND_API_KEY
+            }
+          });
+        } catch (err) {
+          console.error('[STATUS] update_status call failed', err);
+        }
+      } else {
+        await set(presenceRef, {
+          online: false,
+          last_offline: new Date().toISOString()
+        });
+      }
+    };
+
+    handleVisibilityChange(); // fires immediately on mount too — covers the initial launch case
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const renderActiveTab = () => {

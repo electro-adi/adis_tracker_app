@@ -893,6 +893,30 @@ async def submit_app_log(entry: AppLogEntry):
     await log_event("app", entry.level, entry.log)
     return {"success": True}
 
+@api_router.post("/update_status")
+async def update_status():
+    try:
+        await firebase_manager.update_data(
+            "Backend",
+            {"last_heartbeat": datetime.now(timezone.utc).isoformat()}
+        )
+
+        tracker_connected = await emqx_manager.check_client()
+        if tracker_connected:
+            await firebase_manager.update_data(
+                "Tracker/MQTT",
+                {
+                    "connected": True,
+                    "last_connected": datetime.now(timezone.utc).isoformat()
+                }
+            )
+
+        logger.info("Frontend foregrounded, updated backend and tracker status")
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error in update_status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @api_router.get("/")
 async def root():
     return {"message": "GPS Tracker Control API", "version": "6.9.0"}
